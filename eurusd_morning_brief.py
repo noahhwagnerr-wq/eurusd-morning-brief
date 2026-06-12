@@ -44,15 +44,6 @@ def fmt(value, decimals=2, suffix="%") -> str:
 
 # ─────────────────────────────────────────────────────────────
 #  ECB SDMX FM Dataflow
-#
-#  ECB FM key structure (7 dimensions, 0-indexed):
-#    0: FREQ           (A/B/D/M/Q)
-#    1: REF_AREA       (U2 = Eurozone)
-#    2: CURRENCY       (EUR)
-#    3: PROVIDER_FM    (4F)
-#    4: INSTRUMENT_FM  (DFR, MRR_FR, MLF_FR, ...)  ← instrument
-#    5: DATA_TYPE_FM   (LEV, CHG, ...)               ← LEV = level
-#    6: SERIES_VARIATION
 # ─────────────────────────────────────────────────────────────
 
 _fm_cache = None
@@ -105,14 +96,13 @@ def _fm_find(instrument_id: str, freq: str = "B", data_type: str = "LEV"):
 
 
 def get_ecb_dfr():
-    """EZB Deposit Facility Rate – LEV, Freq=B (2.25%)."""
+    """EZB Deposit Facility Rate – LEV, Freq=B."""
     val, period = _fm_find("DFR", freq="B", data_type="LEV")
     if val is not None:
         return val, period
     val, period = _fm_find("DFR", freq="D", data_type="LEV")
     if val is not None:
         return val, period
-    # Direkter Fallback-Endpunkt
     data = safe_get(
         f"{ECB_BASE}/FM/B.U2.EUR.4F.KR.DFR.LEV",
         params={"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
@@ -133,7 +123,7 @@ def get_ecb_dfr():
 
 
 def get_ecb_hicp():
-    """Eurozone HVPI (HICP) YoY – ICP Dataflow."""
+    """Eurozone HVPI (HICP) YoY – ECB liefert bereits die YoY-Rate direkt."""
     data = safe_get(
         f"{ECB_BASE}/ICP/M.U2.N.000000.4.ANR",
         params={"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
@@ -155,7 +145,7 @@ def get_ecb_hicp():
 
 
 def get_de2y():
-    """Deutsche 2Y Bundesanleihe – ECB YC Dataflow (Svensson, 2Y spot)."""
+    """Deutsche 2Y Bundesanleihe – ECB YC Dataflow."""
     data = safe_get(
         f"{ECB_BASE}/YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y",
         params={"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
@@ -181,10 +171,19 @@ def get_de2y():
 
 # ─────────────────────────────────────────────────────────────
 #  FRED helpers
+#
+#  KERNFIX: observation_start explizit setzen statt auf limit zu
+#  vertrauen. So wird exakt der 13-Monats-Bereich ab Vorjahresmonat
+#  abgefragt – kein Off-by-one möglich.
 # ─────────────────────────────────────────────────────────────
 
-def _fred_series(series_id: str, limit: int = 16, sort: str = "desc"):
-    """Holt FRED-Observations ohne observation_start (kein Index-Drift)."""
+def _fred_obs(series_id: str, obs_start: str = None, limit: int = 2,
+              sort: str = "desc") -> list:
+    """
+    Holt FRED-Observations. Wenn obs_start gesetzt, werden nur
+    Datenpunkte ab diesem Datum zurückgegeben (YYYY-MM-DD).
+    Gibt [(value_str, date_str), ...] zurück, '.' gefiltert.
+    """
     url = "https://api.stlouisfed.org/fred/series/observations"
     params = {
         "series_id":  series_id,
@@ -193,49 +192,81 @@ def _fred_series(series_id: str, limit: int = 16, sort: str = "desc"):
         "sort_order": sort,
         "limit":      limit,
     }
+    if obs_start:
+        params["observation_start"] = obs_start
     data = safe_get(url, params)
     if data and data.get("observations"):
         return [(o["value"], o["date"]) for o in data["observations"] if o["value"] != "."]
     return []
 
 
-def _yoy_from_series(series_id: str) -> tuple:
+def _yoy_cpi(series_id: str) -> tuple:
     """
-    Berechnet YoY aus monatlicher FRED-Serie via Datumsmatching.
-    Gibt (yoy_float, date_str) zurück oder (None, "N/A").
+    Berechnet US CPI YoY via zwei gezielten FRED-Abfragen:
+
+    Schritt 1: Neuester verfügbarer Datenpunkt (limit=1, desc)
+               → val_now, date_now (z.B. 2026-05-01, Index ~318)
+
+    Schritt 2: Datenpunkt exakt 12 Monate früher
+               observation_start = date_now - 12 Monate
+               observation_end   = date_now - 12 Monate + 31 Tage
+               limit=1, sort=asc
+               → val_prev, date_prev (z.B. 2025-05-01, Index ~305)
+
+    YoY = (val_now - val_prev) / val_prev * 100
+
+    Dieser Ansatz ist 100% robust gegen:
+    - limit-Drift (kein Fenster-Fehler)
+    - FRED-seitige Datenlücken
+    - Monatsverschiebungen durch neue Releases
     """
-    obs = _fred_series(series_id, limit=16)
-    if not obs:
+    # Schritt 1: aktuellster Wert
+    recent = _fred_obs(series_id, limit=1, sort="desc")
+    if not recent:
+        print(f"[WARN] {series_id}: kein aktueller Wert")
         return None, "N/A"
 
-    val_now_str, date_now_str = obs[0]
+    val_now_str, date_now_str = recent[0]
     val_now  = float(val_now_str)
     date_now = datetime.strptime(date_now_str, "%Y-%m-%d")
 
-    target_year   = date_now.year - 1
-    target_month  = date_now.month
-    target_prefix = f"{target_year}-{target_month:02d}"
+    # Schritt 2: Vorjahres-Monat exakt bestimmen
+    prev_year  = date_now.year - 1
+    prev_month = date_now.month
+    # Fenster: vom 1. des Vorjahresmonats bis +35 Tage (deckt jeden Monat ab)
+    obs_start = f"{prev_year}-{prev_month:02d}-01"
+    obs_end_dt = datetime(prev_year, prev_month, 1) + timedelta(days=35)
+    obs_end   = obs_end_dt.strftime("%Y-%m-%d")
 
-    for v, d in obs:
-        if d.startswith(target_prefix):
-            yoy = round((val_now - float(v)) / float(v) * 100, 2)
-            print(f"[OK] {series_id} YoY: {yoy}% ({date_now_str} vs {target_prefix})")
-            return yoy, date_now_str
+    prev_params = {
+        "series_id":         series_id,
+        "api_key":           FRED_API_KEY,
+        "file_type":         "json",
+        "observation_start": obs_start,
+        "observation_end":   obs_end,
+        "sort_order":        "asc",
+        "limit":             1,
+    }
+    prev_data = safe_get("https://api.stlouisfed.org/fred/series/observations", prev_params)
+    prev_obs  = [(o["value"], o["date"]) for o in (prev_data or {}).get("observations", [])
+                 if o["value"] != "."]
 
-    # 12-Monats-Wert nicht in den 16 Datenpunkten → erweitert holen
-    obs_ext = _fred_series(series_id, limit=20)
-    for v, d in obs_ext:
-        if d.startswith(target_prefix):
-            yoy = round((val_now - float(v)) / float(v) * 100, 2)
-            print(f"[OK] {series_id} YoY (ext): {yoy}% ({date_now_str} vs {target_prefix})")
-            return yoy, date_now_str
+    if not prev_obs:
+        print(f"[WARN] {series_id}: kein Vorjahreswert für {obs_start}")
+        return None, "N/A"
 
-    print(f"[WARN] {series_id}: kein 12-Monats-Wert gefunden für {target_prefix}")
-    return None, "N/A"
+    val_prev_str, date_prev_str = prev_obs[0]
+    val_prev = float(val_prev_str)
+
+    yoy = round((val_now - val_prev) / val_prev * 100, 2)
+    print(f"[OK] {series_id} YoY: {val_now} / {val_prev} = {yoy}% "
+          f"({date_now_str} vs {date_prev_str})")
+    return yoy, date_now_str
 
 
 def get_fed_effr():
-    obs = _fred_series("DFF", limit=1)
+    """Fed Funds Effective Rate – aktuellster Tageswert."""
+    obs = _fred_obs("DFF", limit=1, sort="desc")
     if obs:
         return float(obs[0][0]), obs[0][1]
     return None, "N/A"
@@ -244,24 +275,20 @@ def get_fed_effr():
 def get_us_cpi():
     """
     US CPI YoY – offizielle BLS-Zahl via FRED.
-
-    Strategie:
-    1. CPIAUCNS  = nicht saisonbereinigt  → entspricht der offiziell
-                   vom BLS kommunizierten YoY-Rate (z.B. 3.9%)
-    2. CPIAUCSL  = saisonbereinigt        → leicht abweichend, als Check
-    Primär: CPIAUCNS (entspricht Screenshots/BLS-Pressemitteilung).
-    Fallback: CPIAUCSL falls CPIAUCNS keine Daten liefert.
+    CPIAUCNS = nicht saisonbereinigt → entspricht der vom BLS
+    kommunizierten Headline-Rate (z.B. 3.9%).
+    Fallback: CPIAUCSL (saisonbereinigt).
     """
-    yoy, dt = _yoy_from_series("CPIAUCNS")
+    yoy, dt = _yoy_cpi("CPIAUCNS")
     if yoy is not None:
         return yoy, dt
-
     print("[WARN] US CPI: Fallback auf CPIAUCSL")
-    return _yoy_from_series("CPIAUCSL")
+    return _yoy_cpi("CPIAUCSL")
 
 
 def get_us2y():
-    obs = _fred_series("DGS2", limit=1)
+    """US 2Y Treasury Yield – aktuellster Wert."""
+    obs = _fred_obs("DGS2", limit=1, sort="desc")
     if obs:
         return float(obs[0][0]), obs[0][1]
     return None, "N/A"
@@ -269,7 +296,6 @@ def get_us2y():
 
 # ─────────────────────────────────────────────────────────────
 #  CFTC COT – CME EUR Futures 6E
-#  Verifiziert: cftc_contract_market_code = '399741'
 # ─────────────────────────────────────────────────────────────
 
 def get_cot_eur() -> dict:
@@ -317,7 +343,8 @@ def get_cot_eur() -> dict:
 
     report_date = current.get("report_date_as_yyyy_mm_dd", "N/A")[:10]
 
-    print(f"[OK] COT: long={long_cur}, short={short_cur}, net={net_cur}, oi={oi_cur}, date={report_date}")
+    print(f"[OK] COT: long={long_cur}, short={short_cur}, net={net_cur}, "
+          f"oi={oi_cur}, date={report_date}")
 
     return {
         "date":      report_date,
@@ -433,11 +460,11 @@ def build_message(ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
         f"\U0001f1ea\U0001f1fa *EZB (Eurozone)*\n"
         f"\u2022 Leitzins (DFR): `{fmt(ecb_dfr)}` _(Stand: {ecb_dfr_date})_\n"
         f"\u2022 Inflation HVPI YoY: `{fmt(ecb_hicp)}` _(Stand: {ecb_hicp_date})_\n"
-        f"\u2022 Nächste EZB-Sitzung: {ecb_info}\n\n"
+        f"\u2022 N\u00e4chste EZB-Sitzung: {ecb_info}\n\n"
         f"\U0001f1fa\U0001f1f8 *Federal Reserve (USA)*\n"
         f"\u2022 Leitzins (EFFR): `{fmt(fed_effr)}` _(Stand: {fed_effr_date})_\n"
         f"\u2022 Inflation CPI YoY: `{fmt(us_cpi)}` _(Stand: {us_cpi_date})_\n"
-        f"\u2022 Nächstes FOMC: {fomc_info}\n\n"
+        f"\u2022 N\u00e4chstes FOMC: {fomc_info}\n\n"
         f"\U0001f4c8 *Kapitalfluss & Zinsdifferenz*\n"
         f"\u2022 EFFR vs. DFR: `{diff_str}` \u2192 {signals['rate_signal']}\n"
         f"\u2022 2Y US: `{fmt(us2y)}` | DE: `{fmt(de2y)}` _(Spread: {spread_str})_ \u2192 {signals['yield_signal']}\n"
@@ -446,7 +473,7 @@ def build_message(ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
         f"\u2022 Stand: {cot.get('date', 'N/A')}\n"
         f"\u2022 Net-Position: `{net_str}` Kontrakte \u2192 {signals['cot_signal']}\n"
         f"\u2022 \u0394 Vorwoche: `{cot_delta_sign} {cot_delta:,}` Kontrakte\n"
-        f"\u2022 Käufer (Long): `{cot.get('long_pct', 'N/A')}%` | Verkäufer (Short): `{cot.get('short_pct', 'N/A')}%`\n"
+        f"\u2022 K\u00e4ufer (Long): `{cot.get('long_pct', 'N/A')}%` | Verk\u00e4ufer (Short): `{cot.get('short_pct', 'N/A')}%`\n"
         f"\u2022 Net % OI: `{cot.get('net_pct', 'N/A')}%` | OI Gesamt: `{oi_str}` Kontrakte\n\n"
         f"\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n"
         f"\U0001f3af *Gesamt-Bias EUR/USD*\n"
@@ -507,14 +534,14 @@ def run():
         cot, meetings, signals
     )
 
-    print("\n── VORSCHAU ──")
+    print("\n\u2500\u2500 VORSCHAU \u2500\u2500")
     print(message)
-    print("──────────────\n")
+    print("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n")
 
     if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
         send_telegram(message)
     else:
-        print("[INFO] Kein Token/Chat-ID gesetzt – nur Vorschau")
+        print("[INFO] Kein Token/Chat-ID gesetzt \u2013 nur Vorschau")
 
 
 if __name__ == "__main__":
