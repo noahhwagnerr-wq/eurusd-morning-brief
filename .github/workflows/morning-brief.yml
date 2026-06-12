@@ -1,0 +1,35 @@
+# EUR/USD Morning Brief – GitHub Actions Workflow
+# Läuft automatisch jeden Werktag um 07:00 MEZ (= 05:00 UTC Sommer / 06:00 UTC Winter)
+# Kompromiss: 06:00 UTC → passt für CET & CEST ±1h
+
+name: EUR/USD Morning Brief
+
+on:
+  schedule:
+    - cron: "0 6 * * 1-5"   # Mo–Fr, 06:00 UTC
+  workflow_dispatch:          # Manuell auslösbar über GitHub UI
+
+jobs:
+  send-brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: 📥 Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: 🐍 Python 3.12 einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: 📦 Abhängigkeiten installieren
+        run: pip install -r requirements.txt
+
+      - name: 🚀 Morning Brief senden
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+          FRED_API_KEY:       ${{ secrets.FRED_API_KEY }}
+        run: python eurusd_morning_brief.py
