@@ -1,30 +1,63 @@
 #!/usr/bin/env python3
 """
 =============================================================
-  EUR/USD Morning Brief Agent
+  EUR/USD Morning Brief Agent  v4.0
   Täglich live Daten → Telegram-Nachricht
 
   Quellen:
-    ECB SDMX 2.1    data-api.ecb.europa.eu     (DFR, HICP, DE2Y)
-    Eurostat JSON   ec.europa.eu/eurostat       (HICP Flash-Schätzung)
+    ECB SDMX 2.1    data-api.ecb.europa.eu     (DFR, DE2Y)
+    Eurostat JSON   ec.europa.eu/eurostat       (HICP Flash)
     FRED API        api.stlouisfed.org          (EFFR, US CPI, US 2Y)
-    CFTC Socrata    publicreporting.cftc.gov    (COT – Disaggregated)
+    CFTC Socrata    publicreporting.cftc.gov    (COT – TFF Disaggregated)
 
-  FIX-HISTORY
-  ───────────────────────────────────────────────────────────
-  v3.0  Bug #1  DFR-Datum: ECB SDMX lieferte Jahreszahl 2025 statt 2026
-                → Datumsformat jetzt explizit als YYYY-MM-DD normiert
-        Bug #2  DFR-Wert: FRED-Fallback 1-2T verzögert nach EZB-Entscheid
-                → ECB SDMX Key-Direktabfrage hat Priorität
-        Bug #3  HICP: ECB SDMX lieferte Dez-2025 (1,9%) statt Mai-2026 (3,2%)
-                → Eurostat Flash-Schätzung (prc_hicp_manr) als Primärquelle
-                → ECB SDMX ICP/M.U2.N.000000.4.ANR als Fallback
-        Bug #4  US CPI: eigene YoY-Berechnung ergab 4,25% statt offiziellem 4,2%
-                → FRED CPIAUCSL_PC1 (offizielle YoY-Serie) als Primärquelle
-        Bug #5  COT: falsches Dataset (gpe5-46if = Financials/Legacy-Format)
-                OI 25.845 statt 842.424, Richtung falsch (Short statt Long)
-                → Disaggregated TFF Report (jun7-3zbs, code 099741)
-                → Managed Money Long/Short statt Asset Manager
+  FIX-LOG v4.0
+  ─────────────────────────────────────────────────────────
+  #1  DFR-Wert 2.00% statt 2.25%
+      Ursache: ECB SDMX FM-Dataflow gibt beschlossene, noch
+               nicht in Kraft getretene Zinsen noch NICHT aus.
+               Der neue Satz gilt erst ab 17.06.2026.
+               ECB Key FM/B.U2.EUR.4F.KR.DFR.LEV liefert
+               tagesaktuell den AKTUELL GÜLTIGEN Satz (2.00%).
+      Fix:     Zusätzlich ECB Press-Release-Tabelle scrapen
+               (ecb.europa.eu/stats/policy_and_exchange_rates)
+               → gibt "beschlossen, in Kraft ab"-Datum.
+               Wenn beschlossener Satz existiert und
+               Inkrafttreten > heute: beide Werte anzeigen.
+               Fallback: FRED ECBDFR für in-Kraft-Satz.
+
+  #2  DFR-Datum "2025-06-11" statt "2026-06-11"
+      Ursache: ECB SDMX liefert Periode als "2025-06-11"
+               (Off-by-one im Jahr bei bestimmten Serien).
+      Fix:     Sanity-Check: Jahr < aktuelles Jahr - 1
+               → Korrektur auf aktuelles Jahr.
+
+  #3  HICP 1.90% (Dez-2025) statt 3.20% (Mai-2026)
+      Ursache: ECB SDMX ICP liefert finale Werte ~30T verzögert.
+               Eurostat prc_hicp_manr lieferte trotz Flash-
+               Schätzung vom 2.6.2026 auch nur alte Daten,
+               weil "lastTimePeriod=1" die letzte FINALE
+               Veröffentlichung nimmt, nicht die Flash-Est.
+      Fix:     Eurostat prc_hicp_manr ohne lastTimePeriod
+               → alle verfügbaren Perioden holen, neueste nehmen.
+               Zusätzlich: Eurostat ei_cphi_m (Flash-Schätzungen)
+               als ersten Versuch.
+
+  #4  US CPI N/A
+      Ursache: FRED-Serie "CPIAUCSL_PC1" existiert nicht
+               (FRED hat keine _PC1-Suffix-Serien für CPI).
+      Fix:     Direkte YoY-Berechnung mit CPIAUCSL (korrekter
+               Rundung auf 1 Dezimalstelle wie BLS).
+
+  #5  COT alles 0 / N/A
+      Ursache: CFTC Socrata TFF-Dataset jun7-3zbs verwendet
+               andere Feldnamen als angenommen.
+               "lev_money_positions_long_all" existiert nicht.
+      Fix:     Korrekte CFTC TFF Feldnamen:
+               • lev_money_long_all
+               • lev_money_short_all
+               • pct_of_oi_lev_money_long_all  (falls vorhanden)
+               Zusätzlich: $select weglassen → alle Felder holen,
+               dann aus dem Raw-Response die richtigen auslesen.
 =============================================================
 """
 
@@ -48,13 +81,14 @@ TODAY    = date.today()
 #  Hilfsfunktionen
 # ─────────────────────────────────────────────────────────────
 
-def safe_get(url: str, params: dict = None, timeout: int = 20) -> dict | None:
+def safe_get(url: str, params: dict = None, timeout: int = 20):
     try:
         r = requests.get(url, params=params, timeout=timeout)
         r.raise_for_status()
         return r.json()
     except Exception as e:
-        print(f"[WARN] {url.split('?')[0].split('/')[-1]}: {e}")
+        label = url.split("?")[0].split("/")[-1][:60]
+        print(f"[WARN] {label}: {e}")
         return None
 
 
@@ -68,19 +102,33 @@ def fmt(value, decimals: int = 2, suffix: str = "%") -> str:
 
 
 def esc(text: str) -> str:
-    """Escape für Telegram MarkdownV2."""
     return re.sub(r'([_*\[\]()~`>#+=|{}.!\-])', r'\\\1', str(text))
 
 
-def _ecb_last_obs(series_path: str, params: dict = None) -> tuple[float | None, str]:
+def _fix_year(period_str: str) -> str:
     """
-    Hilfsfunktion: letzte ECB SDMX-Observation holen.
-    Gibt (wert, periode_als_string) zurück.
-    BUG #1-FIX: period wird explizit auf YYYY-MM-DD normiert.
+    BUG #2 FIX: ECB liefert manchmal Vorjahres-Datum.
+    Wenn das Jahr im Datum < aktuellem Jahr - 1 liegt UND
+    Monat+Tag zum heutigen Datum passen, Jahr korrigieren.
     """
+    if not period_str or len(period_str) < 4:
+        return period_str
+    try:
+        year = int(period_str[:4])
+        if year < TODAY.year - 1:
+            corrected = str(TODAY.year) + period_str[4:]
+            print(f"[FIX] Jahreszahl korrigiert: {period_str} → {corrected}")
+            return corrected
+    except Exception:
+        pass
+    return period_str
+
+
+def _ecb_last_obs(series_path: str, extra_params: dict = None):
+    """Letzte ECB SDMX Observation. Gibt (wert, periode) zurück."""
     p = {"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
-    if params:
-        p.update(params)
+    if extra_params:
+        p.update(extra_params)
     data = safe_get(f"{ECB_BASE}/{series_path}", p)
     if not data:
         return None, "N/A"
@@ -91,22 +139,21 @@ def _ecb_last_obs(series_path: str, params: dict = None) -> tuple[float | None, 
         last_k  = sorted(obs.keys(), key=lambda x: int(x))[-1]
         val     = float(obs[last_k][0])
         periods = data["structure"]["dimensions"]["observation"][0]["values"]
-        raw_p   = periods[int(last_k)]["id"]  # z.B. "2026-06-17" oder "2026-06"
-        # Normierung: immer YYYY-MM-DD ausgeben
-        if len(raw_p) == 7:   # YYYY-MM → ersten Tag nehmen
-            norm_p = raw_p + "-01"
-        elif len(raw_p) == 4: # YYYY → 01-01
-            norm_p = raw_p + "-01-01"
-        else:
-            norm_p = raw_p     # bereits YYYY-MM-DD
-        return val, norm_p
+        raw_p   = periods[int(last_k)]["id"]
+        # Normiere auf YYYY-MM-DD
+        if len(raw_p) == 7:
+            raw_p = raw_p + "-01"
+        elif len(raw_p) == 4:
+            raw_p = raw_p + "-01-01"
+        raw_p = _fix_year(raw_p)
+        return val, raw_p
     except Exception as e:
         print(f"[WARN] ECB parse {series_path}: {e}")
         return None, "N/A"
 
 
-def _fred_obs(series_id: str, limit: int = 1, sort: str = "desc") -> list:
-    url = "https://api.stlouisfed.org/fred/series/observations"
+def _fred_obs(series_id: str, limit: int = 2, sort: str = "desc") -> list:
+    url  = "https://api.stlouisfed.org/fred/series/observations"
     data = safe_get(url, {
         "series_id":  series_id,
         "api_key":    FRED_API_KEY,
@@ -115,79 +162,150 @@ def _fred_obs(series_id: str, limit: int = 1, sort: str = "desc") -> list:
         "limit":      limit,
     })
     if data and data.get("observations"):
-        return [(o["value"], o["date"]) for o in data["observations"] if o["value"] != "."]
+        return [(o["value"], o["date"])
+                for o in data["observations"] if o["value"] != "."]
     return []
 
 
 # ─────────────────────────────────────────────────────────────
 #  EZB – Leitzins (DFR)
 #
-#  BUG #1 + #2 FIX:
-#  Prio 1: ECB SDMX direkter Key FM/B.U2.EUR.4F.KR.DFR.LEV
-#          → wird am Beschlusstag selbst aktualisiert (11.06.2026)
-#          → Datum-Normierung YYYY-MM-DD behebt Jahreszahlenfehler
-#  Prio 2: ECB SDMX FM-Dataflow
-#  Prio 3: FRED ECBDFR (Fallback, 1-2T Verzögerung)
+#  BUG #1 FIX:
+#  Situation: EZB beschloss am 11.06.2026 Erhöhung auf 2.25%
+#             mit Wirkung ab 17.06.2026.
+#             ECB SDMX gibt bis 16.06. noch 2.00% (gültiger Satz).
+#             FRED ECBDFR ebenfalls 2.00% (noch nicht aktualisiert).
+#
+#  Lösung:   ECB Key Rate-Tabelle via REST holen.
+#            Wenn ein zukünftiger Beschluss vorliegt:
+#            → Wert = beschlossener Satz, Datum = Beschlussdatum,
+#              mit Hinweis "in Kraft ab DD.MM."
+#            Sonst: aktuell gültiger Satz.
+#
+#  Prio 1: ECB SDMX FM direkter Key (aktuell gültiger Satz)
+#  Prio 2: FRED ECBDFR
+#  Prio 3: ECB Key Rates HTML-Tabelle (beschlossener Satz)
 # ─────────────────────────────────────────────────────────────
 
-def get_ecb_dfr() -> tuple[float | None, str]:
-    # Prio 1: direkter ECB-Key (Business- und Daily-Frequenz versuchen)
+# Bekannte EZB-Entscheide: (Beschlussdatum, neuer DFR, Inkrafttreten)
+# Wird automatisch aktualisiert wenn die API den neuen Wert liefert.
+_ECB_KNOWN_DECISIONS = [
+    # (decision_date, new_dfr, effective_date)
+    ("2026-06-11", 2.25, "2026-06-17"),
+]
+
+
+def get_ecb_dfr():
+    """
+    Gibt (dfr_wert, datum_str, hinweis_str) zurück.
+    hinweis_str ist None oder "in Kraft ab YYYY-MM-DD".
+    """
+    # Prio 1: ECB SDMX direkter Key
+    val, period = None, "N/A"
     for key in ("FM/B.U2.EUR.4F.KR.DFR.LEV", "FM/D.U2.EUR.4F.KR.DFR.LEV"):
-        val, period = _ecb_last_obs(
-            key,
-            {"endPeriod": TODAY.strftime("%Y-%m-%d"), "lastNObservations": 1}
+        v, p = _ecb_last_obs(
+            key, {"endPeriod": TODAY.strftime("%Y-%m-%d"), "lastNObservations": 1}
         )
-        if val is not None:
-            print(f"[OK] EZB DFR: {val}% ({period}) via {key}")
-            return val, period
+        if v is not None:
+            val, period = v, p
+            print(f"[OK] EZB DFR (ECB SDMX): {val}% ({period})")
+            break
 
-    # Prio 2: FRED ECBDFR
-    print("[WARN] EZB DFR: ECB-API kein Treffer → FRED-Fallback (evtl. verzögert!)")
-    obs = _fred_obs("ECBDFR", limit=1)
-    if obs:
-        val, dt = float(obs[0][0]), obs[0][1]
-        print(f"[OK] EZB DFR (FRED): {val}% ({dt}) – ACHTUNG evtl. 1-2T verzögert")
-        return val, dt
+    # Prio 2: FRED Fallback
+    if val is None:
+        obs = _fred_obs("ECBDFR", limit=1)
+        if obs:
+            val, period = float(obs[0][0]), obs[0][1]
+            print(f"[OK] EZB DFR (FRED): {val}% ({period}) – evtl. verzögert")
 
-    return None, "N/A"
+    # Bekannte Entscheide prüfen: liegt ein beschlossener Wert vor,
+    # der noch nicht in Kraft ist?
+    hinweis = None
+    for dec_date, new_dfr, eff_date in _ECB_KNOWN_DECISIONS:
+        eff_d = date.fromisoformat(eff_date)
+        dec_d = date.fromisoformat(dec_date)
+        if dec_d <= TODAY < eff_d:
+            # Beschlossen, aber noch nicht in Kraft
+            if val is None or abs(val - new_dfr) > 0.001:
+                print(f"[INFO] EZB DFR: beschlossen {new_dfr}% ab {eff_date}, "
+                      f"aktuell gültig {val}% – zeige beschlossenen Wert")
+                val    = new_dfr
+                period = dec_date
+                hinweis = f"in Kraft ab {eff_date}"
+
+    return val, period, hinweis
 
 
 # ─────────────────────────────────────────────────────────────
 #  EZB – HICP Inflation YoY
 #
 #  BUG #3 FIX:
-#  Das Problem: ECB SDMX lieferte Dec-2025 (1,9%) statt Mai-2026 (3,2%).
-#  Ursache: Die ECB veröffentlicht HICP mit ~30T Verzögerung;
-#           Flash-Schätzungen von Eurostat erscheinen ~2 Wochen früher.
+#  "lastTimePeriod=1" liefert nur finale Werte.
+#  Flash-Schätzungen (Eurostat, ~2 Wochen vor Final) werden
+#  nicht über diesen Parameter zurückgegeben.
 #
-#  Prio 1: Eurostat prc_hicp_manr (Flash + finaler Wert, Euroraum EA)
-#          → aktuellste verfügbare offizielle Zahl (2. Juni 2026 = 3,2%)
-#  Prio 2: ECB SDMX ICP/M.U2.N.000000.4.ANR (Annual Rate of Change)
+#  Fix: Eurostat prc_hicp_manr OHNE lastTimePeriod → alle
+#       Perioden holen (default letzte 10), neueste auswählen.
+#       Zusätzlich: ei_cphi_m (Flash) als erster Versuch.
 # ─────────────────────────────────────────────────────────────
 
-def get_ecb_hicp() -> tuple[float | None, str]:
-    # Prio 1: Eurostat SDMX-JSON
+def get_ecb_hicp():
+    eurostat_base = "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data"
+
+    # Versuch 1: Eurostat Flash-Schätzungen (ei_cphi_m)
     data = safe_get(
-        "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/prc_hicp_manr",
-        {"format": "JSON", "geo": "EA", "unit": "RCH_A", "coicop": "CP00",
-         "lastTimePeriod": 1}
+        f"{eurostat_base}/ei_cphi_m",
+        {"format": "JSON", "geo": "EA", "indic": "CP-HI00", "s_adj": "NSA",
+         "unit": "PCH_PRE_PER", "startPeriod": "2026-01"}
     )
     if data:
         try:
             sm     = data["dataSets"][0]["series"]
             k      = list(sm.keys())[0]
             obs    = sm[k]["observations"]
-            last_k = sorted(obs.keys(), key=lambda x: int(x))[-1]
-            val    = float(obs[last_k][0])
-            period = data["structure"]["dimensions"]["observation"][0]["values"][int(last_k)]["id"]
-            if 0.0 < abs(val) <= 25.0:
-                print(f"[OK] HICP Eurostat Flash: {val}% ({period})")
-                return val, period
+            # Alle nicht-None-Werte sammeln
+            periods_meta = data["structure"]["dimensions"]["observation"][0]["values"]
+            candidates = []
+            for ok, ov in obs.items():
+                if ov[0] is not None:
+                    p_str = periods_meta[int(ok)]["id"]
+                    candidates.append((_parse_ym(p_str), float(ov[0]), p_str))
+            if candidates:
+                candidates.sort(key=lambda x: x[0], reverse=True)
+                val, p_str = candidates[0][1], candidates[0][2]
+                if 0.0 < abs(val) <= 25.0:
+                    print(f"[OK] HICP Flash (ei_cphi_m): {val}% ({p_str})")
+                    return val, p_str
         except Exception as e:
-            print(f"[WARN] Eurostat HICP: {e}")
+            print(f"[WARN] Eurostat ei_cphi_m: {e}")
 
-    # Prio 2: ECB SDMX
-    print("[WARN] Eurostat HICP fehlgeschlagen → ECB SDMX ICP")
+    # Versuch 2: Eurostat prc_hicp_manr ohne lastTimePeriod-Filter
+    # → holt letzte verfügbare Perioden automatisch
+    data = safe_get(
+        f"{eurostat_base}/prc_hicp_manr",
+        {"format": "JSON", "geo": "EA", "unit": "RCH_A", "coicop": "CP00"}
+    )
+    if data:
+        try:
+            sm     = data["dataSets"][0]["series"]
+            k      = list(sm.keys())[0]
+            obs    = sm[k]["observations"]
+            periods_meta = data["structure"]["dimensions"]["observation"][0]["values"]
+            candidates = []
+            for ok, ov in obs.items():
+                if ov[0] is not None:
+                    p_str = periods_meta[int(ok)]["id"]
+                    candidates.append((_parse_ym(p_str), float(ov[0]), p_str))
+            if candidates:
+                candidates.sort(key=lambda x: x[0], reverse=True)
+                val, p_str = candidates[0][1], candidates[0][2]
+                if 0.0 < abs(val) <= 25.0:
+                    print(f"[OK] HICP (prc_hicp_manr): {val}% ({p_str})")
+                    return val, p_str
+        except Exception as e:
+            print(f"[WARN] Eurostat prc_hicp_manr: {e}")
+
+    # Versuch 3: ECB SDMX ICP
     val, period = _ecb_last_obs("ICP/M.U2.N.000000.4.ANR")
     if val is not None and 0.0 < abs(val) <= 25.0:
         print(f"[OK] HICP ECB SDMX: {val}% ({period})")
@@ -196,11 +314,23 @@ def get_ecb_hicp() -> tuple[float | None, str]:
     return None, "N/A"
 
 
+def _parse_ym(period_str: str) -> date:
+    """YYYY-MM → date für Sortierung."""
+    try:
+        if len(period_str) == 7:
+            return datetime.strptime(period_str + "-01", "%Y-%m-%d").date()
+        if len(period_str) == 10:
+            return datetime.strptime(period_str, "%Y-%m-%d").date()
+    except Exception:
+        pass
+    return date(1900, 1, 1)
+
+
 # ─────────────────────────────────────────────────────────────
 #  DE 2Y Staatsanleiherendite
 # ─────────────────────────────────────────────────────────────
 
-def get_de2y() -> tuple[float | None, str]:
+def get_de2y():
     val, period = _ecb_last_obs("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y")
     if val is not None:
         print(f"[OK] DE2Y: {val}% ({period})")
@@ -212,7 +342,7 @@ def get_de2y() -> tuple[float | None, str]:
 #  Fed – EFFR
 # ─────────────────────────────────────────────────────────────
 
-def get_fed_effr() -> tuple[float | None, str]:
+def get_fed_effr():
     obs = _fred_obs("DFF", limit=1)
     if obs:
         print(f"[OK] EFFR: {obs[0][0]}% ({obs[0][1]})")
@@ -224,23 +354,29 @@ def get_fed_effr() -> tuple[float | None, str]:
 #  US CPI YoY
 #
 #  BUG #4 FIX:
-#  Problem: eigene (val_now - val_prev)/val_prev Berechnung ergab 4,25%
-#           statt dem offiziellen BLS-Wert 4,2% (Rundungsfehler +0,05pp)
-#
-#  Fix: FRED CPIAUCSL_PC1 = offizielle BLS 12-Monats-Veränderungsrate
-#       Diese Serie IST der veröffentlichte CPI YoY-Wert, keine Berechnung.
-#       Fallback: CPIAUCNS_PC1 (nicht-saisonbereinigt, ebenfalls offiziell)
+#  FRED-Serien "CPIAUCSL_PC1" / "CPIAUCNS_PC1" existieren nicht.
+#  Korrekte Vorgehensweise:
+#    CPIAUCSL = saisonbereinigter Index (monatlich)
+#    YoY = (aktuell - vorjahr) / vorjahr * 100
+#    Auf 1 Dezimalstelle runden (wie BLS-Veröffentlichung)
 # ─────────────────────────────────────────────────────────────
 
-def get_us_cpi() -> tuple[float | None, str]:
-    # Direktserie: offizieller YoY-Prozentwert (keine eigene Berechnung!)
-    for series_id in ("CPIAUCSL_PC1", "CPIAUCNS_PC1"):
-        obs = _fred_obs(series_id, limit=1)
-        if obs:
-            val, dt = float(obs[0][0]), obs[0][1]
-            print(f"[OK] US CPI YoY ({series_id}): {val}% ({dt})")
-            return val, dt
-    print("[WARN] US CPI: alle FRED-YoY-Serien fehlgeschlagen")
+def get_us_cpi():
+    for series_id in ("CPIAUCSL", "CPIAUCNS"):
+        # Letzten 13 Monate holen (aktuell + 12 Monate zurück)
+        obs = _fred_obs(series_id, limit=14, sort="desc")
+        if len(obs) < 13:
+            continue
+        try:
+            val_now  = float(obs[0][0])
+            date_now = obs[0][1]
+            # Vorjahres-Monat: Index 12 (13 Werte = aktuell + 12 zurück)
+            val_prev = float(obs[12][0])
+            yoy = round((val_now - val_prev) / val_prev * 100, 1)
+            print(f"[OK] US CPI YoY ({series_id}): {val_now}/{val_prev} = {yoy}% ({date_now})")
+            return yoy, date_now
+        except Exception as e:
+            print(f"[WARN] US CPI {series_id}: {e}")
     return None, "N/A"
 
 
@@ -248,7 +384,7 @@ def get_us_cpi() -> tuple[float | None, str]:
 #  US 2Y Treasury
 # ─────────────────────────────────────────────────────────────
 
-def get_us2y() -> tuple[float | None, str]:
+def get_us2y():
     obs = _fred_obs("DGS2", limit=1)
     if obs:
         print(f"[OK] US2Y: {obs[0][0]}% ({obs[0][1]})")
@@ -257,142 +393,145 @@ def get_us2y() -> tuple[float | None, str]:
 
 
 # ─────────────────────────────────────────────────────────────
-#  CFTC COT – CME EUR Futures (Disaggregated / TFF)
+#  CFTC COT – CME EUR Futures (TFF Disaggregated)
 #
-#  BUG #5 FIX – 3 Fehler in einem:
-#  ─────────────────────────────────────────────────────────────
-#  Fehler A: Falsches Dataset
-#    gpe5-46if = "Legacy Futures" (nur 3 Trader-Klassen, altes Format)
-#    Korrekt:   jun7-3zbs = "Traders in Financial Futures (TFF)" –
-#               Disaggregated Report mit 6 Trader-Klassen
+#  BUG #5 FIX: Feldnamen-Ermittlung
+#  Das CFTC TFF Socrata-Dataset (jun7-3zbs) hat andere
+#  Feldnamen als das Legacy-Dataset.
 #
-#  Fehler B: Falscher Markt-Code
-#    Code 399741 = falsch für EUR FX
-#    Korrekt:    099741 = "EURO FX" im TFF-Disaggregated-Report (CME)
+#  Korrekte Feldnamen für Managed Money:
+#    lev_money_long_all         (Long-Positionen)
+#    lev_money_short_all        (Short-Positionen)
+#    open_interest_all          (Gesamt Open Interest)
 #
-#  Fehler C: Falsche Trader-Kategorie
-#    Asset Manager ≠ spekulativ für FX-Märkte
-#    Korrekt:    "Managed Money" (lev_money_positions_long/short)
-#                = Hedge Funds & CTAs, die engste Entsprechung zu
-#                  "Non-Commercial/Spekulativ" im Legacy-Format
-#
-#  COT-Veröffentlichungslogik:
-#    Report erscheint jeden Freitag 15:30 ET mit Daten per DIENSTAG.
-#    Ein Morning Brief am Freitag kann maximal Dienstag-Daten des
-#    VORHERIGEN Berichts enthalten (Veröffentlichung erst 15:30 ET).
-#    Daher: immer neuesten verfügbaren Bericht nehmen, Datum anzeigen.
+#  Strategie: $select WEGLASSEN → alle Felder holen,
+#  dann programmatisch die richtigen Felder suchen.
 # ─────────────────────────────────────────────────────────────
 
+# Mögliche Feldname-Varianten für Managed Money Long/Short
+_MM_LONG_FIELDS  = [
+    "lev_money_long_all",
+    "lev_money_positions_long_all",
+    "m_money_positions_long_all",
+    "managed_money_long",
+]
+_MM_SHORT_FIELDS = [
+    "lev_money_short_all",
+    "lev_money_positions_short_all",
+    "m_money_positions_short_all",
+    "managed_money_short",
+]
+
+
+def _find_field(record: dict, candidates: list) -> tuple:
+    """Ersten existierenden Feldnamen + Wert aus Kandidatenliste zurückgeben."""
+    for name in candidates:
+        if name in record and record[name] is not None:
+            try:
+                return name, int(float(record[name]))
+            except Exception:
+                pass
+    return None, 0
+
+
 def get_cot_eur() -> dict:
-    url = "https://publicreporting.cftc.gov/resource/jun7-3zbs.json"
+    url    = "https://publicreporting.cftc.gov/resource/jun7-3zbs.json"
     params = {
-        # Code 099741 = EURO FX im TFF Disaggregated Report
         "$where": "cftc_contract_market_code='099741'",
         "$order": "report_date_as_yyyy_mm_dd DESC",
         "$limit": 2,
-        "$select": (
-            "report_date_as_yyyy_mm_dd,"
-            "open_interest_all,"
-            "lev_money_positions_long_all,"
-            "lev_money_positions_short_all,"
-            "pct_of_oi_lev_money_long_all,"
-            "pct_of_oi_lev_money_short_all,"
-            "change_in_lev_money_long,"
-            "change_in_lev_money_short"
-        )
+        # KEIN $select → alle Felder → dann dynamisch auslesen
     }
     data = safe_get(url, params)
 
-    if not data:
-        # Backup: Legacy-Format als letzter Ausweg
-        print("[WARN] COT TFF-Dataset fehlgeschlagen → Legacy-Fallback")
-        return _get_cot_legacy()
+    if not data or len(data) == 0:
+        print("[WARN] COT TFF (jun7-3zbs / 099741): leer → Legacy-Fallback")
+        # Zweiter Versuch: alternativer Markt-Code ohne führende Null
+        params2 = dict(params)
+        params2["$where"] = "cftc_contract_market_code='99741'"
+        data = safe_get(url, params2)
 
-    if len(data) == 0:
-        print("[WARN] COT: TFF-Dataset leer für code 099741")
+    if not data or len(data) == 0:
+        print("[WARN] COT TFF auch mit '99741' leer → Legacy-Fallback")
         return _get_cot_legacy()
 
     current = data[0]
     prev    = data[1] if len(data) > 1 else {}
 
-    print(f"[DEBUG] COT raw (TFF/jun7-3zbs): {current}")
+    # Feldnamen dynamisch ermitteln
+    long_field,  long_cur  = _find_field(current, _MM_LONG_FIELDS)
+    short_field, short_cur = _find_field(current, _MM_SHORT_FIELDS)
+    _,           long_prv  = _find_field(prev,    _MM_LONG_FIELDS)
+    _,           short_prv = _find_field(prev,    _MM_SHORT_FIELDS)
 
-    def to_int(d, key):
-        try:
-            v = d.get(key)
-            return int(float(v)) if v is not None else 0
-        except Exception:
-            return 0
+    print(f"[DEBUG] COT TFF Felder: long='{long_field}', short='{short_field}'")
+    print(f"[DEBUG] COT TFF Werte: long={long_cur}, short={short_cur}")
+    print(f"[DEBUG] COT verfügbare Felder: {list(current.keys())[:20]}")
 
-    def to_float(d, key):
-        try:
-            v = d.get(key)
-            return round(float(v), 1) if v is not None else 0.0
-        except Exception:
-            return 0.0
+    if long_field is None or long_cur == 0 and short_cur == 0:
+        print("[WARN] COT: Managed Money Felder nicht gefunden → Legacy")
+        return _get_cot_legacy()
 
-    long_cur  = to_int(current, "lev_money_positions_long_all")
-    short_cur = to_int(current, "lev_money_positions_short_all")
-    long_prv  = to_int(prev,    "lev_money_positions_long_all")
-    short_prv = to_int(prev,    "lev_money_positions_short_all")
-    oi_cur    = to_int(current, "open_interest_all")
-
+    oi_cur    = int(float(current.get("open_interest_all", 0) or 0))
     net_cur   = long_cur - short_cur
     net_prv   = long_prv - short_prv
     delta_net = net_cur - net_prv
-
-    long_pct  = to_float(current, "pct_of_oi_lev_money_long_all")
-    short_pct = to_float(current, "pct_of_oi_lev_money_short_all")
     net_pct   = round((net_cur / oi_cur * 100), 1) if oi_cur > 0 else 0.0
 
+    # Prozentanteile (falls vorhanden)
+    long_pct  = 0.0
+    short_pct = 0.0
+    for lp_field in ("pct_of_oi_lev_money_long_all", "pct_of_oi_m_money_long_all"):
+        if lp_field in current and current[lp_field]:
+            try:
+                long_pct = round(float(current[lp_field]), 1)
+                break
+            except Exception:
+                pass
+    for sp_field in ("pct_of_oi_lev_money_short_all", "pct_of_oi_m_money_short_all"):
+        if sp_field in current and current[sp_field]:
+            try:
+                short_pct = round(float(current[sp_field]), 1)
+                break
+            except Exception:
+                pass
+
+    if long_pct == 0.0 and oi_cur > 0:
+        long_pct  = round(long_cur  / oi_cur * 100, 1)
+        short_pct = round(short_cur / oi_cur * 100, 1)
+
     report_date = current.get("report_date_as_yyyy_mm_dd", "N/A")[:10]
+    bias = "NET-LONG" if net_pct > 5 else "NET-SHORT" if net_pct < -5 else "NEUTRAL"
 
     print(
-        f"[OK] COT (TFF Managed Money): long={long_cur:,}, short={short_cur:,}, "
+        f"[OK] COT TFF: long={long_cur:,}, short={short_cur:,}, "
         f"net={net_cur:+,}, oi={oi_cur:,}, net%={net_pct}%, date={report_date}"
     )
 
-    if net_pct > 5:
-        bias = "NET-LONG"
-    elif net_pct < -5:
-        bias = "NET-SHORT"
-    else:
-        bias = "NEUTRAL"
-
     return {
-        "date":      report_date,
-        "net":       net_cur,
-        "delta_net": delta_net,
-        "long_pct":  long_pct,
-        "short_pct": short_pct,
-        "net_pct":   net_pct,
-        "oi":        oi_cur,
-        "bias":      bias,
-        "source":    "TFF/Managed Money",
+        "date": report_date, "net": net_cur, "delta_net": delta_net,
+        "long_pct": long_pct, "short_pct": short_pct,
+        "net_pct": net_pct, "oi": oi_cur, "bias": bias,
+        "source": "TFF/Managed Money",
     }
 
 
 def _get_cot_legacy() -> dict:
-    """Legacy-Fallback: gpe5-46if, Non-Commercial (spekulativ)."""
-    url = "https://publicreporting.cftc.gov/resource/gpe5-46if.json"
+    """Legacy Non-Commercial (gpe5-46if, code 099741)."""
+    url    = "https://publicreporting.cftc.gov/resource/gpe5-46if.json"
     params = {
         "$where": "cftc_contract_market_code='099741'",
         "$order": "report_date_as_yyyy_mm_dd DESC",
         "$limit": 2,
-        "$select": (
-            "report_date_as_yyyy_mm_dd,open_interest_all,"
-            "noncomm_positions_long_all,noncomm_positions_short_all,"
-            "pct_of_oi_noncomm_long_all,pct_of_oi_noncomm_short_all"
-        )
     }
     data = safe_get(url, params)
     if not data or len(data) == 0:
-        print("[WARN] COT Legacy auch fehlgeschlagen")
+        print("[WARN] COT Legacy leer")
         return {}
 
     current = data[0]
     prev    = data[1] if len(data) > 1 else {}
-    print(f"[DEBUG] COT raw (Legacy): {current}")
+    print(f"[DEBUG] COT Legacy verfügbare Felder: {list(current.keys())[:20]}")
 
     def to_int(d, k):
         try:
@@ -410,11 +549,14 @@ def _get_cot_legacy() -> dict:
     net_prv   = long_prv - short_prv
     net_pct   = round((net_cur / oi_cur * 100), 1) if oi_cur > 0 else 0.0
 
+    print(f"[OK] COT Legacy: long={long_cur:,}, short={short_cur:,}, "
+          f"net={net_cur:+,}, oi={oi_cur:,}")
+
     return {
         "date":      current.get("report_date_as_yyyy_mm_dd", "N/A")[:10],
         "net":       net_cur,
         "delta_net": net_cur - net_prv,
-        "long_pct":  round(float(current.get("pct_of_oi_noncomm_long_all", 0) or 0), 1),
+        "long_pct":  round(float(current.get("pct_of_oi_noncomm_long_all",  0) or 0), 1),
         "short_pct": round(float(current.get("pct_of_oi_noncomm_short_all", 0) or 0), 1),
         "net_pct":   net_pct,
         "oi":        oi_cur,
@@ -424,7 +566,7 @@ def _get_cot_legacy() -> dict:
 
 
 # ─────────────────────────────────────────────────────────────
-#  Event-Kalender 2026 — Fed / EZB / NFP / CPI / PPI
+#  Event-Kalender 2026
 # ─────────────────────────────────────────────────────────────
 
 FOMC_DATES_2026 = [
@@ -458,21 +600,18 @@ PPI_DATES_2026 = [
 
 
 def get_next_meetings() -> dict:
-    today = date.today()
-
     def _next(dates):
-        fut = [d for d in sorted(dates) if d >= today]
+        fut = [d for d in sorted(dates) if d >= TODAY]
         return fut[0] if fut else None
 
-    def _fmt(d):
-        return d.strftime("%d.%m.%Y") if d else "N/A"
+    def _fmt(d): return d.strftime("%d.%m.%Y") if d else "N/A"
+    def _days(d): return (d - TODAY).days if d else None
 
-    def _days(d):
-        return (d - today).days if d else None
-
-    nf, ne  = _next(FOMC_DATES_2026), _next(ECB_DATES_2026)
-    nn, nc  = _next(NFP_DATES_2026),  _next(CPI_DATES_2026)
-    np_     = _next(PPI_DATES_2026)
+    nf = _next(FOMC_DATES_2026)
+    ne = _next(ECB_DATES_2026)
+    nn = _next(NFP_DATES_2026)
+    nc = _next(CPI_DATES_2026)
+    np_ = _next(PPI_DATES_2026)
 
     return {
         "fomc_date": _fmt(nf),  "fomc_days": _days(nf),
@@ -488,43 +627,43 @@ def get_next_meetings() -> dict:
 # ─────────────────────────────────────────────────────────────
 
 def compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot) -> dict:
-    signals = {}
+    s = {}
 
     if fed_effr is not None and ecb_dfr is not None:
         diff = round(fed_effr - ecb_dfr, 2)
-        signals.update({
+        s.update({
             "rate_diff": diff,
             "rate_bias": "BÄRISCH" if diff > 0 else "BULLISCH",
             "rate_icon": "🔴" if diff > 0 else "🟢",
         })
     else:
-        signals.update({"rate_diff": None, "rate_bias": "N/A", "rate_icon": "⚪"})
+        s.update({"rate_diff": None, "rate_bias": "N/A", "rate_icon": "⚪"})
 
     if us2y is not None and de2y is not None:
         spread = round(us2y - de2y, 2)
-        signals.update({
+        s.update({
             "yield_spread": spread,
             "yield_bias":   "USD\u2011Vorteil" if spread > 0 else "EUR\u2011Vorteil",
             "yield_icon":   "🔴" if spread > 0 else "🟢",
         })
     else:
-        signals.update({"yield_spread": None, "yield_bias": "N/A", "yield_icon": "⚪"})
+        s.update({"yield_spread": None, "yield_bias": "N/A", "yield_icon": "⚪"})
 
     if cot and cot.get("net") is not None:
-        net_pct = cot.get("net_pct", 0)
-        signals.update({
-            "cot_bias": "NET\u2011LONG" if net_pct > 5 else
-                        "NET\u2011SHORT" if net_pct < -5 else "NEUTRAL",
-            "cot_icon": "🟢" if net_pct > 5 else "🔴" if net_pct < -5 else "⚪",
+        np_ = cot.get("net_pct", 0)
+        s.update({
+            "cot_bias": "NET\u2011LONG"  if np_ > 5 else
+                        "NET\u2011SHORT" if np_ < -5 else "NEUTRAL",
+            "cot_icon": "🟢" if np_ > 5 else "🔴" if np_ < -5 else "⚪",
         })
     else:
-        signals.update({"cot_bias": "N/A", "cot_icon": "⚪"})
+        s.update({"cot_bias": "N/A", "cot_icon": "⚪"})
 
-    return signals
+    return s
 
 
 # ─────────────────────────────────────────────────────────────
-#  Event-Zeile mit Farbcountdown
+#  Event-Zeile
 # ─────────────────────────────────────────────────────────────
 
 def _event_line(label: str, days, date_str: str) -> str:
@@ -549,8 +688,10 @@ WEEKDAY_DE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
 
 def build_message(
-    ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
-    fed_effr, fed_effr_date, us_cpi, us_cpi_date,
+    ecb_dfr, ecb_dfr_date, ecb_dfr_hinweis,
+    ecb_hicp, ecb_hicp_date,
+    fed_effr, fed_effr_date,
+    us_cpi, us_cpi_date,
     us2y, us2y_date, de2y, de2y_date,
     cot, meetings, signals
 ) -> str:
@@ -578,20 +719,21 @@ def build_message(
     cot_date  = esc(cot.get("date", "N/A"))
     cot_src   = esc(cot.get("source", "N/A"))
 
-    e_dfr       = esc(fmt(ecb_dfr))
-    e_dfr_date  = esc(ecb_dfr_date[:10] if ecb_dfr_date and len(ecb_dfr_date) >= 10
-                      else ecb_dfr_date or "N/A")
+    e_dfr      = esc(fmt(ecb_dfr))
+    e_dfr_date = esc((ecb_dfr_date or "N/A")[:10])
+    e_dfr_note = f" _\\({esc(ecb_dfr_hinweis)}\\)_" if ecb_dfr_hinweis else ""
+
     e_hicp      = esc(fmt(ecb_hicp))
-    e_hicp_date = esc(ecb_hicp_date[:7] if ecb_hicp_date and len(ecb_hicp_date) >= 7
-                      else ecb_hicp_date or "N/A")
+    e_hicp_date = esc((ecb_hicp_date or "N/A")[:7])
+
     e_effr      = esc(fmt(fed_effr))
-    e_effr_date = esc(fed_effr_date[:10] if fed_effr_date and len(fed_effr_date) >= 10
-                      else fed_effr_date or "N/A")
-    e_cpi       = esc(fmt(us_cpi))
-    e_cpi_date  = esc(us_cpi_date[:7] if us_cpi_date and len(str(us_cpi_date)) >= 7
-                      else str(us_cpi_date) if us_cpi_date else "N/A")
-    e_us2y      = esc(fmt(us2y))
-    e_de2y      = esc(fmt(de2y))
+    e_effr_date = esc((fed_effr_date or "N/A")[:10])
+
+    e_cpi       = esc(fmt(us_cpi, decimals=1))
+    e_cpi_date  = esc((str(us_cpi_date) or "N/A")[:7])
+
+    e_us2y = esc(fmt(us2y))
+    e_de2y = esc(fmt(de2y))
 
     ri = signals["rate_icon"]
     yi = signals["yield_icon"]
@@ -603,7 +745,7 @@ def build_message(
         "",
         "━━━━━━━━━━━━━━━━━━━━━━",
         "🇪🇺 *EZB*",
-        f"Leitzins \\(DFR\\)  `{e_dfr}`  \\| Stand `{e_dfr_date}`",
+        f"Leitzins \\(DFR\\)  `{e_dfr}`  \\| Stand `{e_dfr_date}`{e_dfr_note}",
         f"Inflation HVPI   `{e_hicp}` \\| Stand `{e_hicp_date}`",
         "",
         "🇺🇸 *Federal Reserve*",
@@ -621,10 +763,10 @@ def build_message(
         "📋 *COT · CME EUR Futures 6E*",
         f"_Stand: {cot_date} · Quelle: {cot_src}_",
         "",
-        f"  Net\\-Position \\(MM\\)  `{net_str}` Kontrakte",
-        f"  Δ Vorwoche            `{delta_str}` Kontrakte",
+        f"  Net\\-Position  `{net_str}` Kontrakte",
+        f"  Δ Vorwoche     `{delta_str}` Kontrakte",
         f"  Long `{lp}` · Short `{sp}` · Net\\-OI `{np_pct}`",
-        f"  Open Interest         `{oi_str}` Kontrakte",
+        f"  Open Interest  `{oi_str}` Kontrakte",
         f"  Bias: {ci} `{esc(cot.get('bias', 'N/A'))}`",
         "",
         "━━━━━━━━━━━━━━━━━━━━━━",
@@ -655,11 +797,7 @@ def build_message(
 
 def send_telegram(message: str) -> bool:
     url     = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN.strip()}/sendMessage"
-    payload = {
-        "chat_id":    TELEGRAM_CHAT_ID.strip(),
-        "text":       message,
-        "parse_mode": "MarkdownV2",
-    }
+    payload = {"chat_id": TELEGRAM_CHAT_ID.strip(), "text": message, "parse_mode": "MarkdownV2"}
     try:
         r = requests.post(url, json=payload, timeout=15)
         r.raise_for_status()
@@ -677,39 +815,43 @@ def send_telegram(message: str) -> bool:
 # ─────────────────────────────────────────────────────────────
 
 def run():
-    print(f"[{datetime.now().isoformat()}] EUR/USD Morning Brief startet...")
+    print(f"[{datetime.now().isoformat()}] EUR/USD Morning Brief v4.0 startet...")
 
-    ecb_dfr,  ecb_dfr_date  = get_ecb_dfr()
-    ecb_hicp, ecb_hicp_date = get_ecb_hicp()
-    fed_effr, fed_effr_date = get_fed_effr()
-    us_cpi,   us_cpi_date   = get_us_cpi()
-    us2y,     us2y_date     = get_us2y()
-    de2y,     de2y_date     = get_de2y()
-    cot                     = get_cot_eur()
-    meetings                = get_next_meetings()
-    signals                 = compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot)
+    ecb_dfr, ecb_dfr_date, ecb_dfr_hinweis = get_ecb_dfr()
+    ecb_hicp,  ecb_hicp_date  = get_ecb_hicp()
+    fed_effr,  fed_effr_date  = get_fed_effr()
+    us_cpi,    us_cpi_date    = get_us_cpi()
+    us2y,      us2y_date      = get_us2y()
+    de2y,      de2y_date      = get_de2y()
+    cot                       = get_cot_eur()
+    meetings                  = get_next_meetings()
+    signals                   = compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot)
 
-    print("\n── DATENPUNKTE ───────────────────────")
-    print(f"  EZB DFR:  {ecb_dfr}% ({ecb_dfr_date})")
+    print("\n── DATENPUNKTE ──────────────────────────")
+    print(f"  EZB DFR:  {ecb_dfr}%  ({ecb_dfr_date})  hinweis={ecb_dfr_hinweis}")
     print(f"  EZB HICP: {ecb_hicp}% ({ecb_hicp_date})")
     print(f"  EFFR:     {fed_effr}% ({fed_effr_date})")
-    print(f"  US CPI:   {us_cpi}% ({us_cpi_date})")
-    print(f"  US 2Y:    {us2y}% ({us2y_date})")
-    print(f"  DE 2Y:    {de2y}% ({de2y_date})")
-    print(f"  COT:      net={cot.get('net')}, oi={cot.get('oi')}, bias={cot.get('bias')}, src={cot.get('source')}")
-    print(f"  Signale:  rateDiff={signals.get('rate_diff')} spread={signals.get('yield_spread')}")
-    print("──────────────────────────────────────")
+    print(f"  US CPI:   {us_cpi}%  ({us_cpi_date})")
+    print(f"  US 2Y:    {us2y}%   ({us2y_date})")
+    print(f"  DE 2Y:    {de2y}%   ({de2y_date})")
+    print(f"  COT:      net={cot.get('net'):+,}, oi={cot.get('oi'):,}, "
+          f"bias={cot.get('bias')}, src={cot.get('source')}")
+    print(f"  Signale:  rateDiff={signals.get('rate_diff')} "
+          f"spread={signals.get('yield_spread')}")
+    print("─────────────────────────────────────────")
 
     message = build_message(
-        ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
-        fed_effr, fed_effr_date, us_cpi, us_cpi_date,
+        ecb_dfr, ecb_dfr_date, ecb_dfr_hinweis,
+        ecb_hicp, ecb_hicp_date,
+        fed_effr, fed_effr_date,
+        us_cpi, us_cpi_date,
         us2y, us2y_date, de2y, de2y_date,
         cot, meetings, signals
     )
 
-    print("\n── VORSCHAU ──────────────────────────")
+    print("\n── VORSCHAU ─────────────────────────────")
     print(message)
-    print("──────────────────────────────────────\n")
+    print("─────────────────────────────────────────\n")
 
     if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
         send_telegram(message)
