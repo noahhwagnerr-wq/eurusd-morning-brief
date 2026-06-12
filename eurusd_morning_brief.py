@@ -5,12 +5,6 @@
   Täglich live Daten → Telegram-Nachricht
   Quellen: ECB SDMX API, FRED API, CFTC Socrata API
 =============================================================
-  Setup:
-    1. pip install requests python-dotenv
-    2. .env anlegen mit den unten genannten Variablen
-    3. Ausführen: python eurusd_morning_brief.py
-    4. Automatisierung: GitHub Actions (morning-brief.yml)
-=============================================================
 """
 
 import os
@@ -20,13 +14,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── Konfiguration (in .env hinterlegen) ──────────────────────
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID")
 FRED_API_KEY       = os.getenv("FRED_API_KEY")
 
-
-# ── Hilfsfunktionen ──────────────────────────────────────────
 
 def safe_get(url: str, params: dict = None, timeout: int = 10):
     try:
@@ -47,13 +38,7 @@ def fmt(value, decimals=2, suffix="%") -> str:
         return str(value)
 
 
-# ─────────────────────────────────────────────────────────────
-#  1. EZB – Leitzins (DFR) und HVPI Inflation
-#     Quelle: ECB Data Portal SDMX 2.1 REST API (kein API-Key!)
-# ─────────────────────────────────────────────────────────────
-
 def get_ecb_dfr():
-    """EZB Deposit Facility Rate (DFR) – neuester Wert."""
     url = "https://data-api.ecb.europa.eu/service/data/FM/B.U2.EUR.RT0.BB.1M.WDFI"
     params = {"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
     data = safe_get(url, params)
@@ -71,7 +56,6 @@ def get_ecb_dfr():
 
 
 def get_ecb_hicp():
-    """Eurozone HVPI (HICP) YoY – neuester Wert."""
     url = "https://data-api.ecb.europa.eu/service/data/ICP/M.U2.N.000000.4.ANR"
     params = {"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
     data = safe_get(url, params)
@@ -88,13 +72,7 @@ def get_ecb_hicp():
     return None, "N/A"
 
 
-# ─────────────────────────────────────────────────────────────
-#  2. Federal Reserve – EFFR und US CPI
-#     Quelle: FRED API (kostenloser API-Key bei stlouisfed.org)
-# ─────────────────────────────────────────────────────────────
-
 def get_fred_series(series_id: str):
-    """Letzter Wert einer FRED-Zeitreihe."""
     url = "https://api.stlouisfed.org/fred/series/observations"
     params = {
         "series_id": series_id,
@@ -126,10 +104,6 @@ def get_us2y():
     return get_fred_series("DGS2")
 
 
-# ─────────────────────────────────────────────────────────────
-#  3. Deutsche 2Y-Rendite (Bundesanleihe) – ECB SDMX
-# ─────────────────────────────────────────────────────────────
-
 def get_de2y():
     url = "https://data-api.ecb.europa.eu/service/data/YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y"
     params = {"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
@@ -146,11 +120,6 @@ def get_de2y():
             print(f"[WARN] DE2Y parse error: {e}")
     return None, "N/A"
 
-
-# ─────────────────────────────────────────────────────────────
-#  4. COT-Daten – CME EUR Futures 6E
-#     Quelle: CFTC Socrata Public Reporting API (kein API-Key!)
-# ─────────────────────────────────────────────────────────────
 
 def get_cot_eur() -> dict:
     url = "https://publicreporting.cftc.gov/resource/gpe5-46if.json"
@@ -197,10 +166,6 @@ def get_cot_eur() -> dict:
     return {}
 
 
-# ─────────────────────────────────────────────────────────────
-#  5. Nächste FOMC/EZB-Sitzung (Kalender 2026)
-# ─────────────────────────────────────────────────────────────
-
 def get_next_meetings() -> dict:
     today = date.today()
     fomc_dates = [
@@ -224,10 +189,6 @@ def get_next_meetings() -> dict:
         "ecb_days":  ecb_days
     }
 
-
-# ─────────────────────────────────────────────────────────────
-#  6. Signal-Logik
-# ─────────────────────────────────────────────────────────────
 
 def compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot) -> dict:
     signals = {}
@@ -261,10 +222,6 @@ def compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot) -> dict:
     return signals
 
 
-# ─────────────────────────────────────────────────────────────
-#  7. Nachricht formatieren
-# ─────────────────────────────────────────────────────────────
-
 def build_message(ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
                   fed_effr, fed_effr_date, us_cpi, us_cpi_date,
                   us2y, us2y_date, de2y, de2y_date,
@@ -273,7 +230,7 @@ def build_message(ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
 
     rate_diff    = signals.get("rate_diff")
     yield_spread = signals.get("yield_spread")
-    diff_str  = (f"+{rate_diff:.2f}pp"    if rate_diff is not None    and rate_diff >= 0    else (f"{rate_diff:.2f}pp"    if rate_diff    is not None else "N/A"))
+    diff_str   = (f"+{rate_diff:.2f}pp"    if rate_diff is not None    and rate_diff >= 0    else (f"{rate_diff:.2f}pp"    if rate_diff    is not None else "N/A"))
     spread_str = (f"+{yield_spread:.2f}%" if yield_spread is not None and yield_spread >= 0 else (f"{yield_spread:.2f}%" if yield_spread is not None else "N/A"))
 
     cot_delta_sign = "▲" if cot.get("delta_net", 0) > 0 else "▼"
@@ -284,8 +241,8 @@ def build_message(ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
     ecb_info  = f"{meetings['ecb_date']} (noch {meetings['ecb_days']}T)"  if meetings.get("ecb_days")  is not None else meetings.get("ecb_date",  "N/A")
 
     oi = cot.get("oi", 0)
-    oi_str  = f"{oi:,}"           if isinstance(oi, int) else "N/A"
-    net_str = f"{cot.get('net', 0):,}" if isinstance(cot.get('net'), int) else "N/A"
+    oi_str  = f"{oi:,}"               if isinstance(oi, int) else "N/A"
+    net_str = f"{cot.get('net', 0):,}" if isinstance(cot.get("net"), int) else "N/A"
 
     msg = (
         f"📊 *EUR/USD Morning Brief* — {today_str}\n"
@@ -316,19 +273,23 @@ def build_message(ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
     return msg
 
 
-# ─────────────────────────────────────────────────────────────
-#  8. Telegram senden
-# ─────────────────────────────────────────────────────────────
-
 def send_telegram(message: str) -> bool:
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    token = TELEGRAM_BOT_TOKEN.strip()
+    chat_id = TELEGRAM_CHAT_ID.strip()
+
+    print(f"[DEBUG] Bot-Token (erste 10 Zeichen): {token[:10]}...")
+    print(f"[DEBUG] Chat-ID: {chat_id}")
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
-        "chat_id":    TELEGRAM_CHAT_ID,
+        "chat_id":    chat_id,
         "text":       message,
         "parse_mode": "Markdown"
     }
     try:
         r = requests.post(url, json=payload, timeout=15)
+        print(f"[DEBUG] Telegram HTTP Status: {r.status_code}")
+        print(f"[DEBUG] Telegram Antwort: {r.text}")
         r.raise_for_status()
         print(f"[OK] Telegram gesendet (Message-ID: {r.json().get('result', {}).get('message_id')})")
         return True
@@ -336,10 +297,6 @@ def send_telegram(message: str) -> bool:
         print(f"[ERROR] Telegram-Fehler: {e}")
         return False
 
-
-# ─────────────────────────────────────────────────────────────
-#  9. Hauptprogramm
-# ─────────────────────────────────────────────────────────────
 
 def run():
     print(f"[{datetime.now().isoformat()}] Starte EUR/USD Morning Brief Agent...")
