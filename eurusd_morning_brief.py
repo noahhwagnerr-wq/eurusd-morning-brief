@@ -10,6 +10,7 @@
 """
 
 import os
+import re
 import requests
 from datetime import datetime, timedelta, date
 from dotenv import load_dotenv
@@ -43,26 +44,22 @@ def fmt(value, decimals=2, suffix="%") -> str:
         return str(value)
 
 
+def esc(text: str) -> str:
+    """Escapt Sonderzeichen für Telegram MarkdownV2."""
+    return re.sub(r'([_*\[\]()~`>#+=|{}.!\-])', r'\\\1', str(text))
+
+
 def _parse_ecb_period(period_id: str) -> date:
-    """
-    Parst ECB-Perioden-IDs zu einem date-Objekt.
-    Unterstützte Formate:
-      '2026-06-17'  (täglich / business)
-      '2026-06'     (monatlich)
-      '2026-Q2'     (quartalsweise)
-      '2026'        (jährlich)
-    Gibt date(1900,1,1) zurück falls kein bekanntes Format.
-    """
     try:
-        if len(period_id) == 10:  # YYYY-MM-DD
+        if len(period_id) == 10:
             return datetime.strptime(period_id, "%Y-%m-%d").date()
-        if len(period_id) == 7 and "-Q" not in period_id:  # YYYY-MM
+        if len(period_id) == 7 and "-Q" not in period_id:
             return datetime.strptime(period_id + "-01", "%Y-%m-%d").date()
-        if "-Q" in period_id:  # YYYY-Q1 etc.
+        if "-Q" in period_id:
             y, q = period_id.split("-Q")
             m = (int(q) - 1) * 3 + 1
             return date(int(y), m, 1)
-        if len(period_id) == 4:  # YYYY
+        if len(period_id) == 4:
             return date(int(period_id), 1, 1)
     except Exception:
         pass
@@ -71,11 +68,6 @@ def _parse_ecb_period(period_id: str) -> date:
 
 # ─────────────────────────────────────────────────────────────
 #  ECB SDMX FM Dataflow
-#
-#  Die ECB FM API enthält bei Freq=B bereits vorauskünftige Datenpunkte
-#  (z.B. 2026-06-17 für den nächsten geplanten Beschluss).
-#  FIX: Alle Observationen mit Period > TODAY werden ignoriert.
-#  Nur der jüngste Datenpunkt mit Period <= TODAY wird verwendet.
 # ─────────────────────────────────────────────────────────────
 
 _fm_cache = None
@@ -83,8 +75,6 @@ _fm_cache = None
 def _get_fm():
     global _fm_cache
     if _fm_cache is None:
-        # lastNObservations=5 statt 1, damit wir genug Kandidaten haben
-        # um zukünftige Datenpunkte herausfiltern zu können
         _fm_cache = safe_get(
             f"{ECB_BASE}/FM",
             params={"format": "jsondata", "lastNObservations": 5, "detail": "dataonly"}
@@ -93,11 +83,6 @@ def _get_fm():
 
 
 def _fm_find(instrument_id: str, freq: str = "B", data_type: str = "LEV"):
-    """
-    Sucht im ECB FM-Dataflow nach Instrument + Freq + DataType.
-    Filtert zukünftige Perioden (> TODAY) heraus.
-    Gibt (value, period_str) des jüngsten vergangenen/heutigen Datenpunkts.
-    """
     data = _get_fm()
     if not data:
         return None, "N/A"
@@ -125,21 +110,17 @@ def _fm_find(instrument_id: str, freq: str = "B", data_type: str = "LEV"):
                 continue
 
             obs = sv["observations"]
-
-            # Alle Kandidaten sammeln, nach Periode sortieren (absteigend)
             candidates = []
             for obs_k, obs_v in obs.items():
                 period_str = obs_dim[int(obs_k)]["id"]
                 period_dt  = _parse_ecb_period(period_str)
-                # Nur Datenpunkte <= TODAY akzeptieren
                 if period_dt <= TODAY:
                     candidates.append((period_dt, float(obs_v[0]), period_str))
 
             if not candidates:
-                print(f"[WARN] ECB FM {instrument_id}: alle Datenpunkte liegen in der Zukunft")
+                print(f"[WARN] ECB FM {instrument_id}: alle Datenpunkte in der Zukunft")
                 continue
 
-            # Jüngster gültiger Datenpunkt
             candidates.sort(key=lambda x: x[0], reverse=True)
             period_dt, val, period_str = candidates[0]
             print(f"[OK] ECB FM {instrument_id} ({freq},{data_type}): {val} ({period_str})")
@@ -151,14 +132,12 @@ def _fm_find(instrument_id: str, freq: str = "B", data_type: str = "LEV"):
 
 
 def get_ecb_dfr():
-    """EZB Deposit Facility Rate – jüngster Wert <= heute."""
     val, period = _fm_find("DFR", freq="B", data_type="LEV")
     if val is not None:
         return val, period
     val, period = _fm_find("DFR", freq="D", data_type="LEV")
     if val is not None:
         return val, period
-    # Direkter Fallback: endPeriod auf heute setzen
     data = safe_get(
         f"{ECB_BASE}/FM/B.U2.EUR.4F.KR.DFR.LEV",
         params={
@@ -184,7 +163,6 @@ def get_ecb_dfr():
 
 
 def get_ecb_hicp():
-    """Eurozone HVPI (HICP) YoY – ECB liefert bereits die YoY-Rate direkt."""
     data = safe_get(
         f"{ECB_BASE}/ICP/M.U2.N.000000.4.ANR",
         params={"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
@@ -206,7 +184,6 @@ def get_ecb_hicp():
 
 
 def get_de2y():
-    """Deutsche 2Y Bundesanleihe – ECB YC Dataflow."""
     data = safe_get(
         f"{ECB_BASE}/YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y",
         params={"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
@@ -255,12 +232,6 @@ def _fred_obs(series_id: str, obs_start: str = None, obs_end: str = None,
 
 
 def _yoy_cpi(series_id: str) -> tuple:
-    """
-    Berechnet US CPI YoY via zwei gezielten FRED-Abfragen.
-    Schritt 1: aktuellster Wert (limit=1, desc)
-    Schritt 2: Vorjahres-Monat via observation_start/end (deterministisch)
-    YoY = (val_now - val_prev) / val_prev * 100
-    """
     recent = _fred_obs(series_id, limit=1, sort="desc")
     if not recent:
         print(f"[WARN] {series_id}: kein aktueller Wert")
@@ -296,8 +267,7 @@ def _yoy_cpi(series_id: str) -> tuple:
     val_prev_str, date_prev_str = prev_obs[0]
     val_prev = float(val_prev_str)
     yoy = round((val_now - val_prev) / val_prev * 100, 2)
-    print(f"[OK] {series_id} YoY: {val_now} / {val_prev} = {yoy}% "
-          f"({date_now_str} vs {date_prev_str})")
+    print(f"[OK] {series_id} YoY: {val_now} / {val_prev} = {yoy}% ({date_now_str} vs {date_prev_str})")
     return yoy, date_now_str
 
 
@@ -309,10 +279,6 @@ def get_fed_effr():
 
 
 def get_us_cpi():
-    """
-    US CPI YoY – CPIAUCNS (nicht saisonbereinigt, BLS Headline).
-    Fallback: CPIAUCSL.
-    """
     yoy, dt = _yoy_cpi("CPIAUCNS")
     if yoy is not None:
         return yoy, dt
@@ -376,8 +342,7 @@ def get_cot_eur() -> dict:
 
     report_date = current.get("report_date_as_yyyy_mm_dd", "N/A")[:10]
 
-    print(f"[OK] COT: long={long_cur}, short={short_cur}, net={net_cur}, "
-          f"oi={oi_cur}, date={report_date}")
+    print(f"[OK] COT: long={long_cur}, short={short_cur}, net={net_cur}, oi={oi_cur}, date={report_date}")
 
     return {
         "date":      report_date,
@@ -427,103 +392,167 @@ def compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot) -> dict:
     if fed_effr is not None and ecb_dfr is not None:
         diff = fed_effr - ecb_dfr
         signals["rate_diff"]   = diff
-        signals["rate_signal"] = "\U0001f534 BÄRISCH EUR/USD" if diff > 0 else "\U0001f7e2 BULLISCH EUR/USD"
+        signals["rate_bias"]   = "BÄRISCH" if diff > 0 else "BULLISCH"
+        signals["rate_icon"]   = "🔴" if diff > 0 else "🟢"
     else:
-        signals["rate_diff"]   = None
-        signals["rate_signal"] = "\u26aa N/A"
+        signals["rate_diff"]  = None
+        signals["rate_bias"]  = "N/A"
+        signals["rate_icon"]  = "⚪"
 
     if us2y is not None and de2y is not None:
         spread = us2y - de2y
         signals["yield_spread"] = spread
-        signals["yield_signal"] = "\U0001f534 USD-Vorteil" if spread > 0 else "\U0001f7e2 EUR-Vorteil"
+        signals["yield_bias"]   = "USD-Vorteil" if spread > 0 else "EUR-Vorteil"
+        signals["yield_icon"]   = "🔴" if spread > 0 else "🟢"
     else:
         signals["yield_spread"] = None
-        signals["yield_signal"] = "\u26aa N/A"
+        signals["yield_bias"]   = "N/A"
+        signals["yield_icon"]   = "⚪"
 
     if cot and cot.get("net") is not None:
         net_pct = cot.get("net_pct", 0)
         if net_pct > 5:
-            signals["cot_signal"] = "\U0001f7e2 NET-LONG (EUR bullisch)"
+            signals["cot_bias"] = "NET-LONG"
+            signals["cot_icon"] = "🟢"
         elif net_pct < -5:
-            signals["cot_signal"] = "\U0001f534 NET-SHORT (EUR bärisch)"
+            signals["cot_bias"] = "NET-SHORT"
+            signals["cot_icon"] = "🔴"
         else:
-            signals["cot_signal"] = "\u26aa NEUTRAL/FLAT"
+            signals["cot_bias"] = "NEUTRAL"
+            signals["cot_icon"] = "⚪"
     else:
-        signals["cot_signal"] = "\u26aa N/A"
+        signals["cot_bias"] = "N/A"
+        signals["cot_icon"] = "⚪"
 
     return signals
 
 
 # ─────────────────────────────────────────────────────────────
-#  Nachricht bauen
+#  Nachricht bauen — elegantes MarkdownV2-Format
+#
+#  Struktur:
+#    HEADER  →  Datum + Wochentag
+#    BLOCK 1 →  EZB  |  FED  (kompakt, nebeneinander lesbar)
+#    BLOCK 2 →  Zinsdifferenz & Rendite-Spread
+#    BLOCK 3 →  COT Institutional Sentiment
+#    FOOTER  →  Gesamt-Bias + nächste Sitzungen
 # ─────────────────────────────────────────────────────────────
+
+WEEKDAY_DE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
 def build_message(ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
                   fed_effr, fed_effr_date, us_cpi, us_cpi_date,
                   us2y, us2y_date, de2y, de2y_date,
                   cot, meetings, signals) -> str:
-    today_str = datetime.now().strftime("%d.%m.%Y %H:%M")
 
-    rate_diff    = signals.get("rate_diff")
-    yield_spread = signals.get("yield_spread")
-    diff_str   = (f"+{rate_diff:.2f}pp" if rate_diff is not None and rate_diff >= 0
-                  else f"{rate_diff:.2f}pp" if rate_diff is not None else "N/A")
-    spread_str = (f"+{yield_spread:.2f}%" if yield_spread is not None and yield_spread >= 0
-                  else f"{yield_spread:.2f}%" if yield_spread is not None else "N/A")
+    now = datetime.now()
+    weekday = WEEKDAY_DE[now.weekday()]
+    date_str = now.strftime(f"{weekday}, %d\\. %m\\. %Y")
 
-    cot_delta_sign = "\u25b2" if cot.get("delta_net", 0) >= 0 else "\u25bc"
-    cot_delta      = abs(cot.get("delta_net", 0))
-    oi             = cot.get("oi", 0)
-    oi_str         = f"{oi:,}" if isinstance(oi, int) else "N/A"
-    net_val        = cot.get("net", 0)
-    net_str        = f"{net_val:,}" if isinstance(net_val, int) else "N/A"
+    # ── Zinsdifferenz-String
+    rd = signals.get("rate_diff")
+    rd_str = esc(f"+{rd:.2f}pp" if rd is not None and rd >= 0 else f"{rd:.2f}pp" if rd is not None else "N/A")
 
-    fomc_info = (f"{meetings['fomc_date']} (noch {meetings['fomc_days']}T)"
-                 if meetings.get("fomc_days") is not None else meetings.get("fomc_date", "N/A"))
-    ecb_info  = (f"{meetings['ecb_date']} (noch {meetings['ecb_days']}T)"
-                 if meetings.get("ecb_days")  is not None else meetings.get("ecb_date",  "N/A"))
+    # ── Rendite-Spread-String
+    ys = signals.get("yield_spread")
+    ys_str = esc(f"+{ys:.2f}pp" if ys is not None and ys >= 0 else f"{ys:.2f}pp" if ys is not None else "N/A")
 
-    kapital = ("\U0001f4b5 USD-Zinsvorteil \u2192 Kapital in den Dollar"
-               if (rate_diff or 0) > 0
-               else "\U0001f4b6 EUR-Zinsvorteil \u2192 Kapital in den Euro")
+    # ── COT-Werte
+    net_val   = cot.get("net", 0)
+    delta     = cot.get("delta_net", 0)
+    delta_sym = "▲" if delta >= 0 else "▼"
+    net_str   = esc(f"{net_val:+,}")
+    delta_str = esc(f"{delta_sym} {abs(delta):,}")
+    oi_str    = esc(f"{cot.get('oi', 0):,}")
+    lp        = esc(f"{cot.get('long_pct',  0):.1f}%")
+    sp        = esc(f"{cot.get('short_pct', 0):.1f}%")
+    np_       = esc(f"{cot.get('net_pct',   0):.1f}%")
+    cot_date  = esc(cot.get("date", "N/A"))
 
-    return (
-        f"\U0001f4ca *EUR/USD Morning Brief* \u2014 {today_str}\n"
-        f"\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n"
-        f"\U0001f1ea\U0001f1fa *EZB (Eurozone)*\n"
-        f"\u2022 Leitzins (DFR): `{fmt(ecb_dfr)}` _(Stand: {ecb_dfr_date})_\n"
-        f"\u2022 Inflation HVPI YoY: `{fmt(ecb_hicp)}` _(Stand: {ecb_hicp_date})_\n"
-        f"\u2022 N\u00e4chste EZB-Sitzung: {ecb_info}\n\n"
-        f"\U0001f1fa\U0001f1f8 *Federal Reserve (USA)*\n"
-        f"\u2022 Leitzins (EFFR): `{fmt(fed_effr)}` _(Stand: {fed_effr_date})_\n"
-        f"\u2022 Inflation CPI YoY: `{fmt(us_cpi)}` _(Stand: {us_cpi_date})_\n"
-        f"\u2022 N\u00e4chstes FOMC: {fomc_info}\n\n"
-        f"\U0001f4c8 *Kapitalfluss & Zinsdifferenz*\n"
-        f"\u2022 EFFR vs. DFR: `{diff_str}` \u2192 {signals['rate_signal']}\n"
-        f"\u2022 2Y US: `{fmt(us2y)}` | DE: `{fmt(de2y)}` _(Spread: {spread_str})_ \u2192 {signals['yield_signal']}\n"
-        f"\u2022 Kapitalfluss: {kapital}\n\n"
-        f"\U0001f4cb *Institutional Sentiment \u2013 COT (CME 6E EUR)*\n"
-        f"\u2022 Stand: {cot.get('date', 'N/A')}\n"
-        f"\u2022 Net-Position: `{net_str}` Kontrakte \u2192 {signals['cot_signal']}\n"
-        f"\u2022 \u0394 Vorwoche: `{cot_delta_sign} {cot_delta:,}` Kontrakte\n"
-        f"\u2022 K\u00e4ufer (Long): `{cot.get('long_pct', 'N/A')}%` | Verk\u00e4ufer (Short): `{cot.get('short_pct', 'N/A')}%`\n"
-        f"\u2022 Net % OI: `{cot.get('net_pct', 'N/A')}%` | OI Gesamt: `{oi_str}` Kontrakte\n\n"
-        f"\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n"
-        f"\U0001f3af *Gesamt-Bias EUR/USD*\n"
-        f"{signals['rate_signal']} | {signals['yield_signal']} | {signals['cot_signal']}\n\n"
-        f"_Quellen: ECB SDMX API \u00b7 FRED API \u00b7 CFTC Socrata API_"
-    )
+    # ── Nächste Sitzungen
+    fomc_days = meetings.get("fomc_days")
+    ecb_days  = meetings.get("ecb_days")
+    fomc_str  = esc(f"{meetings['fomc_date']}" + (f" \u00b7 noch {fomc_days}T" if fomc_days is not None else ""))
+    ecb_str   = esc(f"{meetings['ecb_date']}"  + (f" \u00b7 noch {ecb_days}T"  if ecb_days  is not None else ""))
+
+    # ── Signal-Zeile Gesamt-Bias
+    ri, rb = signals["rate_icon"],  esc(signals["rate_bias"])
+    yi, yb = signals["yield_icon"], esc(signals["yield_bias"])
+    ci, cb = signals["cot_icon"],   esc(signals["cot_bias"])
+
+    # ── Daten escapen
+    e_dfr       = esc(fmt(ecb_dfr))
+    e_dfr_date  = esc(ecb_dfr_date)
+    e_hicp      = esc(fmt(ecb_hicp))
+    e_hicp_date = esc(ecb_hicp_date)
+    e_effr      = esc(fmt(fed_effr))
+    e_effr_date = esc(fed_effr_date)
+    e_cpi       = esc(fmt(us_cpi))
+    e_cpi_date  = esc(us_cpi_date[:7] if len(str(us_cpi_date)) >= 7 else str(us_cpi_date))
+    e_us2y      = esc(fmt(us2y))
+    e_de2y      = esc(fmt(de2y))
+
+    lines = [
+        # ── HEADER
+        f"📊 *EUR/USD · Morning Brief*",
+        f"_{date_str}_",
+        "",
+        # ── BLOCK 1: Zentralbanken
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        "🇪🇺 *EZB*                      🇺🇸 *Federal Reserve*",
+        f"Leitzins \u00a0 `{e_dfr}`          Leitzins \u00a0 `{e_effr}`",
+        f"_DFR · {e_dfr_date}_          _EFFR · {e_effr_date}_",
+        f"Inflation \u00a0`{e_hicp}`         Inflation  `{e_cpi}`",
+        f"_HVPI · {e_hicp_date}_         _CPI · {e_cpi_date}_",
+        "",
+        # ── BLOCK 2: Zinsdiff & Renditen
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        "📈 *Kapitalfluss · Zinsdifferenz*",
+        "",
+        f"  EFFR vs\. DFR  `{rd_str}`   {signals['rate_icon']} _{esc(signals['rate_bias'])}_",
+        f"  US 2Y `{e_us2y}` · DE 2Y `{e_de2y}`",
+        f"  Spread `{ys_str}`            {signals['yield_icon']} _{esc(signals['yield_bias'])}_",
+        "",
+        # ── BLOCK 3: COT
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        "📋 *COT · CME EUR Futures 6E*",
+        f"_Stand: {cot_date}_",
+        "",
+        f"  Net\-Position   `{net_str}` Kontrakte",
+        f"  Δ Vorwoche      `{delta_str}` Kontrakte",
+        f"  Long `{lp}` · Short `{sp}` · Net\-OI `{np_}`",
+        f"  Open Interest   `{oi_str}` Kontrakte",
+        "",
+        # ── FOOTER: Gesamt-Bias + Sitzungen
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        f"🎯 *Gesamt\-Bias EUR/USD*",
+        "",
+        f"  Zinsdiff\. {ri} `{rb}`",
+        f"  Spread    {yi} `{yb}`",
+        f"  COT       {ci} `{cb}`",
+        "",
+        f"  📅 FOMC  `{fomc_str}`",
+        f"  📅 EZB   `{ecb_str}`",
+        "",
+        "_ECB SDMX · FRED · CFTC_",
+    ]
+
+    return "\n".join(lines)
 
 
 # ─────────────────────────────────────────────────────────────
-#  Telegram senden
+#  Telegram senden — MarkdownV2
 # ─────────────────────────────────────────────────────────────
 
 def send_telegram(message: str) -> bool:
     token   = TELEGRAM_BOT_TOKEN.strip()
     chat_id = TELEGRAM_CHAT_ID.strip()
     url     = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}
+    payload = {
+        "chat_id":    chat_id,
+        "text":       message,
+        "parse_mode": "MarkdownV2"
+    }
     try:
         r = requests.post(url, json=payload, timeout=15)
         print(f"[DEBUG] Telegram Status: {r.status_code}")
@@ -532,6 +561,8 @@ def send_telegram(message: str) -> bool:
         return True
     except Exception as e:
         print(f"[ERROR] Telegram: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"[ERROR] Body: {e.response.text}")
         return False
 
 
@@ -567,14 +598,14 @@ def run():
         cot, meetings, signals
     )
 
-    print("\n\u2500\u2500 VORSCHAU \u2500\u2500")
+    print("\n── VORSCHAU ──────────────────────────")
     print(message)
-    print("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n")
+    print("──────────────────────────────────────\n")
 
     if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
         send_telegram(message)
     else:
-        print("[INFO] Kein Token/Chat-ID gesetzt \u2013 nur Vorschau")
+        print("[INFO] Kein Token/Chat-ID gesetzt – nur Vorschau")
 
 
 if __name__ == "__main__":
