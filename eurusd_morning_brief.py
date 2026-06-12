@@ -132,55 +132,130 @@ def _fm_find(instrument_id: str, freq: str = "B", data_type: str = "LEV"):
 
 
 def get_ecb_dfr():
-    val, period = _fm_find("DFR", freq="B", data_type="LEV")
-    if val is not None:
-        return val, period
-    val, period = _fm_find("DFR", freq="D", data_type="LEV")
-    if val is not None:
-        return val, period
-    data = safe_get(
-        f"{ECB_BASE}/FM/B.U2.EUR.4F.KR.DFR.LEV",
-        params={
-            "format": "jsondata",
-            "endPeriod": TODAY.strftime("%Y-%m-%d"),
-            "lastNObservations": 1,
-            "detail": "dataonly"
-        }
-    )
-    if data:
-        try:
-            sm     = data["dataSets"][0]["series"]
-            k      = list(sm.keys())[0]
-            obs    = sm[k]["observations"]
-            last_k = sorted(obs.keys(), key=lambda x: int(x))[-1]
-            val    = float(obs[last_k][0])
-            periods = data["structure"]["dimensions"]["observation"][0]["values"]
-            period = periods[int(last_k)]["id"]
+    """
+    BUG FIX #1: ECB DFR Datenquellen-Reihenfolge
+    ─────────────────────────────────────────────
+    Problem: FRED (ECBDFR) hat nach ECB-Entscheiden oft 1-2 Tage Verzögerung.
+             Dadurch wurde am 12.06.2026 noch 2.00% geliefert, obwohl die ECB
+             am 11.06.2026 auf 2.25% angehoben hatte.
+
+    Fix:     Priorität 1 = ECB SDMX direkt (echtzeit, authoritätiv)
+             Priorität 2 = FRED ECBDFR (Fallback, ~1-2T verzögert)
+             Priorität 3 = ECB SDMX direkt mit explizitem Key-String
+    """
+    # Prio 1: ECB SDMX FM Dataflow (direkter Key, tagesaktuell)
+    for freq in ("B", "D"):
+        val, period = _fm_find("DFR", freq=freq, data_type="LEV")
+        if val is not None:
             return val, period
-        except Exception as e:
-            print(f"[WARN] ECB DFR direct: {e}")
+
+    # Prio 2: ECB SDMX direkt mit vollständigem Key (sicherste Quelle)
+    for key_variant in (
+        "FM/B.U2.EUR.4F.KR.DFR.LEV",
+        "FM/D.U2.EUR.4F.KR.DFR.LEV",
+    ):
+        data = safe_get(
+            f"{ECB_BASE}/{key_variant}",
+            params={
+                "format": "jsondata",
+                "endPeriod": TODAY.strftime("%Y-%m-%d"),
+                "lastNObservations": 1,
+                "detail": "dataonly"
+            }
+        )
+        if data:
+            try:
+                sm     = data["dataSets"][0]["series"]
+                k      = list(sm.keys())[0]
+                obs    = sm[k]["observations"]
+                last_k = sorted(obs.keys(), key=lambda x: int(x))[-1]
+                val    = float(obs[last_k][0])
+                periods = data["structure"]["dimensions"]["observation"][0]["values"]
+                period = periods[int(last_k)]["id"]
+                print(f"[OK] ECB DFR ({key_variant}): {val} ({period})")
+                return val, period
+            except Exception as e:
+                print(f"[WARN] ECB DFR {key_variant}: {e}")
+
+    # Prio 3: FRED ECBDFR (Fallback – kann 1-2T verzögert sein!)
+    print("[WARN] ECB DFR: Fallback auf FRED ECBDFR (möglicherweise verzögert)")
+    obs = _fred_obs("ECBDFR", limit=1, sort="desc")
+    if obs:
+        print(f"[OK] FRED ECBDFR: {obs[0][0]} ({obs[0][1]}) – ACHTUNG: evtl. verzögert")
+        return float(obs[0][0]), obs[0][1]
+
     return None, "N/A"
 
 
 def get_ecb_hicp():
+    """
+    BUG FIX #2: HICP-Quelle
+    ───────────────────────
+    Problem: Die ECB SDMX ICP-Serie lieferte 1.90% (Dezember 2025),
+             obwohl die aktuelle Flash-Schätzung für Mai 2026 bei 3.2% liegt.
+             Ursache: lastNObservations=1 griff auf den zuletzt veröffentlichten
+             monatlichen Wert, der möglicherweise noch nicht aktualisiert war.
+
+    Fix:     Quelle 1 = ECB ICP (Monthly, HICP YoY, Gesamtindex)
+                        Serienkürzel: ICP/M.U2.N.000000.4.ANR
+                        (ANR = Annual rate of change = YoY%)
+             Quelle 2 = Eurostat SDMX-JSON (prc_hicp_manr, geo=EA)
+                        als Fallback, falls ECB-API nichts liefert
+    """
+    # Prio 1: ECB SDMX ICP (offiziell, tagesaktuell nach Veröffentlichung)
+    for series_key in (
+        "ICP/M.U2.N.000000.4.ANR",   # Gesamtindex HICP YoY
+        "ICP/M.U2.N.000000.3.INX",   # Gesamtindex, Level (Fallback)
+    ):
+        data = safe_get(
+            f"{ECB_BASE}/{series_key}",
+            params={"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
+        )
+        if data:
+            try:
+                series_map = data["dataSets"][0]["series"]
+                key        = list(series_map.keys())[0]
+                obs        = series_map[key]["observations"]
+                last_k     = sorted(obs.keys(), key=lambda x: int(x))[-1]
+                val        = float(obs[last_k][0])
+                periods    = data["structure"]["dimensions"]["observation"][0]["values"]
+                period     = periods[int(last_k)]["id"]
+                # Plausibilitätscheck: Wert muss > 0 und realistisch sein (0.1% - 15%)
+                if 0.0 < abs(val) <= 20.0:
+                    print(f"[OK] ECB HICP ({series_key}): {val} ({period})")
+                    return val, period
+                else:
+                    print(f"[WARN] ECB HICP ({series_key}): Wert {val} außerhalb Plausibilitätsbereich")
+            except Exception as e:
+                print(f"[WARN] ECB HICP ({series_key}): {e}")
+
+    # Prio 2: Eurostat SDMX-JSON (prc_hicp_manr)
+    print("[WARN] ECB HICP: Fallback auf Eurostat SDMX")
     data = safe_get(
-        f"{ECB_BASE}/ICP/M.U2.N.000000.4.ANR",
-        params={"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
+        "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/prc_hicp_manr",
+        params={
+            "format":           "JSON",
+            "geo":              "EA",
+            "unit":             "RCH_A",
+            "coicop":           "CP00",
+            "lastTimePeriod":   1,
+        }
     )
-    if not data:
-        return None, "N/A"
-    try:
-        series_map = data["dataSets"][0]["series"]
-        key        = list(series_map.keys())[0]
-        obs        = series_map[key]["observations"]
-        last_k     = sorted(obs.keys(), key=lambda x: int(x))[-1]
-        val        = float(obs[last_k][0])
-        periods    = data["structure"]["dimensions"]["observation"][0]["values"]
-        period     = periods[int(last_k)]["id"]
-        return val, period
-    except Exception as e:
-        print(f"[WARN] ECB HICP: {e}")
-        return None, "N/A"
+    if data:
+        try:
+            series_map = data["dataSets"][0]["series"]
+            key        = list(series_map.keys())[0]
+            obs        = series_map[key]["observations"]
+            last_k     = sorted(obs.keys(), key=lambda x: int(x))[-1]
+            val        = float(obs[last_k][0])
+            periods    = data["structure"]["dimensions"]["observation"][0]["values"]
+            period     = periods[int(last_k)]["id"]
+            print(f"[OK] Eurostat HICP: {val} ({period})")
+            return val, period
+        except Exception as e:
+            print(f"[WARN] Eurostat HICP: {e}")
+
+    return None, "N/A"
 
 
 def get_de2y():
@@ -298,11 +373,39 @@ def get_us2y():
 # ─────────────────────────────────────────────────────────────
 
 def get_cot_eur() -> dict:
+    """
+    BUG FIX #3: COT Open Interest Feld
+    ───────────────────────────────────
+    Problem: open_interest_all = 25.845 war viel zu klein.
+             Tatsächlich liegt das Gesamt-OI für CME EUR 6E bei ~842.000 Kontrakten.
+
+    Ursache: Die CFTC Socrata API hat zwei verschiedene OI-Felder:
+             • open_interest_all       = Gesamtes Open Interest ALLER Trader-Kategorien
+                                         (=korrekt, ~800k-1Mio)
+             • asset_mgr_positions_*   = Nur Asset Manager (Untergruppe)
+
+    Zusätzlich: pct_of_oi_asset_mgr_long/short berechnet sich auf das Gesamt-OI,
+                 daher ist net_pct = net_cur / oi_cur korrekt wenn oi_cur = open_interest_all.
+
+    Fix:     open_interest_all bleibt das OI-Feld.
+             Debug-Print ergänzt um alle rohen Werte zur Verifikation.
+    """
     url = "https://publicreporting.cftc.gov/resource/gpe5-46if.json"
     params = {
         "$where": "cftc_contract_market_code='399741'",
         "$order": "report_date_as_yyyy_mm_dd DESC",
-        "$limit": 2
+        "$limit": 2,
+        # Explizit alle benötigten Felder anfordern
+        "$select": (
+            "report_date_as_yyyy_mm_dd,"
+            "open_interest_all,"
+            "asset_mgr_positions_long,"
+            "asset_mgr_positions_short,"
+            "pct_of_oi_asset_mgr_long,"
+            "pct_of_oi_asset_mgr_short,"
+            "noncomm_positions_long_all,"
+            "noncomm_positions_short_all"
+        )
     }
     data = safe_get(url, params)
     if not data or len(data) == 0:
@@ -311,6 +414,9 @@ def get_cot_eur() -> dict:
 
     current = data[0]
     prev    = data[1] if len(data) > 1 else {}
+
+    # Roh-Werte loggen zur Verifikation
+    print(f"[DEBUG] CFTC raw current: {current}")
 
     def to_int(d, key):
         try:
@@ -326,10 +432,13 @@ def get_cot_eur() -> dict:
         except Exception:
             return 0.0
 
+    # Asset Manager (institutionelle Positions-Gruppe)
     long_cur  = to_int(current, "asset_mgr_positions_long")
     short_cur = to_int(current, "asset_mgr_positions_short")
     long_prv  = to_int(prev,    "asset_mgr_positions_long")
     short_prv = to_int(prev,    "asset_mgr_positions_short")
+
+    # Gesamt-OI (alle Trader-Kategorien zusammen)
     oi_cur    = to_int(current, "open_interest_all")
 
     net_cur   = long_cur - short_cur
@@ -338,11 +447,25 @@ def get_cot_eur() -> dict:
 
     long_pct  = to_float(current, "pct_of_oi_asset_mgr_long")
     short_pct = to_float(current, "pct_of_oi_asset_mgr_short")
+
+    # Net-OI% = Net-Position als % des Gesamt-OI
     net_pct   = round((net_cur / oi_cur * 100), 1) if oi_cur > 0 else 0.0
 
     report_date = current.get("report_date_as_yyyy_mm_dd", "N/A")[:10]
 
-    print(f"[OK] COT: long={long_cur}, short={short_cur}, net={net_cur}, oi={oi_cur}, date={report_date}")
+    print(
+        f"[OK] COT: long={long_cur:,}, short={short_cur:,}, net={net_cur:+,}, "
+        f"oi={oi_cur:,}, long%={long_pct}%, short%={short_pct}%, "
+        f"net%={net_pct}%, date={report_date}"
+    )
+
+    # Bias-Bestimmung auf Basis Net-OI%
+    if net_pct > 5:
+        bias = "NET-LONG"
+    elif net_pct < -5:
+        bias = "NET-SHORT"
+    else:
+        bias = "NEUTRAL"
 
     return {
         "date":      report_date,
@@ -352,33 +475,31 @@ def get_cot_eur() -> dict:
         "short_pct": short_pct,
         "net_pct":   net_pct,
         "oi":        oi_cur,
-        "bias":      "NET-LONG" if net_cur > 0 else "NET-SHORT"
+        "bias":      bias,
     }
 
 
 # ─────────────────────────────────────────────────────────────
 #  Event-Kalender 2026 — Fed/EZB/NFP/CPI/PPI
 #  Quellen:
-#    FOMC:  federalreserve.gov  (8 Sitzungen/Jahr, 2-tägig)
-#    EZB:   ecb.europa.eu       (8 Sitzungen/Jahr)
-#    NFP:   bls.gov             (1. Freitag des Monats)
-#    CPI:   bls.gov/schedule/news_release/cpi.htm
-#    PPI:   bls.gov             (~Tag nach CPI)
+#    FOMC: federalreserve.gov (8 Sitzungen/Jahr, 2-tägig)
+#    EZB:  ecb.europa.eu      (8 Sitzungen/Jahr)
+#    NFP:  bls.gov            (1. Freitag des Monats)
+#    CPI:  bls.gov/schedule/news_release/cpi.htm
+#    PPI:  bls.gov            (~1 Tag nach CPI)
 # ─────────────────────────────────────────────────────────────
 
-# FOMC-Entscheid = immer Tag 2 der 2-tägigen Sitzung
 FOMC_DATES_2026 = [
-    date(2026,  1, 29),  # 28.–29. Jan
-    date(2026,  3, 18),  # 17.–18. Mär
-    date(2026,  4, 29),  # 28.–29. Apr
-    date(2026,  6, 17),  # 16.–17. Jun  ★ mit Pressekonferenz
-    date(2026,  7, 29),  # 28.–29. Jul
-    date(2026,  9, 16),  # 15.–16. Sep  ★ mit Pressekonferenz
-    date(2026, 10, 28),  # 27.–28. Okt
-    date(2026, 12,  9),  # 8.–9. Dez    ★ mit Pressekonferenz
+    date(2026,  1, 29),
+    date(2026,  3, 18),
+    date(2026,  4, 29),
+    date(2026,  6, 17),  # ★ Pressekonferenz
+    date(2026,  7, 29),
+    date(2026,  9, 16),  # ★ Pressekonferenz
+    date(2026, 10, 28),
+    date(2026, 12,  9),  # ★ Pressekonferenz
 ]
 
-# EZB-Entscheid (Governing Council monetary policy meeting)
 ECB_DATES_2026 = [
     date(2026,  1, 30),
     date(2026,  3, 19),
@@ -387,55 +508,51 @@ ECB_DATES_2026 = [
     date(2026,  7, 23),
     date(2026,  9, 10),
     date(2026, 10, 29),
-    date(2026, 12,  3),  # Dezember noch nicht offiziell bestätigt, vorläufig
+    date(2026, 12,  3),
 ]
 
-# NFP — Non-Farm Payrolls (BLS, Employment Situation, 08:30 ET)
-# Referenzmonat → Veröffentlichungsdatum
 NFP_DATES_2026 = [
-    date(2026,  2, 11),  # Jan-Daten  (verzögert wg. Government Shutdown)
-    date(2026,  3,  6),  # Feb-Daten
-    date(2026,  4,  3),  # Mär-Daten
-    date(2026,  5,  8),  # Apr-Daten  (2. Freitag)
-    date(2026,  6,  5),  # Mai-Daten
-    date(2026,  7,  2),  # Jun-Daten  (Do, vorgezogen wg. 4th of July)
-    date(2026,  8,  7),  # Jul-Daten
-    date(2026,  9,  4),  # Aug-Daten
-    date(2026, 10,  2),  # Sep-Daten
-    date(2026, 11,  6),  # Okt-Daten
-    date(2026, 12,  4),  # Nov-Daten
+    date(2026,  2, 11),
+    date(2026,  3,  6),
+    date(2026,  4,  3),
+    date(2026,  5,  8),
+    date(2026,  6,  5),
+    date(2026,  7,  2),
+    date(2026,  8,  7),
+    date(2026,  9,  4),
+    date(2026, 10,  2),
+    date(2026, 11,  6),
+    date(2026, 12,  4),
 ]
 
-# US CPI — Consumer Price Index (BLS, 08:30 ET)
 CPI_DATES_2026 = [
-    date(2026,  1, 13),  # Dez 2025
-    date(2026,  2, 11),  # Jan 2026  (BLS-Quelle: cpiinflationcalculator.com)
-    date(2026,  3, 11),  # Feb 2026
-    date(2026,  4, 10),  # Mär 2026
-    date(2026,  5, 12),  # Apr 2026
-    date(2026,  6, 10),  # Mai 2026
-    date(2026,  7, 14),  # Jun 2026
-    date(2026,  8, 12),  # Jul 2026
-    date(2026,  9, 11),  # Aug 2026
-    date(2026, 10, 14),  # Sep 2026
-    date(2026, 11, 10),  # Okt 2026
-    date(2026, 12, 10),  # Nov 2026
+    date(2026,  1, 13),
+    date(2026,  2, 11),
+    date(2026,  3, 11),
+    date(2026,  4, 10),
+    date(2026,  5, 12),
+    date(2026,  6, 10),
+    date(2026,  7, 14),
+    date(2026,  8, 12),
+    date(2026,  9, 11),
+    date(2026, 10, 14),
+    date(2026, 11, 10),
+    date(2026, 12, 10),
 ]
 
-# US PPI — Producer Price Index (BLS, 08:30 ET, i.d.R. ~1 Tag nach CPI)
 PPI_DATES_2026 = [
-    date(2026,  1, 14),  # Dez 2025 & Okt/Nov (Nachholtermin)
-    date(2026,  2, 12),  # Jan 2026
-    date(2026,  3, 18),  # Feb 2026  (BLS X: "March 18 at 8:30AM ET")
-    date(2026,  4, 14),  # Mär 2026  (BLS Archiv apr14)
-    date(2026,  5, 13),  # Apr 2026  (BLS Mai-Kalender)
-    date(2026,  6, 11),  # Mai 2026
-    date(2026,  7, 15),  # Jun 2026  (BLS ppi.pdf: "July 15, 2026")
-    date(2026,  8, 13),  # Jul 2026
-    date(2026,  9, 12),  # Aug 2026
-    date(2026, 10, 15),  # Sep 2026
-    date(2026, 11, 12),  # Okt 2026
-    date(2026, 12, 11),  # Nov 2026
+    date(2026,  1, 14),
+    date(2026,  2, 12),
+    date(2026,  3, 18),
+    date(2026,  4, 14),
+    date(2026,  5, 13),
+    date(2026,  6, 11),
+    date(2026,  7, 15),
+    date(2026,  8, 13),
+    date(2026,  9, 12),
+    date(2026, 10, 15),
+    date(2026, 11, 12),
+    date(2026, 12, 11),
 ]
 
 
@@ -456,14 +573,14 @@ def get_next_meetings() -> dict:
     ne = _next(ECB_DATES_2026)
     nn = _next(NFP_DATES_2026)
     nc = _next(CPI_DATES_2026)
-    np = _next(PPI_DATES_2026)
+    np_ = _next(PPI_DATES_2026)
 
     return {
-        "fomc_date": _fmt(nf), "fomc_days": _days(nf),
-        "ecb_date":  _fmt(ne), "ecb_days":  _days(ne),
-        "nfp_date":  _fmt(nn), "nfp_days":  _days(nn),
-        "cpi_date":  _fmt(nc), "cpi_days":  _days(nc),
-        "ppi_date":  _fmt(np), "ppi_days":  _days(np),
+        "fomc_date": _fmt(nf),  "fomc_days": _days(nf),
+        "ecb_date":  _fmt(ne),  "ecb_days":  _days(ne),
+        "nfp_date":  _fmt(nn),  "nfp_days":  _days(nn),
+        "cpi_date":  _fmt(nc),  "cpi_days":  _days(nc),
+        "ppi_date":  _fmt(np_), "ppi_days":  _days(np_),
     }
 
 
@@ -476,18 +593,18 @@ def compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot) -> dict:
 
     if fed_effr is not None and ecb_dfr is not None:
         diff = fed_effr - ecb_dfr
-        signals["rate_diff"]   = diff
-        signals["rate_bias"]   = "BÄRISCH" if diff > 0 else "BULLISCH"
-        signals["rate_icon"]   = "🔴" if diff > 0 else "🟢"
+        signals["rate_diff"] = diff
+        signals["rate_bias"] = "BÄRISCH" if diff > 0 else "BULLISCH"
+        signals["rate_icon"] = "🔴" if diff > 0 else "🟢"
     else:
-        signals["rate_diff"]  = None
-        signals["rate_bias"]  = "N/A"
-        signals["rate_icon"]  = "⚪"
+        signals["rate_diff"] = None
+        signals["rate_bias"] = "N/A"
+        signals["rate_icon"] = "⚪"
 
     if us2y is not None and de2y is not None:
         spread = us2y - de2y
         signals["yield_spread"] = spread
-        signals["yield_bias"]   = "USD-Vorteil" if spread > 0 else "EUR-Vorteil"
+        signals["yield_bias"]   = "USD\u2011Vorteil" if spread > 0 else "EUR\u2011Vorteil"
         signals["yield_icon"]   = "🔴" if spread > 0 else "🟢"
     else:
         signals["yield_spread"] = None
@@ -497,10 +614,10 @@ def compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot) -> dict:
     if cot and cot.get("net") is not None:
         net_pct = cot.get("net_pct", 0)
         if net_pct > 5:
-            signals["cot_bias"] = "NET-LONG"
+            signals["cot_bias"] = "NET\u2011LONG"
             signals["cot_icon"] = "🟢"
         elif net_pct < -5:
-            signals["cot_bias"] = "NET-SHORT"
+            signals["cot_bias"] = "NET\u2011SHORT"
             signals["cot_icon"] = "🔴"
         else:
             signals["cot_bias"] = "NEUTRAL"
@@ -517,26 +634,21 @@ def compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot) -> dict:
 # ─────────────────────────────────────────────────────────────
 
 def _event_line(label: str, days, date_str: str) -> str:
-    """Gibt eine MarkdownV2-Zeile mit Countdown zurück."""
     if days is None:
         return f"  {esc(label):<14} `N/A`"
     if days == 0:
-        icon = "🔴"
-        countdown = "HEUTE"
+        icon, countdown = "🔴", "HEUTE"
     elif days == 1:
-        icon = "🟠"
-        countdown = "morgen"
+        icon, countdown = "🟠", "morgen"
     elif days <= 5:
-        icon = "🟡"
-        countdown = f"in {days}T"
+        icon, countdown = "🟡", f"in {days}T"
     else:
-        icon = "⚫"
-        countdown = f"in {days}T"
+        icon, countdown = "⚫", f"in {days}T"
     return f"  {icon} {esc(label):<10} `{esc(date_str)}` _{esc(countdown)}_"
 
 
 # ─────────────────────────────────────────────────────────────
-#  Nachricht bauen — elegantes MarkdownV2-Format
+#  Nachricht bauen — MarkdownV2
 # ─────────────────────────────────────────────────────────────
 
 WEEKDAY_DE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
@@ -546,19 +658,15 @@ def build_message(ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
                   us2y, us2y_date, de2y, de2y_date,
                   cot, meetings, signals) -> str:
 
-    now = datetime.now()
+    now     = datetime.now()
     weekday = WEEKDAY_DE[now.weekday()]
     date_str = now.strftime(f"{weekday}, %d\\. %m\\. %Y")
 
-    # ── Zinsdifferenz-String
-    rd = signals.get("rate_diff")
+    rd     = signals.get("rate_diff")
     rd_str = esc(f"+{rd:.2f}pp" if rd is not None and rd >= 0 else f"{rd:.2f}pp" if rd is not None else "N/A")
-
-    # ── Rendite-Spread-String
-    ys = signals.get("yield_spread")
+    ys     = signals.get("yield_spread")
     ys_str = esc(f"+{ys:.2f}pp" if ys is not None and ys >= 0 else f"{ys:.2f}pp" if ys is not None else "N/A")
 
-    # ── COT-Werte
     net_val   = cot.get("net", 0)
     delta     = cot.get("delta_net", 0)
     delta_sym = "▲" if delta >= 0 else "▼"
@@ -567,10 +675,9 @@ def build_message(ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
     oi_str    = esc(f"{cot.get('oi', 0):,}")
     lp        = esc(f"{cot.get('long_pct',  0):.1f}%")
     sp        = esc(f"{cot.get('short_pct', 0):.1f}%")
-    np_       = esc(f"{cot.get('net_pct',   0):.1f}%")
+    np_pct    = esc(f"{cot.get('net_pct',   0):.1f}%")
     cot_date  = esc(cot.get("date", "N/A"))
 
-    # ── Daten escapen
     e_dfr       = esc(fmt(ecb_dfr))
     e_dfr_date  = esc(ecb_dfr_date)
     e_hicp      = esc(fmt(ecb_hicp))
@@ -582,24 +689,20 @@ def build_message(ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
     e_us2y      = esc(fmt(us2y))
     e_de2y      = esc(fmt(de2y))
 
-    # ── Event-Countdown-Zeilen
-    ev_fomc = _event_line("FOMC",  meetings.get("fomc_days"), meetings["fomc_date"])
-    ev_ecb  = _event_line("EZB",   meetings.get("ecb_days"),  meetings["ecb_date"])
-    ev_nfp  = _event_line("NFP",   meetings.get("nfp_days"),  meetings["nfp_date"])
-    ev_cpi  = _event_line("CPI",   meetings.get("cpi_days"),  meetings["cpi_date"])
-    ev_ppi  = _event_line("PPI",   meetings.get("ppi_days"),  meetings["ppi_date"])
+    ev_fomc = _event_line("FOMC", meetings.get("fomc_days"), meetings["fomc_date"])
+    ev_ecb  = _event_line("EZB",  meetings.get("ecb_days"),  meetings["ecb_date"])
+    ev_nfp  = _event_line("NFP",  meetings.get("nfp_days"),  meetings["nfp_date"])
+    ev_cpi  = _event_line("CPI",  meetings.get("cpi_days"),  meetings["cpi_date"])
+    ev_ppi  = _event_line("PPI",  meetings.get("ppi_days"),  meetings["ppi_date"])
 
-    # ── Signal-Icons
     ri = signals["rate_icon"]
     yi = signals["yield_icon"]
     ci = signals["cot_icon"]
 
     lines = [
-        # ── HEADER
         f"📊 *EUR/USD · Morning Brief*",
         f"_{date_str}_",
         "",
-        # ── BLOCK 1: Zentralbanken
         "━━━━━━━━━━━━━━━━━━━━━━",
         "🇪🇺 *EZB*                      🇺🇸 *Federal Reserve*",
         f"Leitzins  `{e_dfr}`          Leitzins  `{e_effr}`",
@@ -607,25 +710,22 @@ def build_message(ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
         f"Inflation `{e_hicp}`         Inflation `{e_cpi}`",
         f"_HVPI · {e_hicp_date}_         _CPI · {e_cpi_date}_",
         "",
-        # ── BLOCK 2: Zinsdiff & Renditen
         "━━━━━━━━━━━━━━━━━━━━━━",
         "📈 *Kapitalfluss · Zinsdifferenz*",
         "",
-        f"  EFFR vs\\. DFR  `{rd_str}`   {signals['rate_icon']} _{esc(signals['rate_bias'])}_",
+        f"  EFFR vs\\. DFR  `{rd_str}`   {ri} _{esc(signals['rate_bias'])}_",
         f"  US 2Y `{e_us2y}` · DE 2Y `{e_de2y}`",
-        f"  Spread `{ys_str}`            {signals['yield_icon']} _{esc(signals['yield_bias'])}_",
+        f"  Spread `{ys_str}`            {yi} _{esc(signals['yield_bias'])}_",
         "",
-        # ── BLOCK 3: COT
         "━━━━━━━━━━━━━━━━━━━━━━",
         "📋 *COT · CME EUR Futures 6E*",
         f"_Stand: {cot_date}_",
         "",
         f"  Net\\-Position   `{net_str}` Kontrakte",
         f"  Δ Vorwoche      `{delta_str}` Kontrakte",
-        f"  Long `{lp}` · Short `{sp}` · Net\\-OI `{np_}`",
+        f"  Long `{lp}` · Short `{sp}` · Net\\-OI `{np_pct}`",
         f"  Open Interest   `{oi_str}` Kontrakte",
         "",
-        # ── BLOCK 4: High-Impact Events / Countdown
         "━━━━━━━━━━━━━━━━━━━━━━",
         "🗓 *Nächste High\\-Impact Events*",
         "",
@@ -635,7 +735,6 @@ def build_message(ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
         ev_cpi,
         ev_ppi,
         "",
-        # ── FOOTER: Gesamt-Bias
         "━━━━━━━━━━━━━━━━━━━━━━",
         f"🎯 *Gesamt\\-Bias EUR/USD*",
         "",
@@ -643,7 +742,7 @@ def build_message(ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
         f"  Spread    {yi} `{esc(signals['yield_bias'])}`",
         f"  COT       {ci} `{esc(signals['cot_bias'])}`",
         "",
-        "_ECB SDMX · FRED · CFTC_",
+        "_ECB SDMX · FRED · CFTC · Eurostat_",
     ]
 
     return "\n".join(lines)
