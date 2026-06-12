@@ -357,28 +357,113 @@ def get_cot_eur() -> dict:
 
 
 # ─────────────────────────────────────────────────────────────
-#  Nächste FOMC/EZB-Sitzungen
+#  Event-Kalender 2026 — Fed/EZB/NFP/CPI/PPI
+#  Quellen:
+#    FOMC:  federalreserve.gov  (8 Sitzungen/Jahr, 2-tägig)
+#    EZB:   ecb.europa.eu       (8 Sitzungen/Jahr)
+#    NFP:   bls.gov             (1. Freitag des Monats)
+#    CPI:   bls.gov/schedule/news_release/cpi.htm
+#    PPI:   bls.gov             (~Tag nach CPI)
 # ─────────────────────────────────────────────────────────────
+
+# FOMC-Entscheid = immer Tag 2 der 2-tägigen Sitzung
+FOMC_DATES_2026 = [
+    date(2026,  1, 29),  # 28.–29. Jan
+    date(2026,  3, 18),  # 17.–18. Mär
+    date(2026,  4, 29),  # 28.–29. Apr
+    date(2026,  6, 17),  # 16.–17. Jun  ★ mit Pressekonferenz
+    date(2026,  7, 29),  # 28.–29. Jul
+    date(2026,  9, 16),  # 15.–16. Sep  ★ mit Pressekonferenz
+    date(2026, 10, 28),  # 27.–28. Okt
+    date(2026, 12,  9),  # 8.–9. Dez    ★ mit Pressekonferenz
+]
+
+# EZB-Entscheid (Governing Council monetary policy meeting)
+ECB_DATES_2026 = [
+    date(2026,  1, 30),
+    date(2026,  3, 19),
+    date(2026,  4, 30),
+    date(2026,  6, 11),
+    date(2026,  7, 23),
+    date(2026,  9, 10),
+    date(2026, 10, 29),
+    date(2026, 12,  3),  # Dezember noch nicht offiziell bestätigt, vorläufig
+]
+
+# NFP — Non-Farm Payrolls (BLS, Employment Situation, 08:30 ET)
+# Referenzmonat → Veröffentlichungsdatum
+NFP_DATES_2026 = [
+    date(2026,  2, 11),  # Jan-Daten  (verzögert wg. Government Shutdown)
+    date(2026,  3,  6),  # Feb-Daten
+    date(2026,  4,  3),  # Mär-Daten
+    date(2026,  5,  8),  # Apr-Daten  (2. Freitag)
+    date(2026,  6,  5),  # Mai-Daten
+    date(2026,  7,  2),  # Jun-Daten  (Do, vorgezogen wg. 4th of July)
+    date(2026,  8,  7),  # Jul-Daten
+    date(2026,  9,  4),  # Aug-Daten
+    date(2026, 10,  2),  # Sep-Daten
+    date(2026, 11,  6),  # Okt-Daten
+    date(2026, 12,  4),  # Nov-Daten
+]
+
+# US CPI — Consumer Price Index (BLS, 08:30 ET)
+CPI_DATES_2026 = [
+    date(2026,  1, 13),  # Dez 2025
+    date(2026,  2, 11),  # Jan 2026  (BLS-Quelle: cpiinflationcalculator.com)
+    date(2026,  3, 11),  # Feb 2026
+    date(2026,  4, 10),  # Mär 2026
+    date(2026,  5, 12),  # Apr 2026
+    date(2026,  6, 10),  # Mai 2026
+    date(2026,  7, 14),  # Jun 2026
+    date(2026,  8, 12),  # Jul 2026
+    date(2026,  9, 11),  # Aug 2026
+    date(2026, 10, 14),  # Sep 2026
+    date(2026, 11, 10),  # Okt 2026
+    date(2026, 12, 10),  # Nov 2026
+]
+
+# US PPI — Producer Price Index (BLS, 08:30 ET, i.d.R. ~1 Tag nach CPI)
+PPI_DATES_2026 = [
+    date(2026,  1, 14),  # Dez 2025 & Okt/Nov (Nachholtermin)
+    date(2026,  2, 12),  # Jan 2026
+    date(2026,  3, 18),  # Feb 2026  (BLS X: "March 18 at 8:30AM ET")
+    date(2026,  4, 14),  # Mär 2026  (BLS Archiv apr14)
+    date(2026,  5, 13),  # Apr 2026  (BLS Mai-Kalender)
+    date(2026,  6, 11),  # Mai 2026
+    date(2026,  7, 15),  # Jun 2026  (BLS ppi.pdf: "July 15, 2026")
+    date(2026,  8, 13),  # Jul 2026
+    date(2026,  9, 12),  # Aug 2026
+    date(2026, 10, 15),  # Sep 2026
+    date(2026, 11, 12),  # Okt 2026
+    date(2026, 12, 11),  # Nov 2026
+]
+
 
 def get_next_meetings() -> dict:
     today = date.today()
-    fomc_dates = [
-        date(2026, 1, 28), date(2026, 3, 18), date(2026, 5, 6),
-        date(2026, 6, 17), date(2026, 7, 29), date(2026, 9, 16),
-        date(2026, 10, 28), date(2026, 12, 9)
-    ]
-    ecb_dates = [
-        date(2026, 1, 30), date(2026, 3, 5),  date(2026, 4, 16),
-        date(2026, 6, 5),  date(2026, 7, 23), date(2026, 9, 10),
-        date(2026, 10, 22), date(2026, 12, 3)
-    ]
-    next_fomc = next((d for d in sorted(fomc_dates) if d >= today), None)
-    next_ecb  = next((d for d in sorted(ecb_dates)  if d >= today), None)
+
+    def _next(dates):
+        fut = [d for d in sorted(dates) if d >= today]
+        return fut[0] if fut else None
+
+    def _fmt(d):
+        return d.strftime("%d.%m.%Y") if d else "N/A"
+
+    def _days(d):
+        return (d - today).days if d else None
+
+    nf = _next(FOMC_DATES_2026)
+    ne = _next(ECB_DATES_2026)
+    nn = _next(NFP_DATES_2026)
+    nc = _next(CPI_DATES_2026)
+    np = _next(PPI_DATES_2026)
+
     return {
-        "fomc_date": next_fomc.strftime("%d.%m.%Y") if next_fomc else "N/A",
-        "fomc_days": (next_fomc - today).days if next_fomc else None,
-        "ecb_date":  next_ecb.strftime("%d.%m.%Y")  if next_ecb  else "N/A",
-        "ecb_days":  (next_ecb  - today).days if next_ecb  else None,
+        "fomc_date": _fmt(nf), "fomc_days": _days(nf),
+        "ecb_date":  _fmt(ne), "ecb_days":  _days(ne),
+        "nfp_date":  _fmt(nn), "nfp_days":  _days(nn),
+        "cpi_date":  _fmt(nc), "cpi_days":  _days(nc),
+        "ppi_date":  _fmt(np), "ppi_days":  _days(np),
     }
 
 
@@ -428,14 +513,30 @@ def compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────
+#  Countdown-Zeile für Ereignisse (HIGH-IMPACT)
+# ─────────────────────────────────────────────────────────────
+
+def _event_line(label: str, days, date_str: str) -> str:
+    """Gibt eine MarkdownV2-Zeile mit Countdown zurück."""
+    if days is None:
+        return f"  {esc(label):<14} `N/A`"
+    if days == 0:
+        icon = "🔴"
+        countdown = "HEUTE"
+    elif days == 1:
+        icon = "🟠"
+        countdown = "morgen"
+    elif days <= 5:
+        icon = "🟡"
+        countdown = f"in {days}T"
+    else:
+        icon = "⚫"
+        countdown = f"in {days}T"
+    return f"  {icon} {esc(label):<10} `{esc(date_str)}` _{esc(countdown)}_"
+
+
+# ─────────────────────────────────────────────────────────────
 #  Nachricht bauen — elegantes MarkdownV2-Format
-#
-#  Struktur:
-#    HEADER  →  Datum + Wochentag
-#    BLOCK 1 →  EZB  |  FED  (kompakt, nebeneinander lesbar)
-#    BLOCK 2 →  Zinsdifferenz & Rendite-Spread
-#    BLOCK 3 →  COT Institutional Sentiment
-#    FOOTER  →  Gesamt-Bias + nächste Sitzungen
 # ─────────────────────────────────────────────────────────────
 
 WEEKDAY_DE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
@@ -469,17 +570,6 @@ def build_message(ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
     np_       = esc(f"{cot.get('net_pct',   0):.1f}%")
     cot_date  = esc(cot.get("date", "N/A"))
 
-    # ── Nächste Sitzungen
-    fomc_days = meetings.get("fomc_days")
-    ecb_days  = meetings.get("ecb_days")
-    fomc_str  = esc(f"{meetings['fomc_date']}" + (f" \u00b7 noch {fomc_days}T" if fomc_days is not None else ""))
-    ecb_str   = esc(f"{meetings['ecb_date']}"  + (f" \u00b7 noch {ecb_days}T"  if ecb_days  is not None else ""))
-
-    # ── Signal-Zeile Gesamt-Bias
-    ri, rb = signals["rate_icon"],  esc(signals["rate_bias"])
-    yi, yb = signals["yield_icon"], esc(signals["yield_bias"])
-    ci, cb = signals["cot_icon"],   esc(signals["cot_bias"])
-
     # ── Daten escapen
     e_dfr       = esc(fmt(ecb_dfr))
     e_dfr_date  = esc(ecb_dfr_date)
@@ -492,6 +582,18 @@ def build_message(ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
     e_us2y      = esc(fmt(us2y))
     e_de2y      = esc(fmt(de2y))
 
+    # ── Event-Countdown-Zeilen
+    ev_fomc = _event_line("FOMC",  meetings.get("fomc_days"), meetings["fomc_date"])
+    ev_ecb  = _event_line("EZB",   meetings.get("ecb_days"),  meetings["ecb_date"])
+    ev_nfp  = _event_line("NFP",   meetings.get("nfp_days"),  meetings["nfp_date"])
+    ev_cpi  = _event_line("CPI",   meetings.get("cpi_days"),  meetings["cpi_date"])
+    ev_ppi  = _event_line("PPI",   meetings.get("ppi_days"),  meetings["ppi_date"])
+
+    # ── Signal-Icons
+    ri = signals["rate_icon"]
+    yi = signals["yield_icon"]
+    ci = signals["cot_icon"]
+
     lines = [
         # ── HEADER
         f"📊 *EUR/USD · Morning Brief*",
@@ -500,16 +602,16 @@ def build_message(ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
         # ── BLOCK 1: Zentralbanken
         "━━━━━━━━━━━━━━━━━━━━━━",
         "🇪🇺 *EZB*                      🇺🇸 *Federal Reserve*",
-        f"Leitzins \u00a0 `{e_dfr}`          Leitzins \u00a0 `{e_effr}`",
+        f"Leitzins  `{e_dfr}`          Leitzins  `{e_effr}`",
         f"_DFR · {e_dfr_date}_          _EFFR · {e_effr_date}_",
-        f"Inflation \u00a0`{e_hicp}`         Inflation  `{e_cpi}`",
+        f"Inflation `{e_hicp}`         Inflation `{e_cpi}`",
         f"_HVPI · {e_hicp_date}_         _CPI · {e_cpi_date}_",
         "",
         # ── BLOCK 2: Zinsdiff & Renditen
         "━━━━━━━━━━━━━━━━━━━━━━",
         "📈 *Kapitalfluss · Zinsdifferenz*",
         "",
-        f"  EFFR vs\. DFR  `{rd_str}`   {signals['rate_icon']} _{esc(signals['rate_bias'])}_",
+        f"  EFFR vs\\. DFR  `{rd_str}`   {signals['rate_icon']} _{esc(signals['rate_bias'])}_",
         f"  US 2Y `{e_us2y}` · DE 2Y `{e_de2y}`",
         f"  Spread `{ys_str}`            {signals['yield_icon']} _{esc(signals['yield_bias'])}_",
         "",
@@ -518,21 +620,28 @@ def build_message(ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
         "📋 *COT · CME EUR Futures 6E*",
         f"_Stand: {cot_date}_",
         "",
-        f"  Net\-Position   `{net_str}` Kontrakte",
+        f"  Net\\-Position   `{net_str}` Kontrakte",
         f"  Δ Vorwoche      `{delta_str}` Kontrakte",
-        f"  Long `{lp}` · Short `{sp}` · Net\-OI `{np_}`",
+        f"  Long `{lp}` · Short `{sp}` · Net\\-OI `{np_}`",
         f"  Open Interest   `{oi_str}` Kontrakte",
         "",
-        # ── FOOTER: Gesamt-Bias + Sitzungen
+        # ── BLOCK 4: High-Impact Events / Countdown
         "━━━━━━━━━━━━━━━━━━━━━━",
-        f"🎯 *Gesamt\-Bias EUR/USD*",
+        "🗓 *Nächste High\\-Impact Events*",
         "",
-        f"  Zinsdiff\. {ri} `{rb}`",
-        f"  Spread    {yi} `{yb}`",
-        f"  COT       {ci} `{cb}`",
+        ev_fomc,
+        ev_ecb,
+        ev_nfp,
+        ev_cpi,
+        ev_ppi,
         "",
-        f"  📅 FOMC  `{fomc_str}`",
-        f"  📅 EZB   `{ecb_str}`",
+        # ── FOOTER: Gesamt-Bias
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        f"🎯 *Gesamt\\-Bias EUR/USD*",
+        "",
+        f"  Zinsdiff\\. {ri} `{esc(signals['rate_bias'])}`",
+        f"  Spread    {yi} `{esc(signals['yield_bias'])}`",
+        f"  COT       {ci} `{esc(signals['cot_bias'])}`",
         "",
         "_ECB SDMX · FRED · CFTC_",
     ]
@@ -590,6 +699,7 @@ def run():
     print(f"  US 2Y:    {us2y} ({us2y_date})")
     print(f"  DE 2Y:    {de2y} ({de2y_date})")
     print(f"  COT:      {cot}")
+    print(f"  Meetings: {meetings}")
 
     message = build_message(
         ecb_dfr, ecb_dfr_date, ecb_hicp, ecb_hicp_date,
