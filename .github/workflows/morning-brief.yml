@@ -1,13 +1,12 @@
-# EUR/USD Morning Brief – GitHub Actions Workflow
-# Läuft automatisch jeden Werktag um 07:00 MEZ (= 05:00 UTC Sommer / 06:00 UTC Winter)
-# Kompromiss: 06:00 UTC → passt für CET & CEST ±1h
-
 name: EUR/USD Morning Brief
 
 on:
   schedule:
-    - cron: "0 6 * * 1-5"   # Mo–Fr, 06:00 UTC
-  workflow_dispatch:          # Manuell auslösbar über GitHub UI
+    - cron: "0 6 * * 1-5"   # Mo-Fr, 06:00 UTC
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   send-brief:
@@ -15,19 +14,35 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: 📥 Repository auschecken
+      - name: Secrets pruefen
+        run: |
+          if [ -z "${{ secrets.TELEGRAM_BOT_TOKEN }}" ]; then
+            echo "FEHLER: TELEGRAM_BOT_TOKEN ist nicht gesetzt!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+            echo "FEHLER: TELEGRAM_CHAT_ID ist nicht gesetzt!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.FRED_API_KEY }}" ]; then
+            echo "FEHLER: FRED_API_KEY ist nicht gesetzt!"
+            exit 1
+          fi
+          echo "Alle 3 Secrets gesetzt - weiter..."
+
+      - name: Repository auschecken
         uses: actions/checkout@v4
 
-      - name: 🐍 Python 3.12 einrichten
+      - name: Python 3.12 einrichten
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "pip"
 
-      - name: 📦 Abhängigkeiten installieren
+      - name: Abhaengigkeiten installieren
         run: pip install -r requirements.txt
 
-      - name: 🚀 Morning Brief senden
+      - name: Morning Brief senden
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
