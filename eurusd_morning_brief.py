@@ -21,6 +21,7 @@ TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID")
 FRED_API_KEY       = os.getenv("FRED_API_KEY")
 
 ECB_BASE = "https://data-api.ecb.europa.eu/service/data"
+TODAY    = date.today()
 
 
 def safe_get(url: str, params: dict = None, timeout: int = 15):
@@ -42,8 +43,39 @@ def fmt(value, decimals=2, suffix="%") -> str:
         return str(value)
 
 
+def _parse_ecb_period(period_id: str) -> date:
+    """
+    Parst ECB-Perioden-IDs zu einem date-Objekt.
+    Unterstützte Formate:
+      '2026-06-17'  (täglich / business)
+      '2026-06'     (monatlich)
+      '2026-Q2'     (quartalsweise)
+      '2026'        (jährlich)
+    Gibt date(1900,1,1) zurück falls kein bekanntes Format.
+    """
+    try:
+        if len(period_id) == 10:  # YYYY-MM-DD
+            return datetime.strptime(period_id, "%Y-%m-%d").date()
+        if len(period_id) == 7 and "-Q" not in period_id:  # YYYY-MM
+            return datetime.strptime(period_id + "-01", "%Y-%m-%d").date()
+        if "-Q" in period_id:  # YYYY-Q1 etc.
+            y, q = period_id.split("-Q")
+            m = (int(q) - 1) * 3 + 1
+            return date(int(y), m, 1)
+        if len(period_id) == 4:  # YYYY
+            return date(int(period_id), 1, 1)
+    except Exception:
+        pass
+    return date(1900, 1, 1)
+
+
 # ─────────────────────────────────────────────────────────────
 #  ECB SDMX FM Dataflow
+#
+#  Die ECB FM API enthält bei Freq=B bereits vorauskünftige Datenpunkte
+#  (z.B. 2026-06-17 für den nächsten geplanten Beschluss).
+#  FIX: Alle Observationen mit Period > TODAY werden ignoriert.
+#  Nur der jüngste Datenpunkt mit Period <= TODAY wird verwendet.
 # ─────────────────────────────────────────────────────────────
 
 _fm_cache = None
@@ -51,14 +83,21 @@ _fm_cache = None
 def _get_fm():
     global _fm_cache
     if _fm_cache is None:
+        # lastNObservations=5 statt 1, damit wir genug Kandidaten haben
+        # um zukünftige Datenpunkte herausfiltern zu können
         _fm_cache = safe_get(
             f"{ECB_BASE}/FM",
-            params={"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
+            params={"format": "jsondata", "lastNObservations": 5, "detail": "dataonly"}
         )
     return _fm_cache
 
 
 def _fm_find(instrument_id: str, freq: str = "B", data_type: str = "LEV"):
+    """
+    Sucht im ECB FM-Dataflow nach Instrument + Freq + DataType.
+    Filtert zukünftige Perioden (> TODAY) heraus.
+    Gibt (value, period_str) des jüngsten vergangenen/heutigen Datenpunkts.
+    """
     data = _get_fm()
     if not data:
         return None, "N/A"
@@ -82,13 +121,29 @@ def _fm_find(instrument_id: str, freq: str = "B", data_type: str = "LEV"):
             instr_id = dims[4]["values"][instr_idx]["id"]
             dtype_id = dims[5]["values"][dtype_idx]["id"]
 
-            if freq_id == freq and instr_id == instrument_id and dtype_id == data_type:
-                obs    = sv["observations"]
-                last_k = sorted(obs.keys(), key=lambda x: int(x))[-1]
-                val    = float(obs[last_k][0])
-                period = obs_dim[int(last_k)]["id"]
-                print(f"[OK] ECB FM {instrument_id} ({freq},{data_type}): {val} ({period})")
-                return val, period
+            if freq_id != freq or instr_id != instrument_id or dtype_id != data_type:
+                continue
+
+            obs = sv["observations"]
+
+            # Alle Kandidaten sammeln, nach Periode sortieren (absteigend)
+            candidates = []
+            for obs_k, obs_v in obs.items():
+                period_str = obs_dim[int(obs_k)]["id"]
+                period_dt  = _parse_ecb_period(period_str)
+                # Nur Datenpunkte <= TODAY akzeptieren
+                if period_dt <= TODAY:
+                    candidates.append((period_dt, float(obs_v[0]), period_str))
+
+            if not candidates:
+                print(f"[WARN] ECB FM {instrument_id}: alle Datenpunkte liegen in der Zukunft")
+                continue
+
+            # Jüngster gültiger Datenpunkt
+            candidates.sort(key=lambda x: x[0], reverse=True)
+            period_dt, val, period_str = candidates[0]
+            print(f"[OK] ECB FM {instrument_id} ({freq},{data_type}): {val} ({period_str})")
+            return val, period_str
 
     except Exception as e:
         print(f"[WARN] ECB FM parse ({instrument_id}): {e}")
@@ -96,16 +151,22 @@ def _fm_find(instrument_id: str, freq: str = "B", data_type: str = "LEV"):
 
 
 def get_ecb_dfr():
-    """EZB Deposit Facility Rate – LEV, Freq=B."""
+    """EZB Deposit Facility Rate – jüngster Wert <= heute."""
     val, period = _fm_find("DFR", freq="B", data_type="LEV")
     if val is not None:
         return val, period
     val, period = _fm_find("DFR", freq="D", data_type="LEV")
     if val is not None:
         return val, period
+    # Direkter Fallback: endPeriod auf heute setzen
     data = safe_get(
         f"{ECB_BASE}/FM/B.U2.EUR.4F.KR.DFR.LEV",
-        params={"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
+        params={
+            "format": "jsondata",
+            "endPeriod": TODAY.strftime("%Y-%m-%d"),
+            "lastNObservations": 1,
+            "detail": "dataonly"
+        }
     )
     if data:
         try:
@@ -171,19 +232,10 @@ def get_de2y():
 
 # ─────────────────────────────────────────────────────────────
 #  FRED helpers
-#
-#  KERNFIX: observation_start explizit setzen statt auf limit zu
-#  vertrauen. So wird exakt der 13-Monats-Bereich ab Vorjahresmonat
-#  abgefragt – kein Off-by-one möglich.
 # ─────────────────────────────────────────────────────────────
 
-def _fred_obs(series_id: str, obs_start: str = None, limit: int = 2,
-              sort: str = "desc") -> list:
-    """
-    Holt FRED-Observations. Wenn obs_start gesetzt, werden nur
-    Datenpunkte ab diesem Datum zurückgegeben (YYYY-MM-DD).
-    Gibt [(value_str, date_str), ...] zurück, '.' gefiltert.
-    """
+def _fred_obs(series_id: str, obs_start: str = None, obs_end: str = None,
+             limit: int = 2, sort: str = "desc") -> list:
     url = "https://api.stlouisfed.org/fred/series/observations"
     params = {
         "series_id":  series_id,
@@ -194,6 +246,8 @@ def _fred_obs(series_id: str, obs_start: str = None, limit: int = 2,
     }
     if obs_start:
         params["observation_start"] = obs_start
+    if obs_end:
+        params["observation_end"] = obs_end
     data = safe_get(url, params)
     if data and data.get("observations"):
         return [(o["value"], o["date"]) for o in data["observations"] if o["value"] != "."]
@@ -202,25 +256,11 @@ def _fred_obs(series_id: str, obs_start: str = None, limit: int = 2,
 
 def _yoy_cpi(series_id: str) -> tuple:
     """
-    Berechnet US CPI YoY via zwei gezielten FRED-Abfragen:
-
-    Schritt 1: Neuester verfügbarer Datenpunkt (limit=1, desc)
-               → val_now, date_now (z.B. 2026-05-01, Index ~318)
-
-    Schritt 2: Datenpunkt exakt 12 Monate früher
-               observation_start = date_now - 12 Monate
-               observation_end   = date_now - 12 Monate + 31 Tage
-               limit=1, sort=asc
-               → val_prev, date_prev (z.B. 2025-05-01, Index ~305)
-
+    Berechnet US CPI YoY via zwei gezielten FRED-Abfragen.
+    Schritt 1: aktuellster Wert (limit=1, desc)
+    Schritt 2: Vorjahres-Monat via observation_start/end (deterministisch)
     YoY = (val_now - val_prev) / val_prev * 100
-
-    Dieser Ansatz ist 100% robust gegen:
-    - limit-Drift (kein Fenster-Fehler)
-    - FRED-seitige Datenlücken
-    - Monatsverschiebungen durch neue Releases
     """
-    # Schritt 1: aktuellster Wert
     recent = _fred_obs(series_id, limit=1, sort="desc")
     if not recent:
         print(f"[WARN] {series_id}: kein aktueller Wert")
@@ -230,13 +270,11 @@ def _yoy_cpi(series_id: str) -> tuple:
     val_now  = float(val_now_str)
     date_now = datetime.strptime(date_now_str, "%Y-%m-%d")
 
-    # Schritt 2: Vorjahres-Monat exakt bestimmen
     prev_year  = date_now.year - 1
     prev_month = date_now.month
-    # Fenster: vom 1. des Vorjahresmonats bis +35 Tage (deckt jeden Monat ab)
-    obs_start = f"{prev_year}-{prev_month:02d}-01"
+    obs_start  = f"{prev_year}-{prev_month:02d}-01"
     obs_end_dt = datetime(prev_year, prev_month, 1) + timedelta(days=35)
-    obs_end   = obs_end_dt.strftime("%Y-%m-%d")
+    obs_end    = obs_end_dt.strftime("%Y-%m-%d")
 
     prev_params = {
         "series_id":         series_id,
@@ -257,7 +295,6 @@ def _yoy_cpi(series_id: str) -> tuple:
 
     val_prev_str, date_prev_str = prev_obs[0]
     val_prev = float(val_prev_str)
-
     yoy = round((val_now - val_prev) / val_prev * 100, 2)
     print(f"[OK] {series_id} YoY: {val_now} / {val_prev} = {yoy}% "
           f"({date_now_str} vs {date_prev_str})")
@@ -265,7 +302,6 @@ def _yoy_cpi(series_id: str) -> tuple:
 
 
 def get_fed_effr():
-    """Fed Funds Effective Rate – aktuellster Tageswert."""
     obs = _fred_obs("DFF", limit=1, sort="desc")
     if obs:
         return float(obs[0][0]), obs[0][1]
@@ -274,10 +310,8 @@ def get_fed_effr():
 
 def get_us_cpi():
     """
-    US CPI YoY – offizielle BLS-Zahl via FRED.
-    CPIAUCNS = nicht saisonbereinigt → entspricht der vom BLS
-    kommunizierten Headline-Rate (z.B. 3.9%).
-    Fallback: CPIAUCSL (saisonbereinigt).
+    US CPI YoY – CPIAUCNS (nicht saisonbereinigt, BLS Headline).
+    Fallback: CPIAUCSL.
     """
     yoy, dt = _yoy_cpi("CPIAUCNS")
     if yoy is not None:
@@ -287,7 +321,6 @@ def get_us_cpi():
 
 
 def get_us2y():
-    """US 2Y Treasury Yield – aktuellster Wert."""
     obs = _fred_obs("DGS2", limit=1, sort="desc")
     if obs:
         return float(obs[0][0]), obs[0][1]
