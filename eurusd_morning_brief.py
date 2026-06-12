@@ -43,77 +43,112 @@ def fmt(value, decimals=2, suffix="%") -> str:
 
 
 # ─────────────────────────────────────────────────────────────
-#  ECB SDMX: generischer Helper
-#  Holt den letzten Wert aus dem FM-Dataflow-Sammel-Endpunkt
-#  und sucht den richtigen Key anhand des Kurznamens (z.B. "DFR")
+#  ECB SDMX FM Dataflow
+#
+#  ECB FM key structure (7 dimensions, 0-indexed):
+#    0: FREQ           (A/B/D/M/Q)
+#    1: REF_AREA       (U2 = Eurozone)
+#    2: CURRENCY       (EUR)
+#    3: PROVIDER_FM    (4F)
+#    4: INSTRUMENT_FM  (DFR, MRR_FR, MLF_FR, ...)  ← instrument here
+#    5: DATA_TYPE_FM   (LEV, CHG, ...)               ← LEV = level value
+#    6: SERIES_VARIATION
+#
+#  Previous bug: code read dim[5] as instrument → found CHG/LEV (0.25)
+#  Fix: read dim[4] for instrument AND filter dim[5] == "LEV"
 # ─────────────────────────────────────────────────────────────
-
-def _ecb_fm_all():
-    """Lädt alle FM-Serien auf einmal (115 Serien, ~25 KB)."""
-    data = safe_get(f"{ECB_BASE}/FM",
-                    params={"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"})
-    return data
-
 
 _fm_cache = None
 
 def _get_fm():
     global _fm_cache
     if _fm_cache is None:
-        _fm_cache = _ecb_fm_all()
+        _fm_cache = safe_get(
+            f"{ECB_BASE}/FM",
+            params={"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
+        )
     return _fm_cache
 
 
-def _fm_find(short_id: str, freq: str = "B"):
+def _fm_find(instrument_id: str, freq: str = "B", data_type: str = "LEV"):
     """
-    Sucht in allen FM-Serien nach dem Kürzel (z.B. 'DFR', 'MRR_FR').
-    freq='B' = beschlossener Beschluss-Wert (LEV), 'D' = Tageswert.
+    Sucht im FM-Dataflow nach Instrument (Dim 4) + Freq (Dim 0) + DataType (Dim 5).
     Gibt (value, period) zurück.
+    instrument_id: z.B. 'DFR', 'MRR_FR'
+    freq:          'B' = Business frequency (beschlossene Werte)
+    data_type:     'LEV' = Level (absoluter Zins), 'CHG' = Änderung
     """
     data = _get_fm()
     if not data:
         return None, "N/A"
     try:
-        dims = data["structure"]["dimensions"]["series"]
+        dims    = data["structure"]["dimensions"]["series"]
         obs_dim = data["structure"]["dimensions"]["observation"][0]["values"]
         series_map = data["dataSets"][0]["series"]
 
         for k, sv in series_map.items():
             if not sv.get("observations"):
                 continue
-            key_parts = k.split(":")
-            # Dimension 0 = Frequency (A/B/D/M/Q), Dimension 5 = Indicator
-            freq_idx = int(key_parts[0])
-            ind_idx  = int(key_parts[5])
-            freq_id  = dims[0]["values"][freq_idx]["id"]
-            ind_id   = dims[5]["values"][ind_idx]["id"]
+            parts = k.split(":")
+            if len(parts) < 6:
+                continue
 
-            if freq_id == freq and ind_id == short_id:
+            freq_idx  = int(parts[0])
+            instr_idx = int(parts[4])   # FIX: was parts[5]
+            dtype_idx = int(parts[5])   # FIX: was not checked
+
+            freq_id  = dims[0]["values"][freq_idx]["id"]
+            instr_id = dims[4]["values"][instr_idx]["id"]   # FIX: dim 4
+            dtype_id = dims[5]["values"][dtype_idx]["id"]   # FIX: dim 5
+
+            if freq_id == freq and instr_id == instrument_id and dtype_id == data_type:
                 obs = sv["observations"]
                 last_k = sorted(obs.keys(), key=lambda x: int(x))[-1]
-                val = float(obs[last_k][0])
+                val    = float(obs[last_k][0])
                 period = obs_dim[int(last_k)]["id"]
+                print(f"[OK] ECB FM {instrument_id} ({freq},{data_type}): {val} ({period})")
                 return val, period
 
     except Exception as e:
-        print(f"[WARN] ECB FM parse ({short_id}): {e}")
+        print(f"[WARN] ECB FM parse ({instrument_id}): {e}")
     return None, "N/A"
 
 
 def get_ecb_dfr():
-    """EZB Deposit Facility Rate – Beschlossener Wert (Freq=B, LEV)."""
-    # B:U2:EUR:4F:KR:DFR:LEV → verifiziert = 2.25 (2026-06-17)
-    val, period = _fm_find("DFR", freq="B")
+    """EZB Deposit Facility Rate – LEV (absoluter Zinssatz), Freq=B."""
+    val, period = _fm_find("DFR", freq="B", data_type="LEV")
     if val is not None:
         return val, period
-    # Fallback: Tageswert D:U2:EUR:4F:KR:DFR:LEV
-    return _fm_find("DFR", freq="D")
+    # Fallback: Tagesfrequenz
+    val, period = _fm_find("DFR", freq="D", data_type="LEV")
+    if val is not None:
+        return val, period
+    # Letzter Fallback: direkter Endpunkt
+    data = safe_get(
+        f"{ECB_BASE}/FM/B.U2.EUR.4F.KR.DFR.LEV",
+        params={"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
+    )
+    if data:
+        try:
+            sm = data["dataSets"][0]["series"]
+            k  = list(sm.keys())[0]
+            obs = sm[k]["observations"]
+            last_k = sorted(obs.keys(), key=lambda x: int(x))[-1]
+            val = float(obs[last_k][0])
+            periods = data["structure"]["dimensions"]["observation"][0]["values"]
+            period = periods[int(last_k)]["id"]
+            return val, period
+        except Exception as e:
+            print(f"[WARN] ECB DFR direct: {e}")
+    return None, "N/A"
 
 
 def get_ecb_hicp():
     """Eurozone HVPI (HICP) YoY – ICP Dataflow."""
-    data = safe_get(f"{ECB_BASE}/ICP/M.U2.N.000000.4.ANR",
-                    params={"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"})
+    data = safe_get(
+        f"{ECB_BASE}/ICP/M.U2.N.000000.4.ANR",
+        params={"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
+    )
     if not data:
         return None, "N/A"
     try:
@@ -131,50 +166,30 @@ def get_ecb_hicp():
 
 
 def get_de2y():
-    """Deutsche 2Y Bundesanleihe – aus FM Dataflow (M:U2:EUR:4F:BB:U2_2Y:YLD)."""
-    # Verifiziert: M:U2:EUR:4F:BB:U2_2Y:YLD = 2.748 (2026-05)
-    data = _get_fm()
-    if not data:
-        return None, "N/A"
-    try:
-        dims = data["structure"]["dimensions"]["series"]
-        obs_dim = data["structure"]["dimensions"]["observation"][0]["values"]
-        series_map = data["dataSets"][0]["series"]
-
-        for k, sv in series_map.items():
-            if not sv.get("observations"):
-                continue
-            key_parts = k.split(":")
-            freq_idx = int(key_parts[0])
-            ind_idx  = int(key_parts[5])
-            freq_id  = dims[0]["values"][freq_idx]["id"]
-            ind_id   = dims[5]["values"][ind_idx]["id"]
-
-            if freq_id == "M" and ind_id == "U2_2Y":
-                obs = sv["observations"]
-                last_k = sorted(obs.keys(), key=lambda x: int(x))[-1]
-                val = float(obs[last_k][0])
-                period = obs_dim[int(last_k)]["id"]
-                return val, period
-
-    except Exception as e:
-        print(f"[WARN] DE2Y: {e}")
-
-    # Fallback: YC Dataflow
-    data2 = safe_get(f"{ECB_BASE}/YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y",
-                     params={"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"})
-    if data2:
+    """Deutsche 2Y Bundesanleihe – ECB YC Dataflow (Svensson model, 2Y spot rate)."""
+    # Primär: YC Dataflow – täglich, sehr zuverlässig
+    data = safe_get(
+        f"{ECB_BASE}/YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y",
+        params={"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
+    )
+    if data:
         try:
-            sm = data2["dataSets"][0]["series"]
-            k = list(sm.keys())[0]
+            sm = data["dataSets"][0]["series"]
+            k  = list(sm.keys())[0]
             obs = sm[k]["observations"]
             last_k = sorted(obs.keys(), key=lambda x: int(x))[-1]
             val = float(obs[last_k][0])
-            periods = data2["structure"]["dimensions"]["observation"][0]["values"]
+            periods = data["structure"]["dimensions"]["observation"][0]["values"]
             period = periods[int(last_k)]["id"]
+            print(f"[OK] DE2Y (YC): {val} ({period})")
             return val, period
         except Exception as e:
-            print(f"[WARN] DE2Y YC fallback: {e}")
+            print(f"[WARN] DE2Y YC: {e}")
+
+    # Fallback: FM Dataflow
+    val, period = _fm_find("U2_2Y", freq="M", data_type="YLD")
+    if val is not None:
+        return val, period
     return None, "N/A"
 
 
@@ -182,24 +197,25 @@ def get_de2y():
 #  FRED: EFFR, US CPI YoY, US 2Y
 # ─────────────────────────────────────────────────────────────
 
-def _fred_obs(series_id: str, limit: int = 1, days_back: int = 90):
+def _fred_series(series_id: str, limit: int = 14, sort: str = "desc"):
+    """Holt FRED-Beobachtungen ohne observation_start-Filter (vermeidet Index-Drift)."""
     url = "https://api.stlouisfed.org/fred/series/observations"
     params = {
-        "series_id": series_id,
-        "api_key": FRED_API_KEY,
-        "file_type": "json",
-        "sort_order": "desc",
-        "limit": limit,
-        "observation_start": (date.today() - timedelta(days=days_back)).isoformat()
+        "series_id":  series_id,
+        "api_key":    FRED_API_KEY,
+        "file_type":  "json",
+        "sort_order": sort,
+        "limit":      limit,
     }
     data = safe_get(url, params)
     if data and data.get("observations"):
+        # Nur valide Werte (kein ".")
         return [(o["value"], o["date"]) for o in data["observations"] if o["value"] != "."]
     return []
 
 
 def get_fed_effr():
-    obs = _fred_obs("DFF", limit=1, days_back=30)
+    obs = _fred_series("DFF", limit=1)
     if obs:
         return float(obs[0][0]), obs[0][1]
     return None, "N/A"
@@ -207,30 +223,60 @@ def get_fed_effr():
 
 def get_us_cpi():
     """
-    US CPI YoY – FRED CPILFESL_PCH existiert nicht (>25 Zeichen verboten).
-    Direkte YoY-Reihe: CPIAUCNS (SA) oder manuelle Berechnung aus CPIAUCSL.
-    Verifiziert: CPIAUCSL (monatlicher Index) → YoY berechnen.
+    US CPI YoY – robuste Datumsbasierte Berechnung.
+    Holt 14 neueste Monatswerte (desc), nimmt Index[0] als aktuell
+    und sucht per Datum den Wert exakt 12 Monate früher.
+
+    FIX gegenüber vorheriger Version:
+    - Kein observation_start-Filter (verhindert Index-Drift durch fehlende Monate)
+    - Datumsbasiertes Matching statt Index[12] (robust gegen Lücken)
     """
-    # Direkte PC1-Berechnung: FRED serie "CPIAUCSL" = Consumer Price Index
-    # 13 Monate holen: neuester + Wert vor 12 Monaten
-    obs = _fred_obs("CPIAUCSL", limit=14, days_back=420)
-    if len(obs) >= 13:
-        val_now  = float(obs[0][0])
-        val_year = float(obs[12][0])
-        yoy = (val_now - val_year) / val_year * 100
-        return round(yoy, 2), obs[0][1]
-    # Fallback: CPILFESL (Core CPI)
-    obs2 = _fred_obs("CPILFESL", limit=14, days_back=420)
-    if len(obs2) >= 13:
+    obs = _fred_series("CPIAUCSL", limit=14)
+    if len(obs) >= 2:
+        val_now_str,  date_now_str  = obs[0]
+        val_now  = float(val_now_str)
+        date_now = datetime.strptime(date_now_str, "%Y-%m-%d")
+
+        # Zieldatum = exakt 12 Monate früher
+        target_year  = date_now.year - 1
+        target_month = date_now.month
+        target_prefix = f"{target_year}-{target_month:02d}"
+
+        val_year = None
+        for v, d in obs:
+            if d.startswith(target_prefix):
+                val_year = float(v)
+                break
+
+        # Falls 12-Monats-Wert nicht im 14er-Fenster: nochmal 13 Monate holen
+        if val_year is None:
+            obs_ext = _fred_series("CPIAUCSL", limit=16)
+            for v, d in obs_ext:
+                if d.startswith(target_prefix):
+                    val_year = float(v)
+                    break
+
+        if val_year is not None:
+            yoy = round((val_now - val_year) / val_year * 100, 2)
+            print(f"[OK] US CPI YoY: {yoy}% ({date_now_str} vs {target_prefix})")
+            return yoy, date_now_str
+
+    print("[WARN] US CPI: Fallback auf CPIAUCNS_PC1")
+    # Letzter Fallback: direkte PC1-Serie (nicht saisonbereinigt)
+    obs2 = _fred_series("CPIAUCNS", limit=14)
+    if len(obs2) >= 2:
         val_now  = float(obs2[0][0])
-        val_year = float(obs2[12][0])
-        yoy = (val_now - val_year) / val_year * 100
-        return round(yoy, 2), obs2[0][1]
+        date_now = datetime.strptime(obs2[0][1], "%Y-%m-%d")
+        target_prefix = f"{date_now.year - 1}-{date_now.month:02d}"
+        for v, d in obs2:
+            if d.startswith(target_prefix):
+                yoy = round((val_now - float(v)) / float(v) * 100, 2)
+                return yoy, obs2[0][1]
     return None, "N/A"
 
 
 def get_us2y():
-    obs = _fred_obs("DGS2", limit=1, days_back=30)
+    obs = _fred_series("DGS2", limit=1)
     if obs:
         return float(obs[0][0]), obs[0][1]
     return None, "N/A"
