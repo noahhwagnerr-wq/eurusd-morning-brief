@@ -1,0 +1,82 @@
+name: Update Live Data
+
+on:
+  schedule:
+    # Mo–Fr 05:50 UTC = 07:50 CEST
+    - cron: "50 5 * * 1-5"
+    # Samstag 08:00 UTC
+    - cron: "0 8 * * 6"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Grund für manuelles Update (optional)'
+        required: false
+        default: 'Manuell ausgelöst'
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  fetch-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: update-data
+      cancel-in-progress: false
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: gh-pages Branch auschecken
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: fetch_data.py von main holen
+        run: |
+          git fetch origin main
+          git checkout origin/main -- fetch_data.py
+
+      - name: Python 3.12 einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Dependencies installieren
+        run: pip install requests python-dotenv
+
+      - name: Daten holen
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: |
+          python fetch_data.py
+          echo "--- data.json (erste 40 Zeilen) ---"
+          head -40 data.json
+
+      - name: data.json auf gh-pages committen
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data.json
+          git restore --staged fetch_data.py 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "Keine Änderungen."
+          else
+            git commit -m "data: live update $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push origin gh-pages
+            echo "✅ data.json deployed"
+          fi
+
+      - name: Job Summary
+        if: always()
+        run: |
+          echo "## 📊 Live Data Update" >> $GITHUB_STEP_SUMMARY
+          echo "**Zeit:** $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
+          if [ -f data.json ]; then
+            echo "✅ data.json generiert" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ data.json fehlt" >> $GITHUB_STEP_SUMMARY
+          fi
