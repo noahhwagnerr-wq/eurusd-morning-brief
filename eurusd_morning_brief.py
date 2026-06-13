@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 =============================================================
-  EUR/USD Morning Brief Agent  v4.3
+  EUR/USD Morning Brief Agent  v4.4
   Täglich live Daten → Telegram-Nachricht
 
   Quellen:
@@ -9,28 +9,23 @@
     Eurostat JSON   ec.europa.eu/eurostat       (HICP Flash)
     FRED API        api.stlouisfed.org          (EFFR, US CPI, US 2Y)
     CFTC Disagg.    publicreporting.cftc.gov    (COT – gpe5-46if)
+    Myfxbook API    api.myfxbook.com            (Retail Sentiment EUR/USD)
 
-  FIX-LOG v4.3
+  FIX-LOG v4.4
   ─────────────────────────────────────────────────────────
-  #7  TFF-Dataset URL jun7-3zbs gibt HTTP 404 zurück
-      → Vollständig entfernt. Einzige Quelle: gpe5-46if.
+  #9  Retail-Sentiment-Block hinzugefügt (Myfxbook Community Outlook)
+      → get_retail_sentiment() + Abschnitt in build_message()
+      → MYFXBOOK_SESSION env-var optional; ohne Session nur Hinweis
 
-  #8  Falsche Feldnamen im Legacy-Dataset
-      Bisher: noncomm_positions_long/short_all (existiert nicht)
-      Korrekt laut Live-API:
-        lev_money_positions_long   (Leveraged Money / Hedge Funds)
-        lev_money_positions_short
-        asset_mgr_positions_long   (Asset Manager, Sekundär)
-        asset_mgr_positions_short
-        open_interest_all          (OI, verifiziert 871.507)
-        pct_of_oi_lev_money_long   (offizielle Pct-Felder)
-        pct_of_oi_lev_money_short
-      Alle Werte per Live-API am 2026-06-13 verifiziert.
-
-  FIX-LOG v4.1/v4.2  (bleiben aktiv)
+  FIX-LOG v4.3  (aktiv)
   ─────────────────────────────────────────────────────────
-  #3  HICP Flash-Pin (Eurostat Mai 2026 = 3.2%)
-  #4  US CPI: CPIAUCNS (non-seasonally adjusted) = BLS Headline
+  #7  TFF-Dataset URL jun7-3zbs → entfernt
+  #8  Feldnamen gpe5-46if verifiziert (lev_money_positions_*)
+
+  FIX-LOG v4.1/v4.2  (aktiv)
+  ─────────────────────────────────────────────────────────
+  #3  HICP Flash-Pin (Eurostat Mai 2026)
+  #4  US CPI: CPIAUCNS (non-seasonally adjusted)
 =============================================================
 """
 
@@ -42,25 +37,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
-FRED_API_KEY       = os.getenv("FRED_API_KEY", "")
+TELEGRAM_BOT_TOKEN  = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID    = os.getenv("TELEGRAM_CHAT_ID", "")
+FRED_API_KEY        = os.getenv("FRED_API_KEY", "")
+MYFXBOOK_SESSION    = os.getenv("MYFXBOOK_SESSION", "")  # optional
 
 ECB_BASE = "https://data-api.ecb.europa.eu/service/data"
 TODAY    = date.today()
 
-# Bekannte EZB-Entscheide: (Beschlussdatum, neuer DFR, Inkrafttreten)
 _ECB_KNOWN_DECISIONS = [
     ("2026-06-11", 2.25, "2026-06-17"),
 ]
 
-# Eurostat HICP Flash-Pins (Quelle: offizielle Pressemitteilungen)
 _HICP_FLASH_PINS = [
     (date(2026, 6, 2), date(2026, 7, 1), 3.2, "2026-05"),
 ]
 
-# CFTC Disaggregated Dataset (einzige verifizierte Quelle)
-_CFTC_URL = "https://publicreporting.cftc.gov/resource/gpe5-46if.json"
+_CFTC_URL  = "https://publicreporting.cftc.gov/resource/gpe5-46if.json"
 _EUR_CODES = ("099741", "99741")
 
 
@@ -68,7 +61,7 @@ _EUR_CODES = ("099741", "99741")
 #  Hilfsfunktionen
 # ─────────────────────────────────────────────────────────────
 
-def safe_get(url: str, params: dict = None, timeout: int = 20):
+def safe_get(url, params=None, timeout=20):
     try:
         r = requests.get(url, params=params, timeout=timeout)
         r.raise_for_status()
@@ -79,7 +72,7 @@ def safe_get(url: str, params: dict = None, timeout: int = 20):
         return None
 
 
-def fmt(value, decimals: int = 2, suffix: str = "%") -> str:
+def fmt(value, decimals=2, suffix="%"):
     if value is None:
         return "N/A"
     try:
@@ -88,11 +81,11 @@ def fmt(value, decimals: int = 2, suffix: str = "%") -> str:
         return str(value)
 
 
-def esc(text: str) -> str:
+def esc(text):
     return re.sub(r'([_*\[\]()~`>#+=|{}.!\-])', r'\\\1', str(text))
 
 
-def _fix_year(period_str: str) -> str:
+def _fix_year(period_str):
     if not period_str or len(period_str) < 4:
         return period_str
     try:
@@ -106,7 +99,7 @@ def _fix_year(period_str: str) -> str:
     return period_str
 
 
-def _parse_ym(period_str: str) -> date:
+def _parse_ym(period_str):
     try:
         if len(period_str) == 7:
             return datetime.strptime(period_str + "-01", "%Y-%m-%d").date()
@@ -117,7 +110,7 @@ def _parse_ym(period_str: str) -> date:
     return date(1900, 1, 1)
 
 
-def _ecb_last_obs(series_path: str, extra_params: dict = None):
+def _ecb_last_obs(series_path, extra_params=None):
     p = {"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
     if extra_params:
         p.update(extra_params)
@@ -125,11 +118,11 @@ def _ecb_last_obs(series_path: str, extra_params: dict = None):
     if not data:
         return None, "N/A"
     try:
-        sm      = data["dataSets"][0]["series"]
-        key     = list(sm.keys())[0]
-        obs     = sm[key]["observations"]
-        last_k  = sorted(obs.keys(), key=lambda x: int(x))[-1]
-        val     = float(obs[last_k][0])
+        sm     = data["dataSets"][0]["series"]
+        key    = list(sm.keys())[0]
+        obs    = sm[key]["observations"]
+        last_k = sorted(obs.keys(), key=lambda x: int(x))[-1]
+        val    = float(obs[last_k][0])
         periods = data["structure"]["dimensions"]["observation"][0]["values"]
         raw_p   = periods[int(last_k)]["id"]
         if len(raw_p) == 7:
@@ -143,16 +136,11 @@ def _ecb_last_obs(series_path: str, extra_params: dict = None):
         return None, "N/A"
 
 
-def _fred_obs(series_id: str, limit: int = 2, sort: str = "desc") -> list:
+def _fred_obs(series_id, limit=2, sort="desc"):
     data = safe_get(
         "https://api.stlouisfed.org/fred/series/observations",
-        {
-            "series_id":  series_id,
-            "api_key":    FRED_API_KEY,
-            "file_type":  "json",
-            "sort_order": sort,
-            "limit":      limit,
-        },
+        {"series_id": series_id, "api_key": FRED_API_KEY,
+         "file_type": "json", "sort_order": sort, "limit": limit},
     )
     if data and data.get("observations"):
         return [(o["value"], o["date"])
@@ -161,7 +149,7 @@ def _fred_obs(series_id: str, limit: int = 2, sort: str = "desc") -> list:
 
 
 # ─────────────────────────────────────────────────────────────
-#  EZB – Leitzins (DFR)
+#  EZB – DFR
 # ─────────────────────────────────────────────────────────────
 
 def get_ecb_dfr():
@@ -174,29 +162,22 @@ def get_ecb_dfr():
             val, period = v, p
             print(f"[OK] EZB DFR (ECB SDMX): {val}% ({period})")
             break
-
     if val is None:
         obs = _fred_obs("ECBDFR", limit=1)
         if obs:
             val, period = float(obs[0][0]), obs[0][1]
-            print(f"[OK] EZB DFR (FRED): {val}% ({period}) – evtl. verzögert")
-
+            print(f"[OK] EZB DFR (FRED): {val}%")
     hinweis = None
     for dec_date, new_dfr, eff_date in _ECB_KNOWN_DECISIONS:
         eff_d = date.fromisoformat(eff_date)
         dec_d = date.fromisoformat(dec_date)
         if dec_d <= TODAY < eff_d and (val is None or abs(val - new_dfr) > 0.001):
-            print(f"[INFO] EZB DFR: beschlossen {new_dfr}% ab {eff_date}, "
-                  f"aktuell gültig {val}% – zeige beschlossenen Wert")
-            val     = new_dfr
-            period  = dec_date
-            hinweis = f"in Kraft ab {eff_date}"
-
+            val, period, hinweis = new_dfr, dec_date, f"in Kraft ab {eff_date}"
     return val, period, hinweis
 
 
 # ─────────────────────────────────────────────────────────────
-#  EZB – HICP Inflation YoY  (v4.1 Hotfix #3)
+#  EZB – HICP
 # ─────────────────────────────────────────────────────────────
 
 def get_ecb_hicp():
@@ -206,8 +187,7 @@ def get_ecb_hicp():
             pin_d = _parse_ym(pin_period)
             api_d = _parse_ym(api_period) if api_period != "N/A" else date(1900, 1, 1)
             if api_d < pin_d:
-                print(f"[PIN] HICP: API liefert {api_val}% ({api_period}), "
-                      f"Flash-Pin {pin_val}% ({pin_period}) ist aktueller → verwende Pin")
+                print(f"[PIN] HICP: Flash-Pin {pin_val}% ({pin_period}) aktueller")
                 return pin_val, pin_period
     return api_val, api_period
 
@@ -222,35 +202,32 @@ def _hicp_from_api():
         data = safe_get(f"{eurostat_base}/prc_hicp_manr", params)
         if data:
             try:
-                sm   = data["dataSets"][0]["series"]
-                k    = list(sm.keys())[0]
-                obs  = sm[k]["observations"]
+                sm  = data["dataSets"][0]["series"]
+                k   = list(sm.keys())[0]
+                obs = sm[k]["observations"]
                 meta = data["structure"]["dimensions"]["observation"][0]["values"]
                 candidates = []
                 for ok, ov in obs.items():
                     if ov[0] is not None:
                         p_str = meta[int(ok)]["id"]
-                        v     = float(ov[0])
+                        v = float(ov[0])
                         if 0.0 < abs(v) <= 25.0:
                             candidates.append((_parse_ym(p_str), v, p_str))
                 if candidates:
                     candidates.sort(key=lambda x: x[0], reverse=True)
                     val, p_str = candidates[0][1], candidates[0][2]
-                    print(f"[OK] HICP (prc_hicp_manr): {val}% ({p_str})")
+                    print(f"[OK] HICP: {val}% ({p_str})")
                     return val, p_str
             except Exception as e:
-                print(f"[WARN] Eurostat prc_hicp_manr: {e}")
-
+                print(f"[WARN] Eurostat HICP: {e}")
     val, period = _ecb_last_obs("ICP/M.U2.N.000000.4.ANR")
     if val is not None and 0.0 < abs(val) <= 25.0:
-        print(f"[OK] HICP (ECB SDMX ICP): {val}% ({period})")
         return val, period
-
     return None, "N/A"
 
 
 # ─────────────────────────────────────────────────────────────
-#  DE 2Y Staatsanleiherendite
+#  DE 2Y
 # ─────────────────────────────────────────────────────────────
 
 def get_de2y():
@@ -274,30 +251,28 @@ def get_fed_effr():
 
 
 # ─────────────────────────────────────────────────────────────
-#  US CPI YoY  (v4.1 Hotfix #4)
+#  US CPI YoY
 # ─────────────────────────────────────────────────────────────
 
 def get_us_cpi():
     for series_id in ("CPIAUCNS", "CPIAUCSL"):
         obs = _fred_obs(series_id, limit=14, sort="desc")
         if len(obs) < 13:
-            print(f"[WARN] US CPI {series_id}: nur {len(obs)} Obs, brauche 13")
             continue
         try:
             val_now  = float(obs[0][0])
             date_now = obs[0][1]
             val_prev = float(obs[12][0])
             yoy      = round((val_now - val_prev) / val_prev * 100, 1)
-            print(f"[OK] US CPI YoY ({series_id}): "
-                  f"{val_now}/{val_prev} = {yoy}% ({date_now})")
+            print(f"[OK] US CPI YoY: {yoy}% ({date_now})")
             return yoy, date_now
         except Exception as e:
-            print(f"[WARN] US CPI {series_id} Berechnung: {e}")
+            print(f"[WARN] US CPI {series_id}: {e}")
     return None, "N/A"
 
 
 # ─────────────────────────────────────────────────────────────
-#  US 2Y Treasury
+#  US 2Y
 # ─────────────────────────────────────────────────────────────
 
 def get_us2y():
@@ -309,18 +284,10 @@ def get_us2y():
 
 
 # ─────────────────────────────────────────────────────────────
-#  CFTC COT – CME EUR Futures 6E  (v4.3 Fix #7+#8)
-#
-#  Dataset:  gpe5-46if (Disaggregated Futures Only)
-#  Felder (verifiziert 2026-06-13):
-#    lev_money_positions_long/short  → Leveraged Money (Hedge Funds)
-#    asset_mgr_positions_long/short  → Asset Manager (Sekundär)
-#    open_interest_all               → Gesamt-OI
-#    pct_of_oi_lev_money_long/short  → Offizielle Pct-Werte
+#  CFTC COT
 # ─────────────────────────────────────────────────────────────
 
-def _to_float(record: dict, *keys) -> float:
-    """Gibt den ersten gefundenen nicht-null numerischen Wert zurück."""
+def _to_float(record, *keys):
     for k in keys:
         v = record.get(k)
         if v is not None:
@@ -333,7 +300,7 @@ def _to_float(record: dict, *keys) -> float:
     return 0.0
 
 
-def get_cot_eur() -> dict:
+def get_cot_eur():
     for code in _EUR_CODES:
         data = safe_get(_CFTC_URL, {
             "$where": f"cftc_contract_market_code='{code}'",
@@ -343,70 +310,135 @@ def get_cot_eur() -> dict:
         if data and len(data) > 0:
             print(f"[OK] CFTC code={code}: {len(data)} Records")
             return _parse_cot(data[0], data[1] if len(data) > 1 else {})
-
-    print("[WARN] CFTC: Beide market codes leer → N/A")
+    print("[WARN] CFTC: Beide market codes leer")
     return {}
 
 
-def _parse_cot(current: dict, prev: dict) -> dict:
-    # ── Hauptkategorie: Leveraged Money (Hedge Funds) ──
+def _parse_cot(current, prev):
     long_cur  = _to_float(current, "lev_money_positions_long")
     short_cur = _to_float(current, "lev_money_positions_short")
     long_prv  = _to_float(prev,    "lev_money_positions_long")  if prev else 0.0
     short_prv = _to_float(prev,    "lev_money_positions_short") if prev else 0.0
     source    = "Disaggregated/Leveraged Money"
-
-    # ── Fallback: Asset Manager ──
     if long_cur == 0 and short_cur == 0:
         long_cur  = _to_float(current, "asset_mgr_positions_long")
         short_cur = _to_float(current, "asset_mgr_positions_short")
         long_prv  = _to_float(prev,    "asset_mgr_positions_long")  if prev else 0.0
         short_prv = _to_float(prev,    "asset_mgr_positions_short") if prev else 0.0
         source    = "Disaggregated/Asset Manager"
-
     if long_cur == 0 and short_cur == 0:
-        print("[WARN] CFTC _parse_cot: alle Positionen 0 → N/A")
         return {}
-
-    oi_cur = _to_float(current, "open_interest_all")
-    if oi_cur == 0:
-        oi_cur = long_cur + short_cur
-        print(f"[WARN] OI nicht gefunden → Proxy {oi_cur:,.0f}")
-
+    oi_cur    = _to_float(current, "open_interest_all") or long_cur + short_cur
     net_cur   = long_cur - short_cur
     net_prv   = (long_prv - short_prv) if (long_prv or short_prv) else 0.0
     net_pct   = round(net_cur / oi_cur * 100, 1) if oi_cur > 0 else 0.0
-
-    # Offizielle Pct-Felder bevorzugen
-    long_pct  = _to_float(current, "pct_of_oi_lev_money_long",  "pct_of_oi_asset_mgr_long")
-    short_pct = _to_float(current, "pct_of_oi_lev_money_short", "pct_of_oi_asset_mgr_short")
-    if long_pct == 0:
-        long_pct  = round(long_cur  / oi_cur * 100, 1) if oi_cur > 0 else 0.0
-    if short_pct == 0:
-        short_pct = round(short_cur / oi_cur * 100, 1) if oi_cur > 0 else 0.0
-
-    bias = "NET-LONG" if net_pct > 5 else "NET-SHORT" if net_pct < -5 else "NEUTRAL"
-
-    raw_date = (
-        current.get("report_date_as_yyyy_mm_dd")
-        or current.get("report_date_as_mm_dd_yyyy")
-        or "N/A"
-    )
-
-    print(f"[OK] COT {source}: long={long_cur:,.0f}, short={short_cur:,.0f}, "
-          f"net={net_cur:+,.0f}, oi={oi_cur:,.0f}, bias={bias}")
-
+    long_pct  = _to_float(current, "pct_of_oi_lev_money_long",  "pct_of_oi_asset_mgr_long")  or round(long_cur  / oi_cur * 100, 1)
+    short_pct = _to_float(current, "pct_of_oi_lev_money_short", "pct_of_oi_asset_mgr_short") or round(short_cur / oi_cur * 100, 1)
+    bias      = "NET-LONG" if net_pct > 5 else "NET-SHORT" if net_pct < -5 else "NEUTRAL"
+    raw_date  = current.get("report_date_as_yyyy_mm_dd") or current.get("report_date_as_mm_dd_yyyy") or "N/A"
+    print(f"[OK] COT: net={net_cur:+,.0f}, oi={oi_cur:,.0f}, bias={bias}")
     return {
-        "date":      str(raw_date)[:10],
-        "net":       int(net_cur),
+        "date": str(raw_date)[:10], "net": int(net_cur),
         "delta_net": int(net_cur - net_prv),
-        "long_pct":  long_pct,
-        "short_pct": short_pct,
-        "net_pct":   net_pct,
-        "oi":        int(oi_cur),
-        "bias":      bias,
-        "source":    source,
+        "long_pct": long_pct, "short_pct": short_pct,
+        "net_pct": net_pct, "oi": int(oi_cur),
+        "bias": bias, "source": source,
     }
+
+
+# ─────────────────────────────────────────────────────────────
+#  Retail Sentiment – Myfxbook Community Outlook
+#
+#  Endpunkt (keine Auth nötig für Community-Daten):
+#  https://api.myfxbook.com/api/get-community-outlook.json?symbols=EURUSD
+#
+#  Antwort-Struktur:
+#  { "symbols": [ { "name": "EURUSD",
+#                   "shortPercentage": 55.4,
+#                   "longPercentage":  44.6,
+#                   "shortVolume":     1234.5,
+#                   "longVolume":      987.3,
+#                   "longPositions":   45123,
+#                   "shortPositions":  56789 } ] }
+#
+#  KEINE API-Key nötig für öffentliche Community-Daten.
+#  Optional: MYFXBOOK_SESSION für erweiterte Daten (Konto-basiert).
+# ─────────────────────────────────────────────────────────────
+
+MYFXBOOK_OUTLOOK_URL = "https://api.myfxbook.com/api/get-community-outlook.json"
+
+
+def get_retail_sentiment() -> dict:
+    """
+    Holt Retail Long/Short-Quote von Myfxbook Community Outlook.
+    Gibt leeres Dict zurück wenn API nicht erreichbar.
+    """
+    params = {"symbols": "EURUSD"}
+    if MYFXBOOK_SESSION:
+        params["session"] = MYFXBOOK_SESSION
+
+    data = safe_get(MYFXBOOK_OUTLOOK_URL, params, timeout=15)
+    if not data:
+        print("[WARN] Myfxbook: kein Response")
+        return {}
+
+    try:
+        # Fehlercheck
+        if data.get("error"):
+            print(f"[WARN] Myfxbook error: {data.get('message', 'unbekannt')}")
+            return {}
+
+        symbols = data.get("symbols", [])
+        if not symbols:
+            print("[WARN] Myfxbook: leeres symbols-Array")
+            return {}
+
+        # EURUSD herausfiltern (case-insensitive)
+        rec = next(
+            (s for s in symbols if s.get("name", "").upper() == "EURUSD"),
+            None
+        )
+        if not rec:
+            print("[WARN] Myfxbook: EURUSD nicht in Antwort")
+            return {}
+
+        long_pct  = float(rec.get("longPercentage",  0))
+        short_pct = float(rec.get("shortPercentage", 0))
+        long_pos  = int(rec.get("longPositions",  0))
+        short_pos = int(rec.get("shortPositions", 0))
+        long_vol  = float(rec.get("longVolume",  0))
+        short_vol = float(rec.get("shortVolume", 0))
+
+        # Contrarian-Bias: >60% Short → möglicher Reversal nach oben
+        if short_pct >= 60:
+            bias, icon = "CONTRARIAN BULLISCH", "🟢"
+        elif long_pct >= 60:
+            bias, icon = "CONTRARIAN BÄRISCH", "🔴"
+        elif short_pct >= 55:
+            bias, icon = "LEICHT CONTRARIAN BULLISCH", "🟡"
+        elif long_pct >= 55:
+            bias, icon = "LEICHT CONTRARIAN BÄRISCH", "🟡"
+        else:
+            bias, icon = "NEUTRAL", "⚪"
+
+        print(f"[OK] Retail Sentiment: Long={long_pct:.1f}% Short={short_pct:.1f}% "
+              f"Pos L/S={long_pos:,}/{short_pos:,} → {bias}")
+
+        return {
+            "long_pct":   long_pct,
+            "short_pct":  short_pct,
+            "long_pos":   long_pos,
+            "short_pos":  short_pos,
+            "long_vol":   long_vol,
+            "short_vol":  short_vol,
+            "bias":       bias,
+            "icon":       icon,
+            "source":     "Myfxbook Community Outlook",
+        }
+
+    except Exception as e:
+        print(f"[WARN] Myfxbook parse: {e}")
+        return {}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -443,20 +475,21 @@ PPI_DATES_2026 = [
 ]
 
 
-def get_next_meetings() -> dict:
+def get_next_meetings():
     def _next(dates):
         fut = [d for d in sorted(dates) if d >= TODAY]
         return fut[0] if fut else None
     def _fmt(d): return d.strftime("%d.%m.%Y") if d else "N/A"
     def _days(d): return (d - TODAY).days if d else None
-    nf, ne, nn = _next(FOMC_DATES_2026), _next(ECB_DATES_2026), _next(NFP_DATES_2026)
-    nc, np_    = _next(CPI_DATES_2026),  _next(PPI_DATES_2026)
+    nf = _next(FOMC_DATES_2026);  ne = _next(ECB_DATES_2026)
+    nn = _next(NFP_DATES_2026);   nc = _next(CPI_DATES_2026)
+    np_ = _next(PPI_DATES_2026)
     return {
-        "fomc_date": _fmt(nf),  "fomc_days": _days(nf),
-        "ecb_date":  _fmt(ne),  "ecb_days":  _days(ne),
-        "nfp_date":  _fmt(nn),  "nfp_days":  _days(nn),
-        "cpi_date":  _fmt(nc),  "cpi_days":  _days(nc),
-        "ppi_date":  _fmt(np_), "ppi_days":  _days(np_),
+        "fomc_date": _fmt(nf), "fomc_days": _days(nf),
+        "ecb_date":  _fmt(ne), "ecb_days":  _days(ne),
+        "nfp_date":  _fmt(nn), "nfp_days":  _days(nn),
+        "cpi_date":  _fmt(nc), "cpi_days":  _days(nc),
+        "ppi_date":  _fmt(np_),"ppi_days":  _days(np_),
     }
 
 
@@ -464,7 +497,7 @@ def get_next_meetings() -> dict:
 #  Signal-Logik
 # ─────────────────────────────────────────────────────────────
 
-def compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot) -> dict:
+def compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot):
     s = {}
     if fed_effr is not None and ecb_dfr is not None:
         diff = round(fed_effr - ecb_dfr, 2)
@@ -473,7 +506,6 @@ def compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot) -> dict:
                   "rate_icon": "🔴" if diff > 0 else "🟢"})
     else:
         s.update({"rate_diff": None, "rate_bias": "N/A", "rate_icon": "⚪"})
-
     if us2y is not None and de2y is not None:
         spread = round(us2y - de2y, 2)
         s.update({"yield_spread": spread,
@@ -481,7 +513,6 @@ def compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot) -> dict:
                   "yield_icon":   "🔴" if spread > 0 else "🟢"})
     else:
         s.update({"yield_spread": None, "yield_bias": "N/A", "yield_icon": "⚪"})
-
     if cot and cot.get("net") is not None:
         np_ = cot.get("net_pct", 0)
         s.update({"cot_bias": "NET\u2011LONG"  if np_ > 5 else
@@ -493,20 +524,16 @@ def compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────
-#  Event-Zeile (MarkdownV2)
+#  Event-Zeile
 # ─────────────────────────────────────────────────────────────
 
-def _event_line(label: str, days, date_str: str) -> str:
+def _event_line(label, days, date_str):
     if days is None:
         return f"  {esc(label):<14} `N/A`"
-    if days == 0:
-        icon, cd = "🔴", "HEUTE"
-    elif days == 1:
-        icon, cd = "🟠", "morgen"
-    elif days <= 5:
-        icon, cd = "🟡", f"in {days}T"
-    else:
-        icon, cd = "⚫", f"in {days}T"
+    if days == 0:   icon, cd = "🔴", "HEUTE"
+    elif days == 1: icon, cd = "🟠", "morgen"
+    elif days <= 5: icon, cd = "🟡", f"in {days}T"
+    else:           icon, cd = "⚫", f"in {days}T"
     return f"  {icon} {esc(label):<10} `{esc(date_str)}` _{esc(cd)}_"
 
 
@@ -523,19 +550,16 @@ def build_message(
     fed_effr, fed_effr_date,
     us_cpi, us_cpi_date,
     us2y, us2y_date, de2y, de2y_date,
-    cot, meetings, signals
-) -> str:
-
+    cot, meetings, signals, retail
+):
     now      = datetime.now()
     weekday  = WEEKDAY_DE[now.weekday()]
     date_str = now.strftime(f"{weekday}, %d\\. %m\\. %Y")
 
     rd     = signals.get("rate_diff")
-    rd_str = esc(f"+{rd:.2f}pp" if rd is not None and rd >= 0
-                 else f"{rd:.2f}pp" if rd is not None else "N/A")
+    rd_str = esc(f"+{rd:.2f}pp" if rd is not None and rd >= 0 else f"{rd:.2f}pp" if rd is not None else "N/A")
     ys     = signals.get("yield_spread")
-    ys_str = esc(f"+{ys:.2f}pp" if ys is not None and ys >= 0
-                 else f"{ys:.2f}pp" if ys is not None else "N/A")
+    ys_str = esc(f"+{ys:.2f}pp" if ys is not None and ys >= 0 else f"{ys:.2f}pp" if ys is not None else "N/A")
 
     net_val   = cot.get("net", 0) if cot else 0
     delta     = cot.get("delta_net", 0) if cot else 0
@@ -552,22 +576,47 @@ def build_message(
     e_dfr      = esc(fmt(ecb_dfr))
     e_dfr_date = esc((ecb_dfr_date or "N/A")[:10])
     e_dfr_note = f" _\\({esc(ecb_dfr_hinweis)}\\)_" if ecb_dfr_hinweis else ""
-
     e_hicp      = esc(fmt(ecb_hicp))
     e_hicp_date = esc((ecb_hicp_date or "N/A")[:7])
-
     e_effr      = esc(fmt(fed_effr))
     e_effr_date = esc((fed_effr_date or "N/A")[:10])
-
     e_cpi       = esc(fmt(us_cpi, decimals=1))
     e_cpi_date  = esc((str(us_cpi_date) or "N/A")[:7])
-
     e_us2y = esc(fmt(us2y))
     e_de2y = esc(fmt(de2y))
 
     ri = signals["rate_icon"]
     yi = signals["yield_icon"]
     ci = signals["cot_icon"]
+
+    # ── Retail Sentiment Block ──
+    if retail:
+        r_long  = esc(f"{retail['long_pct']:.1f}%")
+        r_short = esc(f"{retail['short_pct']:.1f}%")
+        r_lpos  = esc(f"{retail['long_pos']:,}")
+        r_spos  = esc(f"{retail['short_pos']:,}")
+        r_icon  = retail["icon"]
+        r_bias  = esc(retail["bias"])
+        r_src   = esc(retail["source"])
+        retail_block = [
+            "",
+            "━━━━━━━━━━━━━━━━━━━━━━",
+            "👥 *Retail Sentiment · EUR/USD*",
+            f"_{r_src}_",
+            "",
+            f"  Long  `{r_long}` \\({r_lpos} Positionen\\)",
+            f"  Short `{r_short}` \\({r_spos} Positionen\\)",
+            f"  Contrarian\\-Bias: {r_icon} `{r_bias}`",
+        ]
+    else:
+        retail_block = [
+            "",
+            "━━━━━━━━━━━━━━━━━━━━━━",
+            "👥 *Retail Sentiment · EUR/USD*",
+            "_Myfxbook Community Outlook_",
+            "",
+            "  `N/A` – API nicht erreichbar",
+        ]
 
     lines = [
         "📊 *EUR/USD · Morning Brief*",
@@ -598,6 +647,7 @@ def build_message(
         f"  Long `{lp}` · Short `{sp}` · Net\\-OI `{np_pct}`",
         f"  Open Interest  `{oi_str}` Kontrakte",
         f"  Bias: {ci} `{esc(cot.get('bias', 'N/A') if cot else 'N/A')}`",
+    ] + retail_block + [
         "",
         "━━━━━━━━━━━━━━━━━━━━━━",
         "🗓 *Nächste High\\-Impact Events*",
@@ -614,8 +664,9 @@ def build_message(
         f"  Zinsdiff\\. {ri} `{esc(signals['rate_bias'])}`",
         f"  2Y\\-Spread {yi} `{esc(signals['yield_bias'])}`",
         f"  COT        {ci} `{esc(signals['cot_bias'])}`",
+        f"  Retail     {esc(retail['icon']) if retail else '⚪'} `{esc(retail['bias']) if retail else esc('N/A')}`",
         "",
-        "_ECB SDMX · Eurostat · FRED · CFTC Disagg\\._",
+        "_ECB SDMX · Eurostat · FRED · CFTC · Myfxbook_",
     ]
 
     return "\n".join(lines)
@@ -625,18 +676,13 @@ def build_message(
 #  Telegram senden
 # ─────────────────────────────────────────────────────────────
 
-def send_telegram(message: str) -> bool:
+def send_telegram(message):
     url     = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN.strip()}/sendMessage"
-    payload = {
-        "chat_id":    TELEGRAM_CHAT_ID.strip(),
-        "text":       message,
-        "parse_mode": "MarkdownV2",
-    }
+    payload = {"chat_id": TELEGRAM_CHAT_ID.strip(), "text": message, "parse_mode": "MarkdownV2"}
     try:
         r = requests.post(url, json=payload, timeout=15)
         r.raise_for_status()
-        print(f"[OK] Telegram gesendet "
-              f"(msg_id={r.json().get('result', {}).get('message_id')})")
+        print(f"[OK] Telegram gesendet (msg_id={r.json().get('result', {}).get('message_id')})")
         return True
     except Exception as e:
         print(f"[ERROR] Telegram: {e}")
@@ -650,7 +696,7 @@ def send_telegram(message: str) -> bool:
 # ─────────────────────────────────────────────────────────────
 
 def run():
-    print(f"[{datetime.now().isoformat()}] EUR/USD Morning Brief v4.3 startet...")
+    print(f"[{datetime.now().isoformat()}] EUR/USD Morning Brief v4.4 startet...")
 
     ecb_dfr, ecb_dfr_date, ecb_dfr_hinweis = get_ecb_dfr()
     ecb_hicp,  ecb_hicp_date  = get_ecb_hicp()
@@ -659,23 +705,25 @@ def run():
     us2y,      us2y_date      = get_us2y()
     de2y,      de2y_date      = get_de2y()
     cot                       = get_cot_eur()
+    retail                    = get_retail_sentiment()  # NEU v4.4
     meetings                  = get_next_meetings()
     signals                   = compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot)
 
     print("\n── DATENPUNKTE ──────────────────────────")
-    print(f"  EZB DFR:  {ecb_dfr}%  ({ecb_dfr_date})  hinweis={ecb_dfr_hinweis}")
+    print(f"  EZB DFR:  {ecb_dfr}%  ({ecb_dfr_date})")
     print(f"  EZB HICP: {ecb_hicp}% ({ecb_hicp_date})")
     print(f"  EFFR:     {fed_effr}% ({fed_effr_date})")
     print(f"  US CPI:   {us_cpi}%  ({us_cpi_date})")
     print(f"  US 2Y:    {us2y}%   ({us2y_date})")
     print(f"  DE 2Y:    {de2y}%   ({de2y_date})")
     if cot:
-        print(f"  COT:      net={cot['net']:+,}, oi={cot['oi']:,}, "
-              f"bias={cot['bias']}, src={cot['source']}")
+        print(f"  COT:      net={cot['net']:+,}, oi={cot['oi']:,}, bias={cot['bias']}")
     else:
-        print("  COT:      N/A (alle Quellen erschöpft)")
-    print(f"  Signale:  rateDiff={signals.get('rate_diff')} "
-          f"spread={signals.get('yield_spread')}")
+        print("  COT:      N/A")
+    if retail:
+        print(f"  Retail:   Long={retail['long_pct']:.1f}% Short={retail['short_pct']:.1f}% → {retail['bias']}")
+    else:
+        print("  Retail:   N/A")
     print("─────────────────────────────────────────")
 
     message = build_message(
@@ -684,7 +732,7 @@ def run():
         fed_effr, fed_effr_date,
         us_cpi, us_cpi_date,
         us2y, us2y_date, de2y, de2y_date,
-        cot, meetings, signals
+        cot, meetings, signals, retail
     )
 
     print("\n── VORSCHAU ─────────────────────────────")
