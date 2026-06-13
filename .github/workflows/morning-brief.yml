@@ -2,9 +2,9 @@ name: EUR/USD Morning Brief
 
 on:
   schedule:
-    # 05:50 UTC = 07:50 CEST (Sommerzeit) / 06:50 MEZ (Winterzeit)
+    # Mo–Fr 05:50 UTC = 07:50 CEST (Sommerzeit)
     - cron: "50 5 * * 1-5"
-  workflow_dispatch:  # Manueller Testlauf jederzeit möglich
+  workflow_dispatch:
     inputs:
       debug_cot:
         description: 'COT-Diagnose (debug_cot.py) zusätzlich ausführen'
@@ -23,6 +23,11 @@ jobs:
   send-brief:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
+    # Verhindert doppelten Lauf wenn trigger.yml und cron gleichzeitig feuern
+    concurrency:
+      group: morning-brief-${{ github.ref }}
+      cancel-in-progress: false
 
     steps:
       # ── 1. Secrets prüfen ──────────────────────────────────────────
@@ -63,7 +68,7 @@ jobs:
         if: ${{ github.event.inputs.debug_cot == 'true' }}
         run: python debug_cot.py
 
-      # ── 6. Morning Brief senden (3 Versuche) ───────────────────────
+      # ── 6. Morning Brief senden (3 Versuche, exp. Backoff) ───────────
       - name: Morning Brief senden
         id: send
         env:
@@ -91,8 +96,6 @@ jobs:
           exit 1
 
       # ── 7. Daten-Validierung ────────────────────────────────────────
-      # Prüft ob kritische Datenpunkte im Output vorhanden sind.
-      # Schlägt der Check fehl → Annotation im Actions-Tab + Telegram-Warnung.
       - name: Daten-Validierung
         id: validate
         if: always() && steps.send.outputs.status == 'success'
@@ -103,44 +106,34 @@ jobs:
           OUTPUT=$(cat /tmp/brief_output.txt 2>/dev/null || echo "")
           WARNINGS=""
 
-          # COT: net=0 UND oi=0 → Datenproblem
           if echo "$OUTPUT" | grep -qE "COT:.*net=\+0.*oi=0"; then
-            WARNINGS="$WARNINGS\n⚠️ COT: net=0 und OI=0 → CFTC API hat keine Daten geliefert"
-            echo "::warning::COT liefert 0/0 – debug_cot.py ausführen"
+            WARNINGS="$WARNINGS\n⚠️ COT: net=0 und OI=0 → CFTC API leer"
+            echo "::warning::COT 0/0 – debug_cot.py ausführen"
           fi
-
-          # COT N/A
           if echo "$OUTPUT" | grep -q "COT:.*N/A"; then
             WARNINGS="$WARNINGS\n⚠️ COT: N/A → alle CFTC-Quellen erschöpft"
-            echo "::warning::COT N/A – alle Fallbacks fehlgeschlagen"
+            echo "::warning::COT N/A"
           fi
-
-          # HICP N/A
           if echo "$OUTPUT" | grep -q "EZB HICP: None"; then
-            WARNINGS="$WARNINGS\n⚠️ HICP: kein Wert von Eurostat/ECB"
+            WARNINGS="$WARNINGS\n⚠️ HICP: kein Wert"
             echo "::warning::HICP N/A"
           fi
-
-          # US CPI N/A
           if echo "$OUTPUT" | grep -q "US CPI:   None"; then
-            WARNINGS="$WARNINGS\n⚠️ US CPI: kein Wert von FRED"
+            WARNINGS="$WARNINGS\n⚠️ US CPI: kein Wert"
             echo "::warning::US CPI N/A"
           fi
-
-          # EFFR N/A
           if echo "$OUTPUT" | grep -q "EFFR:     None"; then
-            WARNINGS="$WARNINGS\n⚠️ EFFR: kein Wert von FRED"
+            WARNINGS="$WARNINGS\n⚠️ EFFR: kein Wert"
             echo "::warning::EFFR N/A"
           fi
 
           if [ -n "$WARNINGS" ]; then
             echo "validate_warnings=true" >> $GITHUB_OUTPUT
             echo -e "$WARNINGS"
-            # Telegram-Warnung senden
-            MSG="⚠️ *Morning Brief Datenwarnung*%0A$(date -u '+%d.%m.%Y %H:%M UTC')%0A%0A$WARNINGS%0A%0A_Bitte debug_cot.py prüfen_"
+            MSG=$(echo -e "⚠️ Morning Brief Datenwarnung\n$(date -u '+%d.%m.%Y %H:%M UTC')$WARNINGS\n\nBitte debug_cot.py prüfen")
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -d "chat_id=${TELEGRAM_CHAT_ID}" \
-              -d "text=$(echo -e "$WARNINGS" | sed 's/⚠️/⚠️/g')" \
+              --data-urlencode "text=$MSG" \
               -d "parse_mode=Markdown" || true
           else
             echo "validate_warnings=false" >> $GITHUB_OUTPUT
@@ -156,8 +149,7 @@ jobs:
           NOW=$(date -u '+%Y-%m-%d %H:%M UTC')
           echo "## 📊 EUR/USD Morning Brief" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Ausführung:** \`$NOW\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** v4.2" >> $GITHUB_STEP_SUMMARY
+          echo "**Ausführung:** \`$NOW\`  **Version:** v4.2" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "$STATUS" = "success" ]; then
             echo "✅ **Erfolgreich gesendet**" >> $GITHUB_STEP_SUMMARY
@@ -166,17 +158,13 @@ jobs:
           fi
           if [ "$WARN" = "true" ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "⚠️ **Datenwarnungen vorhanden** – siehe Schritt \`Daten-Validierung\`" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Datenwarnungen** – siehe Schritt Daten-Validierung" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Datenquellen" >> $GITHUB_STEP_SUMMARY
-          echo "| Datenpunkt | API | Endpoint |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| EZB DFR | ECB SDMX | FM/B.U2.EUR.4F.KR.DFR.LEV |" >> $GITHUB_STEP_SUMMARY
-          echo "| HICP | Eurostat Flash | prc_hicp_manr |" >> $GITHUB_STEP_SUMMARY
-          echo "| EFFR / US CPI / US2Y | FRED | DFF / CPIAUCNS / DGS2 |" >> $GITHUB_STEP_SUMMARY
-          echo "| DE 2Y | ECB SDMX | YC/.../SR_2Y |" >> $GITHUB_STEP_SUMMARY
-          echo "| COT EUR | CFTC TFF → Legacy | jun7-3zbs / gpe5-46if |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Schnell-Links" >> $GITHUB_STEP_SUMMARY
-          echo "- [CFTC COT Diagnose erneut ausführen](https://github.com/noahhwagnerr-wq/eurusd-morning-brief/actions/workflows/morning-brief.yml) → \`Run workflow\` → \`debug_cot: true\`" >> $GITHUB_STEP_SUMMARY
+          echo "| Datenpunkt | API |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| EZB DFR | ECB SDMX |" >> $GITHUB_STEP_SUMMARY
+          echo "| HICP | Eurostat Flash |" >> $GITHUB_STEP_SUMMARY
+          echo "| EFFR / CPI / US2Y | FRED |" >> $GITHUB_STEP_SUMMARY
+          echo "| DE 2Y | ECB SDMX |" >> $GITHUB_STEP_SUMMARY
+          echo "| COT EUR | CFTC TFF → Legacy |" >> $GITHUB_STEP_SUMMARY
