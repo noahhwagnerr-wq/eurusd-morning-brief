@@ -3,21 +3,29 @@ name: EUR/USD Morning Brief
 on:
   schedule:
     # 05:50 UTC = 07:50 CEST (Sommerzeit) / 06:50 MEZ (Winterzeit)
-    # Etwas früher als 08:00 um API-Latenzen einzurechnen
     - cron: "50 5 * * 1-5"
   workflow_dispatch:  # Manueller Testlauf jederzeit möglich
+    inputs:
+      debug_cot:
+        description: 'COT-Diagnose (debug_cot.py) zusätzlich ausführen'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PYTHONUNBUFFERED: "1"   # Logs sofort sichtbar, kein Buffering
+  PYTHONUNBUFFERED: "1"
 
 jobs:
   send-brief:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
 
     steps:
-      # ── 1. Secrets prüfen – sofort abbrechen wenn etwas fehlt ──
+      # ── 1. Secrets prüfen ──────────────────────────────────────────
       - name: Secrets pruefen
         run: |
           MISSING=""
@@ -35,22 +43,27 @@ jobs:
           TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
           FRED_API_KEY:       ${{ secrets.FRED_API_KEY }}
 
-      # ── 2. Code holen ──
+      # ── 2. Code holen ──────────────────────────────────────────────
       - name: Repository auschecken
         uses: actions/checkout@v4
 
-      # ── 3. Python einrichten mit Cache ──
+      # ── 3. Python 3.12 ─────────────────────────────────────────────
       - name: Python 3.12 einrichten
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "pip"
 
-      # ── 4. Abhängigkeiten ──
+      # ── 4. Dependencies ────────────────────────────────────────────
       - name: Abhaengigkeiten installieren
         run: pip install -r requirements.txt
 
-      # ── 5. Morning Brief mit Retry (bis zu 3 Versuche) ──
+      # ── 5. (Optional) COT-Diagnose ─────────────────────────────────
+      - name: COT Diagnose (debug_cot.py)
+        if: ${{ github.event.inputs.debug_cot == 'true' }}
+        run: python debug_cot.py
+
+      # ── 6. Morning Brief senden (3 Versuche) ───────────────────────
       - name: Morning Brief senden
         id: send
         env:
@@ -62,7 +75,7 @@ jobs:
           DELAY=30
           for i in $(seq 1 $MAX_RETRIES); do
             echo "--- Versuch $i / $MAX_RETRIES ---"
-            if python eurusd_morning_brief.py; then
+            if python eurusd_morning_brief.py 2>&1 | tee /tmp/brief_output.txt; then
               echo "✅ Morning Brief erfolgreich gesendet (Versuch $i)"
               echo "status=success" >> $GITHUB_OUTPUT
               exit 0
@@ -70,34 +83,100 @@ jobs:
             if [ $i -lt $MAX_RETRIES ]; then
               echo "⚠️ Fehler bei Versuch $i. Warte ${DELAY}s..."
               sleep $DELAY
-              DELAY=$((DELAY * 2))  # Exponentielles Backoff: 30s, 60s
+              DELAY=$((DELAY * 2))
             fi
           done
           echo "::error::Morning Brief nach $MAX_RETRIES Versuchen fehlgeschlagen"
           echo "status=failed" >> $GITHUB_OUTPUT
           exit 1
 
-      # ── 6. Job-Summary (immer sichtbar im Actions-Tab) ──
+      # ── 7. Daten-Validierung ────────────────────────────────────────
+      # Prüft ob kritische Datenpunkte im Output vorhanden sind.
+      # Schlägt der Check fehl → Annotation im Actions-Tab + Telegram-Warnung.
+      - name: Daten-Validierung
+        id: validate
+        if: always() && steps.send.outputs.status == 'success'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          OUTPUT=$(cat /tmp/brief_output.txt 2>/dev/null || echo "")
+          WARNINGS=""
+
+          # COT: net=0 UND oi=0 → Datenproblem
+          if echo "$OUTPUT" | grep -qE "COT:.*net=\+0.*oi=0"; then
+            WARNINGS="$WARNINGS\n⚠️ COT: net=0 und OI=0 → CFTC API hat keine Daten geliefert"
+            echo "::warning::COT liefert 0/0 – debug_cot.py ausführen"
+          fi
+
+          # COT N/A
+          if echo "$OUTPUT" | grep -q "COT:.*N/A"; then
+            WARNINGS="$WARNINGS\n⚠️ COT: N/A → alle CFTC-Quellen erschöpft"
+            echo "::warning::COT N/A – alle Fallbacks fehlgeschlagen"
+          fi
+
+          # HICP N/A
+          if echo "$OUTPUT" | grep -q "EZB HICP: None"; then
+            WARNINGS="$WARNINGS\n⚠️ HICP: kein Wert von Eurostat/ECB"
+            echo "::warning::HICP N/A"
+          fi
+
+          # US CPI N/A
+          if echo "$OUTPUT" | grep -q "US CPI:   None"; then
+            WARNINGS="$WARNINGS\n⚠️ US CPI: kein Wert von FRED"
+            echo "::warning::US CPI N/A"
+          fi
+
+          # EFFR N/A
+          if echo "$OUTPUT" | grep -q "EFFR:     None"; then
+            WARNINGS="$WARNINGS\n⚠️ EFFR: kein Wert von FRED"
+            echo "::warning::EFFR N/A"
+          fi
+
+          if [ -n "$WARNINGS" ]; then
+            echo "validate_warnings=true" >> $GITHUB_OUTPUT
+            echo -e "$WARNINGS"
+            # Telegram-Warnung senden
+            MSG="⚠️ *Morning Brief Datenwarnung*%0A$(date -u '+%d.%m.%Y %H:%M UTC')%0A%0A$WARNINGS%0A%0A_Bitte debug_cot.py prüfen_"
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -d "chat_id=${TELEGRAM_CHAT_ID}" \
+              -d "text=$(echo -e "$WARNINGS" | sed 's/⚠️/⚠️/g')" \
+              -d "parse_mode=Markdown" || true
+          else
+            echo "validate_warnings=false" >> $GITHUB_OUTPUT
+            echo "✅ Alle Datenpunkte vorhanden"
+          fi
+
+      # ── 8. Job-Summary ──────────────────────────────────────────────
       - name: Job Summary schreiben
         if: always()
         run: |
           STATUS="${{ steps.send.outputs.status }}"
+          WARN="${{ steps.validate.outputs.validate_warnings }}"
           NOW=$(date -u '+%Y-%m-%d %H:%M UTC')
           echo "## 📊 EUR/USD Morning Brief" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Ausführung:** \`$NOW\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** v4.2" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "$STATUS" = "success" ]; then
             echo "✅ **Erfolgreich gesendet**" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ **Fehlgeschlagen** – bitte Logs prüfen" >> $GITHUB_STEP_SUMMARY
           fi
+          if [ "$WARN" = "true" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Datenwarnungen vorhanden** – siehe Schritt \`Daten-Validierung\`" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Quellen" >> $GITHUB_STEP_SUMMARY
+          echo "### Datenquellen" >> $GITHUB_STEP_SUMMARY
           echo "| Datenpunkt | API | Endpoint |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
           echo "| EZB DFR | ECB SDMX | FM/B.U2.EUR.4F.KR.DFR.LEV |" >> $GITHUB_STEP_SUMMARY
           echo "| HICP | Eurostat Flash | prc_hicp_manr |" >> $GITHUB_STEP_SUMMARY
-          echo "| EFFR / US CPI / US2Y | FRED | DFF / CPIAUCSL_PC1 / DGS2 |" >> $GITHUB_STEP_SUMMARY
+          echo "| EFFR / US CPI / US2Y | FRED | DFF / CPIAUCNS / DGS2 |" >> $GITHUB_STEP_SUMMARY
           echo "| DE 2Y | ECB SDMX | YC/.../SR_2Y |" >> $GITHUB_STEP_SUMMARY
-          echo "| COT EUR | CFTC TFF | jun7-3zbs / 099741 |" >> $GITHUB_STEP_SUMMARY
+          echo "| COT EUR | CFTC TFF → Legacy | jun7-3zbs / gpe5-46if |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Schnell-Links" >> $GITHUB_STEP_SUMMARY
+          echo "- [CFTC COT Diagnose erneut ausführen](https://github.com/noahhwagnerr-wq/eurusd-morning-brief/actions/workflows/morning-brief.yml) → \`Run workflow\` → \`debug_cot: true\`" >> $GITHUB_STEP_SUMMARY
