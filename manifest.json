@@ -1,0 +1,15 @@
+{
+  "name": "EUR/USD Morning Brief",
+  "short_name": "EUR/USD",
+  "description": "Täglicher FX Makro-Brief: EZB, Fed, COT, Zinsdifferenzen",
+  "start_url": "/eurusd-morning-brief/",
+  "scope": "/eurusd-morning-brief/",
+  "display": "standalone",
+  "background_color": "#0d0f11",
+  "theme_color": "#0d0f11",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

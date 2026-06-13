@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="36" fill="#0d0f11"/>
+  <rect x="12" y="12" width="168" height="168" rx="28" fill="#131619"/>
+  <text x="96" y="80" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="42" fill="#4f98a3">EUR</text>
+  <line x1="40" y1="96" x2="152" y2="96" stroke="#404650" stroke-width="1"/>
+  <text x="96" y="148" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="42" fill="#4f98a3">USD</text>
+</svg>
