@@ -3,20 +3,10 @@ name: Trigger Morning Brief
 # =====================================================================
 #  trigger.yml  –  Automatischer Auslöser für den Morning Brief
 #
-#  Warum ein separater Trigger-Workflow?
-#  ───────────────────────────────────────────────────────────
-#  1. morning-brief.yml läuft automatisch Mo–Fr (cron).
-#     Am Wochenende gibt es keinen automatischen Lauf.
-#  2. Dieser Workflow ergänzt:
-#     a) Sa+So 07:50 CEST  → weekend_brief (ohne debug)
-#     b) Manuell jederzeit → workflow_dispatch mit debug_cot-Option
-#     c) Ersatz-Trigger: Falls morning-brief.yml durch GitHub-Throttling
-#        ausgelassen wurde, läuft dieser Workflow später erneut.
-#
-#  Funktionsweise:
-#  Ruft den Haupt-Workflow via GitHub REST API (workflow_dispatch)
-#  auf – das vermeidet Code-Duplikation und nutzt denselben
-#  validierten Ablauf inkl. Retry + Datenprüfung.
+#  Fix 2026-06-13: permissions.actions: write hinzugefügt.
+#  Der GITHUB_TOKEN braucht explizit actions:write um via REST API
+#  einen workflow_dispatch auf einen anderen Workflow auszulösen.
+#  Ohne diese Berechtigung → HTTP 403.
 # =====================================================================
 
 on:
@@ -40,6 +30,13 @@ on:
         required: false
         default: 'Manuell'
         type: string
+
+# ── Permissions ────────────────────────────────────────────────────────
+# actions:write  → workflow_dispatch per REST API erlaubt (behebt HTTP 403)
+# contents:read  → Repository auschecken
+permissions:
+  actions: write
+  contents: read
 
 jobs:
   trigger:
