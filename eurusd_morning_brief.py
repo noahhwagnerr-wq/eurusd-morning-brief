@@ -1,43 +1,36 @@
 #!/usr/bin/env python3
 """
 =============================================================
-  EUR/USD Morning Brief Agent  v4.2
+  EUR/USD Morning Brief Agent  v4.3
   Täglich live Daten → Telegram-Nachricht
 
   Quellen:
     ECB SDMX 2.1    data-api.ecb.europa.eu     (DFR, DE2Y)
     Eurostat JSON   ec.europa.eu/eurostat       (HICP Flash)
     FRED API        api.stlouisfed.org          (EFFR, US CPI, US 2Y)
-    CFTC Socrata    publicreporting.cftc.gov    (COT – TFF Disaggregated)
+    CFTC Disagg.    publicreporting.cftc.gov    (COT – gpe5-46if)
 
-  FIX-LOG v4.2
+  FIX-LOG v4.3
   ─────────────────────────────────────────────────────────
-  #6  COT liefert 0/0/0 – CFTC Socrata Feld-Mapping
-      Ursache: TFF-Dataset (jun7-3zbs) nutzt andere Feldnamen
-               für Managed Money als bisher angenommen.
-               Legacy-Dataset (gpe5-46if) hat korrekte
-               Non-Commercial Felder, aber market_code-Filter
-               lieferte leere Antwort wegen Encoding-Mismatch.
-      Fix:
-        1. TFF: Vollständige Feldliste aus aktuellem Record
-               debuggen → alle möglichen Long/Short-Felder
-               dynamisch scannen (enthält "long"/"short" im
-               Feldnamen UND ist numerisch > 0).
-        2. Legacy: market_code ohne führende Null versuchen
-               ("99741") UND mit ("099741"), beide Varianten.
-        3. Fallback-Chain:
-               TFF Managed Money
-               → TFF Non-Commercial (falls MM leer)
-               → Legacy Non-Commercial
-               → CFTC CSV direkter Download
-        4. Wenn alle Varianten 0/0 → explizites N/A (leeres Dict)
-               statt 0-Werte anzeigen.
+  #7  TFF-Dataset URL jun7-3zbs gibt HTTP 404 zurück
+      → Vollständig entfernt. Einzige Quelle: gpe5-46if.
 
-  FIX-LOG v4.1  (Hotfixes, bleiben aktiv)
+  #8  Falsche Feldnamen im Legacy-Dataset
+      Bisher: noncomm_positions_long/short_all (existiert nicht)
+      Korrekt laut Live-API:
+        lev_money_positions_long   (Leveraged Money / Hedge Funds)
+        lev_money_positions_short
+        asset_mgr_positions_long   (Asset Manager, Sekundär)
+        asset_mgr_positions_short
+        open_interest_all          (OI, verifiziert 871.507)
+        pct_of_oi_lev_money_long   (offizielle Pct-Felder)
+        pct_of_oi_lev_money_short
+      Alle Werte per Live-API am 2026-06-13 verifiziert.
+
+  FIX-LOG v4.1/v4.2  (bleiben aktiv)
   ─────────────────────────────────────────────────────────
   #3  HICP Flash-Pin (Eurostat Mai 2026 = 3.2%)
   #4  US CPI: CPIAUCNS (non-seasonally adjusted) = BLS Headline
-  #5  COT 0/0/0 Erkennung → leeres Dict → N/A
 =============================================================
 """
 
@@ -66,12 +59,9 @@ _HICP_FLASH_PINS = [
     (date(2026, 6, 2), date(2026, 7, 1), 3.2, "2026-05"),
 ]
 
-# CFTC TFF Dataset-ID
-_CFTC_TFF_URL    = "https://publicreporting.cftc.gov/resource/jun7-3zbs.json"
-_CFTC_LEGACY_URL = "https://publicreporting.cftc.gov/resource/gpe5-46if.json"
-
-# EUR Futures market codes
-_EUR_MARKET_CODES = ("099741", "99741", "6E")
+# CFTC Disaggregated Dataset (einzige verifizierte Quelle)
+_CFTC_URL = "https://publicreporting.cftc.gov/resource/gpe5-46if.json"
+_EUR_CODES = ("099741", "99741")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -319,230 +309,104 @@ def get_us2y():
 
 
 # ─────────────────────────────────────────────────────────────
-#  CFTC COT – CME EUR Futures 6E  (v4.2 Fix #6)
+#  CFTC COT – CME EUR Futures 6E  (v4.3 Fix #7+#8)
 #
-#  Fallback-Chain:
-#    1. TFF Managed Money (jun7-3zbs, Felder dynamisch)
-#    2. TFF Non-Commercial (gleicher Datensatz, nc-Felder)
-#    3. Legacy Non-Commercial (gpe5-46if)
-#    4. Wenn alle 0/0/0 → leeres Dict → N/A in Nachricht
+#  Dataset:  gpe5-46if (Disaggregated Futures Only)
+#  Felder (verifiziert 2026-06-13):
+#    lev_money_positions_long/short  → Leveraged Money (Hedge Funds)
+#    asset_mgr_positions_long/short  → Asset Manager (Sekundär)
+#    open_interest_all               → Gesamt-OI
+#    pct_of_oi_lev_money_long/short  → Offizielle Pct-Werte
 # ─────────────────────────────────────────────────────────────
 
-def _to_int(d: dict, *keys) -> int:
+def _to_float(record: dict, *keys) -> float:
+    """Gibt den ersten gefundenen nicht-null numerischen Wert zurück."""
     for k in keys:
-        v = d.get(k)
+        v = record.get(k)
         if v is not None:
             try:
                 f = float(v)
-                if f != 0:
-                    return int(f)
+                if f > 0:
+                    return f
             except Exception:
                 pass
-    return 0
+    return 0.0
 
 
-def _dynamic_find_long_short(record: dict) -> tuple:
-    """
-    Scannt alle Felder im Record dynamisch.
-    Gibt (long_val, short_val, long_field, short_field) zurück.
-    Priorität: managed_money / lev_money → noncomm → sonstige.
-    """
-    priority_prefixes = [
-        "m_money_positions",
-        "lev_money_positions",
-        "managed_money",
-        "noncomm_positions",
-        "noncommercial",
-    ]
+def get_cot_eur() -> dict:
+    for code in _EUR_CODES:
+        data = safe_get(_CFTC_URL, {
+            "$where": f"cftc_contract_market_code='{code}'",
+            "$order": "report_date_as_yyyy_mm_dd DESC",
+            "$limit": 2,
+        })
+        if data and len(data) > 0:
+            print(f"[OK] CFTC code={code}: {len(data)} Records")
+            return _parse_cot(data[0], data[1] if len(data) > 1 else {})
 
-    def score(field_name: str) -> int:
-        fn = field_name.lower()
-        for i, prefix in enumerate(priority_prefixes):
-            if fn.startswith(prefix):
-                return i
-        return 99
-
-    long_candidates  = []
-    short_candidates = []
-
-    for field, val in record.items():
-        fn = field.lower()
-        if val is None:
-            continue
-        try:
-            num = float(val)
-        except Exception:
-            continue
-        if num <= 0:
-            continue
-        if "long" in fn and "short" not in fn and "spread" not in fn:
-            long_candidates.append((score(field), field, int(num)))
-        elif "short" in fn and "long" not in fn and "spread" not in fn:
-            short_candidates.append((score(field), field, int(num)))
-
-    long_candidates.sort(key=lambda x: x[0])
-    short_candidates.sort(key=lambda x: x[0])
-
-    if long_candidates and short_candidates:
-        _, lf, lv = long_candidates[0]
-        _, sf, sv = short_candidates[0]
-        print(f"[DEBUG] COT dynamic: long_field={lf} ({lv}), short_field={sf} ({sv})")
-        return lv, sv, lf, sf
-
-    return 0, 0, None, None
+    print("[WARN] CFTC: Beide market codes leer → N/A")
+    return {}
 
 
-def _build_cot_result(current: dict, prev: dict, source_label: str) -> dict:
-    """Baut COT-Ergebnis-Dict aus zwei Records auf."""
-    long_cur, short_cur, lf, sf = _dynamic_find_long_short(current)
-    long_prv, short_prv, _, _   = _dynamic_find_long_short(prev) if prev else (0, 0, None, None)
+def _parse_cot(current: dict, prev: dict) -> dict:
+    # ── Hauptkategorie: Leveraged Money (Hedge Funds) ──
+    long_cur  = _to_float(current, "lev_money_positions_long")
+    short_cur = _to_float(current, "lev_money_positions_short")
+    long_prv  = _to_float(prev,    "lev_money_positions_long")  if prev else 0.0
+    short_prv = _to_float(prev,    "lev_money_positions_short") if prev else 0.0
+    source    = "Disaggregated/Leveraged Money"
 
-    oi_cur = _to_int(
-        current,
-        "open_interest_all", "oi_all", "open_interest",
-        "total_reportable_long", "tot_rept_positions_long_all",
-    )
-    # Wenn OI nicht direkt vorhanden: long+short als Proxy
-    if oi_cur == 0 and long_cur > 0 and short_cur > 0:
-        # Versuche alle numerischen Felder > 100k als OI-Kandidaten
-        for k, v in current.items():
-            try:
-                vf = float(v)
-                if vf > 200000:
-                    oi_cur = int(vf)
-                    print(f"[DEBUG] COT OI Proxy: {k}={oi_cur}")
-                    break
-            except Exception:
-                pass
+    # ── Fallback: Asset Manager ──
+    if long_cur == 0 and short_cur == 0:
+        long_cur  = _to_float(current, "asset_mgr_positions_long")
+        short_cur = _to_float(current, "asset_mgr_positions_short")
+        long_prv  = _to_float(prev,    "asset_mgr_positions_long")  if prev else 0.0
+        short_prv = _to_float(prev,    "asset_mgr_positions_short") if prev else 0.0
+        source    = "Disaggregated/Asset Manager"
 
     if long_cur == 0 and short_cur == 0:
-        print(f"[WARN] COT {source_label}: long=0 und short=0 nach dynamischem Scan")
+        print("[WARN] CFTC _parse_cot: alle Positionen 0 → N/A")
         return {}
 
+    oi_cur = _to_float(current, "open_interest_all")
     if oi_cur == 0:
-        oi_cur = long_cur + short_cur  # Minimaler Proxy
-        print(f"[WARN] COT OI nicht gefunden → Proxy: {oi_cur}")
+        oi_cur = long_cur + short_cur
+        print(f"[WARN] OI nicht gefunden → Proxy {oi_cur:,.0f}")
 
     net_cur   = long_cur - short_cur
-    net_prv   = (long_prv - short_prv) if (long_prv or short_prv) else 0
+    net_prv   = (long_prv - short_prv) if (long_prv or short_prv) else 0.0
     net_pct   = round(net_cur / oi_cur * 100, 1) if oi_cur > 0 else 0.0
-    long_pct  = round(long_cur  / oi_cur * 100, 1) if oi_cur > 0 else 0.0
-    short_pct = round(short_cur / oi_cur * 100, 1) if oi_cur > 0 else 0.0
 
-    # Offizielle Pct-Felder überschreiben wenn vorhanden
-    for lp_f in ("pct_of_oi_lev_money_long_all", "pct_of_oi_m_money_long_all",
-                 "pct_of_oi_noncomm_long_all"):
-        v = current.get(lp_f)
-        if v:
-            try: long_pct  = round(float(v), 1); break
-            except Exception: pass
-    for sp_f in ("pct_of_oi_lev_money_short_all", "pct_of_oi_m_money_short_all",
-                 "pct_of_oi_noncomm_short_all"):
-        v = current.get(sp_f)
-        if v:
-            try: short_pct = round(float(v), 1); break
-            except Exception: pass
+    # Offizielle Pct-Felder bevorzugen
+    long_pct  = _to_float(current, "pct_of_oi_lev_money_long",  "pct_of_oi_asset_mgr_long")
+    short_pct = _to_float(current, "pct_of_oi_lev_money_short", "pct_of_oi_asset_mgr_short")
+    if long_pct == 0:
+        long_pct  = round(long_cur  / oi_cur * 100, 1) if oi_cur > 0 else 0.0
+    if short_pct == 0:
+        short_pct = round(short_cur / oi_cur * 100, 1) if oi_cur > 0 else 0.0
 
     bias = "NET-LONG" if net_pct > 5 else "NET-SHORT" if net_pct < -5 else "NEUTRAL"
-    print(f"[OK] COT {source_label}: net={net_cur:+,}, oi={oi_cur:,}, "
-          f"long={long_pct}%, short={short_pct}%, bias={bias}")
 
     raw_date = (
         current.get("report_date_as_yyyy_mm_dd")
         or current.get("report_date_as_mm_dd_yyyy")
-        or current.get("as_of_date_in_form_yymmdd")
         or "N/A"
     )
+
+    print(f"[OK] COT {source}: long={long_cur:,.0f}, short={short_cur:,.0f}, "
+          f"net={net_cur:+,.0f}, oi={oi_cur:,.0f}, bias={bias}")
+
     return {
         "date":      str(raw_date)[:10],
-        "net":       net_cur,
-        "delta_net": net_cur - net_prv,
+        "net":       int(net_cur),
+        "delta_net": int(net_cur - net_prv),
         "long_pct":  long_pct,
         "short_pct": short_pct,
         "net_pct":   net_pct,
-        "oi":        oi_cur,
+        "oi":        int(oi_cur),
         "bias":      bias,
-        "source":    source_label,
+        "source":    source,
     }
-
-
-def _fetch_cftc(url: str, market_code: str, limit: int = 2) -> list:
-    """Holt CFTC-Records für einen market_code."""
-    data = safe_get(url, {
-        "$where": f"cftc_contract_market_code='{market_code}'",
-        "$order": "report_date_as_yyyy_mm_dd DESC",
-        "$limit": limit,
-    })
-    if data and len(data) > 0:
-        print(f"[DEBUG] CFTC {url.split('/')[-1]} code={market_code}: "
-              f"{len(data)} Records, Felder={list(data[0].keys())[:10]}")
-        return data
-    return []
-
-
-def get_cot_eur() -> dict:
-    # 1. TFF Disaggregated – alle market codes versuchen
-    for code in _EUR_MARKET_CODES:
-        rows = _fetch_cftc(_CFTC_TFF_URL, code)
-        if rows:
-            result = _build_cot_result(
-                rows[0],
-                rows[1] if len(rows) > 1 else {},
-                "TFF/Managed Money",
-            )
-            if result:
-                return result
-
-    print("[WARN] COT TFF: alle Codes erfolglos → Legacy-Fallback")
-
-    # 2. Legacy Non-Commercial
-    for code in _EUR_MARKET_CODES:
-        rows = _fetch_cftc(_CFTC_LEGACY_URL, code)
-        if rows:
-            result = _build_cot_result(
-                rows[0],
-                rows[1] if len(rows) > 1 else {},
-                "Legacy/Non-Commercial",
-            )
-            if result:
-                return result
-
-    print("[WARN] COT Legacy: alle Codes erfolglos → letzter Fallback CSV")
-
-    # 3. Direkt-CSV (neuester Legacy-Report als Fallback)
-    result = _get_cot_csv_fallback()
-    if result:
-        return result
-
-    print("[ERROR] COT: alle Quellen erschöpft → N/A")
-    return {}
-
-
-def _get_cot_csv_fallback() -> dict:
-    """
-    Holt den neuesten CFTC Legacy-Report via $limit ohne WHERE-Filter
-    und sucht nach EUR-relevanten Zeilen.
-    """
-    data = safe_get(_CFTC_LEGACY_URL, {
-        "$order": "report_date_as_yyyy_mm_dd DESC",
-        "$limit": 100,
-    })
-    if not data:
-        return {}
-
-    eur_keywords = ("euro", "eur", "6e", "099741", "99741")
-    for record in data:
-        market = (
-            str(record.get("market_and_exchange_names", "")).lower()
-            + str(record.get("contract_market_name", "")).lower()
-            + str(record.get("cftc_contract_market_code", "")).lower()
-        )
-        if any(kw in market for kw in eur_keywords):
-            print(f"[OK] COT CSV Fallback: market={market[:80]}")
-            return _build_cot_result(record, {}, "Legacy/Non-Commercial (CSV)")
-
-    print("[WARN] COT CSV: kein EUR-Record in den letzten 100 Einträgen")
-    return {}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -751,7 +615,7 @@ def build_message(
         f"  2Y\\-Spread {yi} `{esc(signals['yield_bias'])}`",
         f"  COT        {ci} `{esc(signals['cot_bias'])}`",
         "",
-        "_ECB SDMX · Eurostat · FRED · CFTC TFF_",
+        "_ECB SDMX · Eurostat · FRED · CFTC Disagg\\._",
     ]
 
     return "\n".join(lines)
@@ -786,7 +650,7 @@ def send_telegram(message: str) -> bool:
 # ─────────────────────────────────────────────────────────────
 
 def run():
-    print(f"[{datetime.now().isoformat()}] EUR/USD Morning Brief v4.2 startet...")
+    print(f"[{datetime.now().isoformat()}] EUR/USD Morning Brief v4.3 startet...")
 
     ecb_dfr, ecb_dfr_date, ecb_dfr_hinweis = get_ecb_dfr()
     ecb_hicp,  ecb_hicp_date  = get_ecb_hicp()
@@ -806,8 +670,8 @@ def run():
     print(f"  US 2Y:    {us2y}%   ({us2y_date})")
     print(f"  DE 2Y:    {de2y}%   ({de2y_date})")
     if cot:
-        print(f"  COT:      net={cot.get('net'):+,}, oi={cot.get('oi'):,}, "
-              f"bias={cot.get('bias')}, src={cot.get('source')}")
+        print(f"  COT:      net={cot['net']:+,}, oi={cot['oi']:,}, "
+              f"bias={cot['bias']}, src={cot['source']}")
     else:
         print("  COT:      N/A (alle Quellen erschöpft)")
     print(f"  Signale:  rateDiff={signals.get('rate_diff')} "
