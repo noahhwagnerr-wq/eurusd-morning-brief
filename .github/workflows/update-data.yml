@@ -34,10 +34,10 @@ jobs:
           ref: gh-pages
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: fetch_data.py von main holen
+      - name: Skripte von main holen
         run: |
           git fetch origin main
-          git checkout origin/main -- fetch_data.py
+          git checkout origin/main -- fetch_data.py inject-pat.js
 
       - name: Python 3.12 einrichten
         uses: actions/setup-python@v5
@@ -56,18 +56,23 @@ jobs:
           echo "--- data.json (erste 40 Zeilen) ---"
           head -40 data.json
 
-      - name: data.json auf gh-pages committen
+      - name: GH_PAT in index.html injizieren
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: node inject-pat.js
+
+      - name: Dateien auf gh-pages committen
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data.json
-          git restore --staged fetch_data.py 2>/dev/null || true
+          git add data.json index.html
+          git restore --staged fetch_data.py inject-pat.js 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "Keine Änderungen."
           else
             git commit -m "data: live update $(date -u '+%Y-%m-%d %H:%M UTC')"
             git push origin gh-pages
-            echo "✅ data.json deployed"
+            echo "✅ Deployed"
           fi
 
       - name: Job Summary
