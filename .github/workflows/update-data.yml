@@ -15,6 +15,7 @@ on:
 
 env:
   PYTHONUNBUFFERED: "1"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   fetch-and-deploy:
