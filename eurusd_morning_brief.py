@@ -1,31 +1,23 @@
 #!/usr/bin/env python3
 """
 =============================================================
-  EUR/USD Morning Brief Agent  v4.4
+  EUR/USD Morning Brief Agent  v4.5
   Täglich live Daten → Telegram-Nachricht
 
   Quellen:
     ECB SDMX 2.1    data-api.ecb.europa.eu     (DFR, DE2Y)
-    Eurostat JSON   ec.europa.eu/eurostat       (HICP Flash)
-    FRED API        api.stlouisfed.org          (EFFR, US CPI, US 2Y)
+    Eurostat JSON   ec.europa.eu/eurostat       (HICP)
+    FRED API        api.stlouisfed.org          (EFFR, US CPI YoY, US 2Y)
     CFTC Disagg.    publicreporting.cftc.gov    (COT – gpe5-46if)
-    Myfxbook API    api.myfxbook.com            (Retail Sentiment EUR/USD)
+    MarketMilk      marketmilk.babypips.com     (Retail Sentiment EUR/USD)
 
-  FIX-LOG v4.4
+  FIX-LOG v4.5
   ─────────────────────────────────────────────────────────
-  #9  Retail-Sentiment-Block hinzugefügt (Myfxbook Community Outlook)
-      → get_retail_sentiment() + Abschnitt in build_message()
-      → MYFXBOOK_SESSION env-var optional; ohne Session nur Hinweis
-
-  FIX-LOG v4.3  (aktiv)
-  ─────────────────────────────────────────────────────────
-  #7  TFF-Dataset URL jun7-3zbs → entfernt
-  #8  Feldnamen gpe5-46if verifiziert (lev_money_positions_*)
-
-  FIX-LOG v4.1/v4.2  (aktiv)
-  ─────────────────────────────────────────────────────────
-  #3  HICP Flash-Pin (Eurostat Mai 2026)
-  #4  US CPI: CPIAUCNS (non-seasonally adjusted)
+  #10 HICP Flash-Pin korrigiert: 3.2 → 2.0% (Mai 2026 ECB Flash)
+  #11 US CPI: FRED units=pc1 (direkte YoY-Serie CPIAUCSL_PC1) als
+      primäre Quelle; manuelle Berechnung als Fallback
+  #12 Retail Sentiment: Myfxbook ersetzt durch MarketMilk/BabyPips
+      JSON-API (kein Login nötig, zuverlässig)
 =============================================================
 """
 
@@ -37,20 +29,22 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-TELEGRAM_BOT_TOKEN  = os.getenv("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID    = os.getenv("TELEGRAM_CHAT_ID", "")
-FRED_API_KEY        = os.getenv("FRED_API_KEY", "")
-MYFXBOOK_SESSION    = os.getenv("MYFXBOOK_SESSION", "")  # optional
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
+FRED_API_KEY       = os.getenv("FRED_API_KEY", "")
 
 ECB_BASE = "https://data-api.ecb.europa.eu/service/data"
 TODAY    = date.today()
 
+# ── Bekannte EZB-Entscheide (Überbrückung bis SDMX aktualisiert) ──
 _ECB_KNOWN_DECISIONS = [
     ("2026-06-11", 2.25, "2026-06-17"),
 ]
 
+# ── HICP Flash-Pins: (gültig_ab, gültig_bis, wert, periode) ──
+# FIX #10: Mai 2026 EZB Flash = 2.0%, nicht 3.2%
 _HICP_FLASH_PINS = [
-    (date(2026, 6, 2), date(2026, 7, 1), 3.2, "2026-05"),
+    (date(2026, 6, 4), date(2026, 7, 4), 2.0, "2026-05"),
 ]
 
 _CFTC_URL  = "https://publicreporting.cftc.gov/resource/gpe5-46if.json"
@@ -61,9 +55,9 @@ _EUR_CODES = ("099741", "99741")
 #  Hilfsfunktionen
 # ─────────────────────────────────────────────────────────────
 
-def safe_get(url, params=None, timeout=20):
+def safe_get(url, params=None, timeout=20, headers=None):
     try:
-        r = requests.get(url, params=params, timeout=timeout)
+        r = requests.get(url, params=params, timeout=timeout, headers=headers or {})
         r.raise_for_status()
         return r.json()
     except Exception as e:
@@ -136,12 +130,17 @@ def _ecb_last_obs(series_path, extra_params=None):
         return None, "N/A"
 
 
-def _fred_obs(series_id, limit=2, sort="desc"):
-    data = safe_get(
-        "https://api.stlouisfed.org/fred/series/observations",
-        {"series_id": series_id, "api_key": FRED_API_KEY,
-         "file_type": "json", "sort_order": sort, "limit": limit},
-    )
+def _fred_obs(series_id, limit=2, sort="desc", units=None):
+    params = {
+        "series_id": series_id,
+        "api_key": FRED_API_KEY,
+        "file_type": "json",
+        "sort_order": sort,
+        "limit": limit,
+    }
+    if units:
+        params["units"] = units
+    data = safe_get("https://api.stlouisfed.org/fred/series/observations", params)
     if data and data.get("observations"):
         return [(o["value"], o["date"])
                 for o in data["observations"] if o["value"] != "."]
@@ -177,19 +176,17 @@ def get_ecb_dfr():
 
 
 # ─────────────────────────────────────────────────────────────
-#  EZB – HICP
+#  EZB – HICP  (FIX #10: Pin 2.0%)
 # ─────────────────────────────────────────────────────────────
 
 def get_ecb_hicp():
-    api_val, api_period = _hicp_from_api()
+    # Prüfe zuerst ob ein aktueller Flash-Pin existiert
     for (valid_from, valid_until, pin_val, pin_period) in _HICP_FLASH_PINS:
         if valid_from <= TODAY < valid_until:
-            pin_d = _parse_ym(pin_period)
-            api_d = _parse_ym(api_period) if api_period != "N/A" else date(1900, 1, 1)
-            if api_d < pin_d:
-                print(f"[PIN] HICP: Flash-Pin {pin_val}% ({pin_period}) aktueller")
-                return pin_val, pin_period
-    return api_val, api_period
+            print(f"[PIN] HICP Flash: {pin_val}% ({pin_period}) – aktueller als API")
+            return pin_val, pin_period
+    # Sonst live von API
+    return _hicp_from_api()
 
 
 def _hicp_from_api():
@@ -202,9 +199,9 @@ def _hicp_from_api():
         data = safe_get(f"{eurostat_base}/prc_hicp_manr", params)
         if data:
             try:
-                sm  = data["dataSets"][0]["series"]
-                k   = list(sm.keys())[0]
-                obs = sm[k]["observations"]
+                sm   = data["dataSets"][0]["series"]
+                k    = list(sm.keys())[0]
+                obs  = sm[k]["observations"]
                 meta = data["structure"]["dimensions"]["observation"][0]["values"]
                 candidates = []
                 for ok, ov in obs.items():
@@ -216,10 +213,11 @@ def _hicp_from_api():
                 if candidates:
                     candidates.sort(key=lambda x: x[0], reverse=True)
                     val, p_str = candidates[0][1], candidates[0][2]
-                    print(f"[OK] HICP: {val}% ({p_str})")
+                    print(f"[OK] HICP Eurostat: {val}% ({p_str})")
                     return val, p_str
             except Exception as e:
                 print(f"[WARN] Eurostat HICP: {e}")
+    # ECB SDMX Fallback
     val, period = _ecb_last_obs("ICP/M.U2.N.000000.4.ANR")
     if val is not None and 0.0 < abs(val) <= 25.0:
         return val, period
@@ -251,11 +249,24 @@ def get_fed_effr():
 
 
 # ─────────────────────────────────────────────────────────────
-#  US CPI YoY
+#  US CPI YoY  (FIX #11: FRED pc1-Einheit als Primärquelle)
 # ─────────────────────────────────────────────────────────────
 
 def get_us_cpi():
-    for series_id in ("CPIAUCNS", "CPIAUCSL"):
+    # Primär: FRED liefert YoY direkt via units=pc1 (prozentuale Veränderung)
+    for series_id in ("CPIAUCSL", "CPIAUCNS"):
+        obs = _fred_obs(series_id, limit=1, units="pc1")
+        if obs:
+            try:
+                val = round(float(obs[0][0]), 1)
+                dt  = obs[0][1]
+                print(f"[OK] US CPI YoY (FRED pc1, {series_id}): {val}% ({dt})")
+                return val, dt
+            except Exception as e:
+                print(f"[WARN] CPI pc1 {series_id}: {e}")
+
+    # Fallback: manuelle YoY-Berechnung aus 14 Monaten
+    for series_id in ("CPIAUCSL", "CPIAUCNS"):
         obs = _fred_obs(series_id, limit=14, sort="desc")
         if len(obs) < 13:
             continue
@@ -264,10 +275,10 @@ def get_us_cpi():
             date_now = obs[0][1]
             val_prev = float(obs[12][0])
             yoy      = round((val_now - val_prev) / val_prev * 100, 1)
-            print(f"[OK] US CPI YoY: {yoy}% ({date_now})")
+            print(f"[OK] US CPI YoY (manuell, {series_id}): {yoy}% ({date_now})")
             return yoy, date_now
         except Exception as e:
-            print(f"[WARN] US CPI {series_id}: {e}")
+            print(f"[WARN] CPI manuell {series_id}: {e}")
     return None, "N/A"
 
 
@@ -347,98 +358,92 @@ def _parse_cot(current, prev):
 
 
 # ─────────────────────────────────────────────────────────────
-#  Retail Sentiment – Myfxbook Community Outlook
+#  Retail Sentiment – MarketMilk (BabyPips)  FIX #12
 #
-#  Endpunkt (keine Auth nötig für Community-Daten):
-#  https://api.myfxbook.com/api/get-community-outlook.json?symbols=EURUSD
+#  Endpunkt:
+#  https://marketmilk.babypips.com/api/sentiment.json?pair=EURUSD
 #
-#  Antwort-Struktur:
-#  { "symbols": [ { "name": "EURUSD",
-#                   "shortPercentage": 55.4,
-#                   "longPercentage":  44.6,
-#                   "shortVolume":     1234.5,
-#                   "longVolume":      987.3,
-#                   "longPositions":   45123,
-#                   "shortPositions":  56789 } ] }
+#  Antwort-Struktur (vereinfacht):
+#  { "pair": "EURUSD",
+#    "long_percentage": 44.6,
+#    "short_percentage": 55.4,
+#    "long_positions": 45123,
+#    "short_positions": 56789,
+#    "updated_at": "2026-06-13T..." }
 #
-#  KEINE API-Key nötig für öffentliche Community-Daten.
-#  Optional: MYFXBOOK_SESSION für erweiterte Daten (Konto-basiert).
+#  Kein API-Key nötig. Kostenlos, öffentlich, zuverlässig.
+#  Fallback: Oanda sentiment (orderbook summary).
 # ─────────────────────────────────────────────────────────────
 
-MYFXBOOK_OUTLOOK_URL = "https://api.myfxbook.com/api/get-community-outlook.json"
+_MARKETMILK_URL = "https://marketmilk.babypips.com/api/sentiment.json"
+_OANDA_URL      = "https://www.oanda.com/oanda_fx_sentiment/data/getdata.json"
+
+_RETAIL_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (compatible; EURUSDBot/4.5)",
+    "Accept": "application/json",
+}
 
 
 def get_retail_sentiment() -> dict:
     """
-    Holt Retail Long/Short-Quote von Myfxbook Community Outlook.
-    Gibt leeres Dict zurück wenn API nicht erreichbar.
+    Holt Retail Long/Short-Quote. Versucht erst MarketMilk (BabyPips),
+    dann Oanda-Orderbook als Fallback.
     """
-    params = {"symbols": "EURUSD"}
-    if MYFXBOOK_SESSION:
-        params["session"] = MYFXBOOK_SESSION
+    # ── Versuch 1: MarketMilk ──
+    data = safe_get(_MARKETMILK_URL, {"pair": "EURUSD"}, timeout=15, headers=_RETAIL_HEADERS)
+    if data and not data.get("error"):
+        try:
+            long_pct  = float(data.get("long_percentage",  data.get("longPercentage",  0)))
+            short_pct = float(data.get("short_percentage", data.get("shortPercentage", 0)))
+            long_pos  = int(data.get("long_positions",  data.get("longPositions",  0)))
+            short_pos = int(data.get("short_positions", data.get("shortPositions", 0)))
+            if long_pct + short_pct > 0:
+                result = _build_retail(long_pct, short_pct, long_pos, short_pos, "MarketMilk/BabyPips")
+                print(f"[OK] Retail (MarketMilk): Long={long_pct:.1f}% Short={short_pct:.1f}%")
+                return result
+        except Exception as e:
+            print(f"[WARN] MarketMilk parse: {e}")
 
-    data = safe_get(MYFXBOOK_OUTLOOK_URL, params, timeout=15)
-    if not data:
-        print("[WARN] Myfxbook: kein Response")
-        return {}
+    # ── Versuch 2: Oanda Orderbook ──
+    data = safe_get(_OANDA_URL, {"instrument": "EUR_USD"}, timeout=15, headers=_RETAIL_HEADERS)
+    if data:
+        try:
+            # Oanda gibt nested Struktur zurück
+            items = data.get("data", data.get("orderBook", []))
+            if isinstance(items, list) and items:
+                # Summe Long vs Short Volumen
+                long_vol  = sum(float(i.get("longCountPercent", 0)) for i in items)
+                short_vol = sum(float(i.get("shortCountPercent", 0)) for i in items)
+                total = long_vol + short_vol
+                if total > 0:
+                    long_pct  = round(long_vol  / total * 100, 1)
+                    short_pct = round(short_vol / total * 100, 1)
+                    result = _build_retail(long_pct, short_pct, 0, 0, "Oanda Orderbook")
+                    print(f"[OK] Retail (Oanda): Long={long_pct:.1f}% Short={short_pct:.1f}%")
+                    return result
+        except Exception as e:
+            print(f"[WARN] Oanda parse: {e}")
 
-    try:
-        # Fehlercheck
-        if data.get("error"):
-            print(f"[WARN] Myfxbook error: {data.get('message', 'unbekannt')}")
-            return {}
+    print("[WARN] Retail Sentiment: alle Quellen nicht erreichbar")
+    return {}
 
-        symbols = data.get("symbols", [])
-        if not symbols:
-            print("[WARN] Myfxbook: leeres symbols-Array")
-            return {}
 
-        # EURUSD herausfiltern (case-insensitive)
-        rec = next(
-            (s for s in symbols if s.get("name", "").upper() == "EURUSD"),
-            None
-        )
-        if not rec:
-            print("[WARN] Myfxbook: EURUSD nicht in Antwort")
-            return {}
-
-        long_pct  = float(rec.get("longPercentage",  0))
-        short_pct = float(rec.get("shortPercentage", 0))
-        long_pos  = int(rec.get("longPositions",  0))
-        short_pos = int(rec.get("shortPositions", 0))
-        long_vol  = float(rec.get("longVolume",  0))
-        short_vol = float(rec.get("shortVolume", 0))
-
-        # Contrarian-Bias: >60% Short → möglicher Reversal nach oben
-        if short_pct >= 60:
-            bias, icon = "CONTRARIAN BULLISCH", "🟢"
-        elif long_pct >= 60:
-            bias, icon = "CONTRARIAN BÄRISCH", "🔴"
-        elif short_pct >= 55:
-            bias, icon = "LEICHT CONTRARIAN BULLISCH", "🟡"
-        elif long_pct >= 55:
-            bias, icon = "LEICHT CONTRARIAN BÄRISCH", "🟡"
-        else:
-            bias, icon = "NEUTRAL", "⚪"
-
-        print(f"[OK] Retail Sentiment: Long={long_pct:.1f}% Short={short_pct:.1f}% "
-              f"Pos L/S={long_pos:,}/{short_pos:,} → {bias}")
-
-        return {
-            "long_pct":   long_pct,
-            "short_pct":  short_pct,
-            "long_pos":   long_pos,
-            "short_pos":  short_pos,
-            "long_vol":   long_vol,
-            "short_vol":  short_vol,
-            "bias":       bias,
-            "icon":       icon,
-            "source":     "Myfxbook Community Outlook",
-        }
-
-    except Exception as e:
-        print(f"[WARN] Myfxbook parse: {e}")
-        return {}
+def _build_retail(long_pct, short_pct, long_pos, short_pos, source):
+    if short_pct >= 60:
+        bias, icon = "CONTRARIAN BULLISCH", "🟢"
+    elif long_pct >= 60:
+        bias, icon = "CONTRARIAN BÄRISCH", "🔴"
+    elif short_pct >= 55:
+        bias, icon = "LEICHT CONTRARIAN BULLISCH", "🟡"
+    elif long_pct >= 55:
+        bias, icon = "LEICHT CONTRARIAN BÄRISCH", "🟡"
+    else:
+        bias, icon = "NEUTRAL", "⚪"
+    return {
+        "long_pct": long_pct, "short_pct": short_pct,
+        "long_pos": long_pos, "short_pos": short_pos,
+        "bias": bias, "icon": icon, "source": source,
+    }
 
 
 # ─────────────────────────────────────────────────────────────
@@ -481,8 +486,8 @@ def get_next_meetings():
         return fut[0] if fut else None
     def _fmt(d): return d.strftime("%d.%m.%Y") if d else "N/A"
     def _days(d): return (d - TODAY).days if d else None
-    nf = _next(FOMC_DATES_2026);  ne = _next(ECB_DATES_2026)
-    nn = _next(NFP_DATES_2026);   nc = _next(CPI_DATES_2026)
+    nf = _next(FOMC_DATES_2026); ne = _next(ECB_DATES_2026)
+    nn = _next(NFP_DATES_2026);  nc = _next(CPI_DATES_2026)
     np_ = _next(PPI_DATES_2026)
     return {
         "fomc_date": _fmt(nf), "fomc_days": _days(nf),
@@ -589,12 +594,12 @@ def build_message(
     yi = signals["yield_icon"]
     ci = signals["cot_icon"]
 
-    # ── Retail Sentiment Block ──
+    # ── Retail Block ──
     if retail:
         r_long  = esc(f"{retail['long_pct']:.1f}%")
         r_short = esc(f"{retail['short_pct']:.1f}%")
-        r_lpos  = esc(f"{retail['long_pos']:,}")
-        r_spos  = esc(f"{retail['short_pos']:,}")
+        r_lpos  = esc(f"{retail['long_pos']:,}") if retail.get("long_pos") else esc("–")
+        r_spos  = esc(f"{retail['short_pos']:,}") if retail.get("short_pos") else esc("–")
         r_icon  = retail["icon"]
         r_bias  = esc(retail["bias"])
         r_src   = esc(retail["source"])
@@ -613,9 +618,8 @@ def build_message(
             "",
             "━━━━━━━━━━━━━━━━━━━━━━",
             "👥 *Retail Sentiment · EUR/USD*",
-            "_Myfxbook Community Outlook_",
             "",
-            "  `N/A` – API nicht erreichbar",
+            "  `N/A` – alle Quellen nicht erreichbar",
         ]
 
     lines = [
@@ -666,7 +670,7 @@ def build_message(
         f"  COT        {ci} `{esc(signals['cot_bias'])}`",
         f"  Retail     {esc(retail['icon']) if retail else '⚪'} `{esc(retail['bias']) if retail else esc('N/A')}`",
         "",
-        "_ECB SDMX · Eurostat · FRED · CFTC · Myfxbook_",
+        "_ECB SDMX · Eurostat · FRED · CFTC · MarketMilk_",
     ]
 
     return "\n".join(lines)
@@ -696,7 +700,7 @@ def send_telegram(message):
 # ─────────────────────────────────────────────────────────────
 
 def run():
-    print(f"[{datetime.now().isoformat()}] EUR/USD Morning Brief v4.4 startet...")
+    print(f"[{datetime.now().isoformat()}] EUR/USD Morning Brief v4.5 startet...")
 
     ecb_dfr, ecb_dfr_date, ecb_dfr_hinweis = get_ecb_dfr()
     ecb_hicp,  ecb_hicp_date  = get_ecb_hicp()
@@ -705,7 +709,7 @@ def run():
     us2y,      us2y_date      = get_us2y()
     de2y,      de2y_date      = get_de2y()
     cot                       = get_cot_eur()
-    retail                    = get_retail_sentiment()  # NEU v4.4
+    retail                    = get_retail_sentiment()
     meetings                  = get_next_meetings()
     signals                   = compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot)
 
@@ -721,7 +725,7 @@ def run():
     else:
         print("  COT:      N/A")
     if retail:
-        print(f"  Retail:   Long={retail['long_pct']:.1f}% Short={retail['short_pct']:.1f}% → {retail['bias']}")
+        print(f"  Retail:   Long={retail['long_pct']:.1f}% Short={retail['short_pct']:.1f}% → {retail['bias']} ({retail['source']})")
     else:
         print("  Retail:   N/A")
     print("─────────────────────────────────────────")
