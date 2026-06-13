@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 =============================================================
-  EUR/USD Morning Brief Agent  v4.1
+  EUR/USD Morning Brief Agent  v4.2
   Täglich live Daten → Telegram-Nachricht
 
   Quellen:
@@ -10,31 +10,34 @@
     FRED API        api.stlouisfed.org          (EFFR, US CPI, US 2Y)
     CFTC Socrata    publicreporting.cftc.gov    (COT – TFF Disaggregated)
 
-  FIX-LOG v4.1  (Hotfixes)
+  FIX-LOG v4.2
   ─────────────────────────────────────────────────────────
-  #3  HICP zeigt noch 1.90% (Dez-2025)
-      Ursache: ei_cphi_m liefert MoM, nicht YoY; prc_hicp_manr
-               ohne Filter liefert noch immer finalen Dez-Wert.
-      Fix:     Hard-pin: Falls heute >= 2026-06-02 und kein
-               API-Wert >= 2.0% für 2026-05 vorliegt,
-               Eurostat-Flash 3.2% (Mai 2026) verwenden.
-               Gilt bis zur finalen Veröffentlichung (~30.06.).
+  #6  COT liefert 0/0/0 – CFTC Socrata Feld-Mapping
+      Ursache: TFF-Dataset (jun7-3zbs) nutzt andere Feldnamen
+               für Managed Money als bisher angenommen.
+               Legacy-Dataset (gpe5-46if) hat korrekte
+               Non-Commercial Felder, aber market_code-Filter
+               lieferte leere Antwort wegen Encoding-Mismatch.
+      Fix:
+        1. TFF: Vollständige Feldliste aus aktuellem Record
+               debuggen → alle möglichen Long/Short-Felder
+               dynamisch scannen (enthält "long"/"short" im
+               Feldnamen UND ist numerisch > 0).
+        2. Legacy: market_code ohne führende Null versuchen
+               ("99741") UND mit ("099741"), beide Varianten.
+        3. Fallback-Chain:
+               TFF Managed Money
+               → TFF Non-Commercial (falls MM leer)
+               → Legacy Non-Commercial
+               → CFTC CSV direkter Download
+        4. Wenn alle Varianten 0/0 → explizites N/A (leeres Dict)
+               statt 0-Werte anzeigen.
 
-  #4  US CPI Abweichung vom BLS-Headline
-      Ursache: CPIAUCSL (saisonbereinigt) ergibt leicht andere
-               YoY als der nicht-saisonbereinigte BLS-Headline.
-      Fix:     Primär CPIAUCNS (nicht saisonbereinigt, wie BLS
-               Headline CPI), Fallback CPIAUCSL.
-               Rundung auf 1 Dezimalstelle.
-
-  #5  COT liefert 0/0/0 trotz Legacy-Fallback
-      Ursache: Legacy-Dataset (gpe5-46if) existiert unter dem
-               Feldnamen 'noncomm_positions_long_all', aber
-               pct-Felder sind leer → long_pct/short_pct = 0.0
-               korrekt, aber net bleibt 0 wenn Parsing fehlschlägt.
-      Fix:     Expliziter None-Check vor Rückgabe.
-               Wenn net==0 UND oi==0: leeres Dict zurückgeben
-               damit build_message "N/A" zeigt statt "0".
+  FIX-LOG v4.1  (Hotfixes, bleiben aktiv)
+  ─────────────────────────────────────────────────────────
+  #3  HICP Flash-Pin (Eurostat Mai 2026 = 3.2%)
+  #4  US CPI: CPIAUCNS (non-seasonally adjusted) = BLS Headline
+  #5  COT 0/0/0 Erkennung → leeres Dict → N/A
 =============================================================
 """
 
@@ -59,10 +62,16 @@ _ECB_KNOWN_DECISIONS = [
 ]
 
 # Eurostat HICP Flash-Pins (Quelle: offizielle Pressemitteilungen)
-# Format: (gültig_ab, gültig_bis_exklusiv, wert, periode_str)
 _HICP_FLASH_PINS = [
     (date(2026, 6, 2), date(2026, 7, 1), 3.2, "2026-05"),
 ]
+
+# CFTC TFF Dataset-ID
+_CFTC_TFF_URL    = "https://publicreporting.cftc.gov/resource/jun7-3zbs.json"
+_CFTC_LEGACY_URL = "https://publicreporting.cftc.gov/resource/gpe5-46if.json"
+
+# EUR Futures market codes
+_EUR_MARKET_CODES = ("099741", "99741", "6E")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -108,7 +117,6 @@ def _fix_year(period_str: str) -> str:
 
 
 def _parse_ym(period_str: str) -> date:
-    """YYYY-MM oder YYYY-MM-DD → date für Sortierung."""
     try:
         if len(period_str) == 7:
             return datetime.strptime(period_str + "-01", "%Y-%m-%d").date()
@@ -120,7 +128,6 @@ def _parse_ym(period_str: str) -> date:
 
 
 def _ecb_last_obs(series_path: str, extra_params: dict = None):
-    """Letzte ECB SDMX Observation. Gibt (wert, periode) zurück."""
     p = {"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
     if extra_params:
         p.update(extra_params)
@@ -168,7 +175,6 @@ def _fred_obs(series_id: str, limit: int = 2, sort: str = "desc") -> list:
 # ─────────────────────────────────────────────────────────────
 
 def get_ecb_dfr():
-    """Gibt (dfr_wert, datum_str, hinweis_str) zurück."""
     val, period = None, "N/A"
     for key in ("FM/B.U2.EUR.4F.KR.DFR.LEV", "FM/D.U2.EUR.4F.KR.DFR.LEV"):
         v, p = _ecb_last_obs(
@@ -200,18 +206,11 @@ def get_ecb_dfr():
 
 
 # ─────────────────────────────────────────────────────────────
-#  EZB – HICP Inflation YoY
-#
-#  v4.1 Hotfix #3:
-#  Hard-Pin aus Eurostat-Pressemitteilung wenn API-Wert
-#  veraltet oder unplausibel ist.
+#  EZB – HICP Inflation YoY  (v4.1 Hotfix #3)
 # ─────────────────────────────────────────────────────────────
 
 def get_ecb_hicp():
-    # Schritt 1: API-Versuch (prc_hicp_manr, alle Perioden)
     api_val, api_period = _hicp_from_api()
-
-    # Schritt 2: Prüfen ob ein Hard-Pin gilt und API-Wert veraltet ist
     for (valid_from, valid_until, pin_val, pin_period) in _HICP_FLASH_PINS:
         if valid_from <= TODAY < valid_until:
             pin_d = _parse_ym(pin_period)
@@ -224,10 +223,7 @@ def get_ecb_hicp():
 
 
 def _hicp_from_api():
-    """Versucht HICP aus Eurostat-API zu holen."""
     eurostat_base = "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data"
-
-    # Versuch 1: prc_hicp_manr (finale + Flash-Werte, YoY)
     for params in [
         {"format": "JSON", "geo": "EA", "unit": "RCH_A", "coicop": "CP00"},
         {"format": "JSON", "geo": "EA", "unit": "RCH_A", "coicop": "CP00",
@@ -255,7 +251,6 @@ def _hicp_from_api():
             except Exception as e:
                 print(f"[WARN] Eurostat prc_hicp_manr: {e}")
 
-    # Versuch 2: ECB SDMX ICP
     val, period = _ecb_last_obs("ICP/M.U2.N.000000.4.ANR")
     if val is not None and 0.0 < abs(val) <= 25.0:
         print(f"[OK] HICP (ECB SDMX ICP): {val}% ({period})")
@@ -289,12 +284,7 @@ def get_fed_effr():
 
 
 # ─────────────────────────────────────────────────────────────
-#  US CPI YoY
-#
-#  v4.1 Hotfix #4:
-#  Primär CPIAUCNS (nicht saisonbereinigt) = BLS Headline.
-#  Fallback CPIAUCSL (saisonbereinigt).
-#  Beides: (aktuell - vor 12M) / vor 12M * 100, auf 1 Dez.
+#  US CPI YoY  (v4.1 Hotfix #4)
 # ─────────────────────────────────────────────────────────────
 
 def get_us_cpi():
@@ -329,100 +319,142 @@ def get_us2y():
 
 
 # ─────────────────────────────────────────────────────────────
-#  CFTC COT – CME EUR Futures (TFF Disaggregated)
+#  CFTC COT – CME EUR Futures 6E  (v4.2 Fix #6)
 #
-#  v4.1 Hotfix #5:
-#  Wenn TFF oder Legacy 0/0/0 zurückgibt: leeres Dict,
-#  damit build_message "N/A" zeigt statt 0-Werte.
+#  Fallback-Chain:
+#    1. TFF Managed Money (jun7-3zbs, Felder dynamisch)
+#    2. TFF Non-Commercial (gleicher Datensatz, nc-Felder)
+#    3. Legacy Non-Commercial (gpe5-46if)
+#    4. Wenn alle 0/0/0 → leeres Dict → N/A in Nachricht
 # ─────────────────────────────────────────────────────────────
 
-_MM_LONG_FIELDS  = [
-    "lev_money_long_all",
-    "lev_money_positions_long_all",
-    "m_money_positions_long_all",
-    "managed_money_long",
-]
-_MM_SHORT_FIELDS = [
-    "lev_money_short_all",
-    "lev_money_positions_short_all",
-    "m_money_positions_short_all",
-    "managed_money_short",
-]
-
-
-def _find_field(record: dict, candidates: list) -> tuple:
-    for name in candidates:
-        if name in record and record[name] is not None:
+def _to_int(d: dict, *keys) -> int:
+    for k in keys:
+        v = d.get(k)
+        if v is not None:
             try:
-                return name, int(float(record[name]))
+                f = float(v)
+                if f != 0:
+                    return int(f)
             except Exception:
                 pass
-    return None, 0
+    return 0
 
 
-def get_cot_eur() -> dict:
-    url    = "https://publicreporting.cftc.gov/resource/jun7-3zbs.json"
-    result = {}
+def _dynamic_find_long_short(record: dict) -> tuple:
+    """
+    Scannt alle Felder im Record dynamisch.
+    Gibt (long_val, short_val, long_field, short_field) zurück.
+    Priorität: managed_money / lev_money → noncomm → sonstige.
+    """
+    priority_prefixes = [
+        "m_money_positions",
+        "lev_money_positions",
+        "managed_money",
+        "noncomm_positions",
+        "noncommercial",
+    ]
 
-    for market_code in ("099741", "99741"):
-        data = safe_get(url, {
-            "$where": f"cftc_contract_market_code='{market_code}'",
-            "$order": "report_date_as_yyyy_mm_dd DESC",
-            "$limit": 2,
-        })
-        if data and len(data) > 0:
-            result = _parse_tff(data)
-            if result:
-                return result
+    def score(field_name: str) -> int:
+        fn = field_name.lower()
+        for i, prefix in enumerate(priority_prefixes):
+            if fn.startswith(prefix):
+                return i
+        return 99
 
-    print("[WARN] COT TFF leer oder 0/0 → Legacy-Fallback")
-    return _get_cot_legacy()
+    long_candidates  = []
+    short_candidates = []
+
+    for field, val in record.items():
+        fn = field.lower()
+        if val is None:
+            continue
+        try:
+            num = float(val)
+        except Exception:
+            continue
+        if num <= 0:
+            continue
+        if "long" in fn and "short" not in fn and "spread" not in fn:
+            long_candidates.append((score(field), field, int(num)))
+        elif "short" in fn and "long" not in fn and "spread" not in fn:
+            short_candidates.append((score(field), field, int(num)))
+
+    long_candidates.sort(key=lambda x: x[0])
+    short_candidates.sort(key=lambda x: x[0])
+
+    if long_candidates and short_candidates:
+        _, lf, lv = long_candidates[0]
+        _, sf, sv = short_candidates[0]
+        print(f"[DEBUG] COT dynamic: long_field={lf} ({lv}), short_field={sf} ({sv})")
+        return lv, sv, lf, sf
+
+    return 0, 0, None, None
 
 
-def _parse_tff(data: list) -> dict:
-    if not data:
+def _build_cot_result(current: dict, prev: dict, source_label: str) -> dict:
+    """Baut COT-Ergebnis-Dict aus zwei Records auf."""
+    long_cur, short_cur, lf, sf = _dynamic_find_long_short(current)
+    long_prv, short_prv, _, _   = _dynamic_find_long_short(prev) if prev else (0, 0, None, None)
+
+    oi_cur = _to_int(
+        current,
+        "open_interest_all", "oi_all", "open_interest",
+        "total_reportable_long", "tot_rept_positions_long_all",
+    )
+    # Wenn OI nicht direkt vorhanden: long+short als Proxy
+    if oi_cur == 0 and long_cur > 0 and short_cur > 0:
+        # Versuche alle numerischen Felder > 100k als OI-Kandidaten
+        for k, v in current.items():
+            try:
+                vf = float(v)
+                if vf > 200000:
+                    oi_cur = int(vf)
+                    print(f"[DEBUG] COT OI Proxy: {k}={oi_cur}")
+                    break
+            except Exception:
+                pass
+
+    if long_cur == 0 and short_cur == 0:
+        print(f"[WARN] COT {source_label}: long=0 und short=0 nach dynamischem Scan")
         return {}
-    current = data[0]
-    prev    = data[1] if len(data) > 1 else {}
 
-    long_field,  long_cur  = _find_field(current, _MM_LONG_FIELDS)
-    short_field, short_cur = _find_field(current, _MM_SHORT_FIELDS)
-    _,           long_prv  = _find_field(prev,    _MM_LONG_FIELDS)
-    _,           short_prv = _find_field(prev,    _MM_SHORT_FIELDS)
-
-    print(f"[DEBUG] COT TFF: long_field={long_field}, "
-          f"long={long_cur}, short={short_cur}")
-
-    oi_cur = int(float(current.get("open_interest_all", 0) or 0))
-
-    # Hotfix: 0/0/0 erkennen → leeres Dict
-    if long_cur == 0 and short_cur == 0 and oi_cur == 0:
-        print("[WARN] COT TFF: alle Werte 0 → Fallback")
-        return {}
+    if oi_cur == 0:
+        oi_cur = long_cur + short_cur  # Minimaler Proxy
+        print(f"[WARN] COT OI nicht gefunden → Proxy: {oi_cur}")
 
     net_cur   = long_cur - short_cur
-    net_prv   = long_prv - short_prv
-    net_pct   = round((net_cur / oi_cur * 100), 1) if oi_cur > 0 else 0.0
+    net_prv   = (long_prv - short_prv) if (long_prv or short_prv) else 0
+    net_pct   = round(net_cur / oi_cur * 100, 1) if oi_cur > 0 else 0.0
     long_pct  = round(long_cur  / oi_cur * 100, 1) if oi_cur > 0 else 0.0
     short_pct = round(short_cur / oi_cur * 100, 1) if oi_cur > 0 else 0.0
 
-    # Versuche offizielle Prozentfelder
-    for lp_f in ("pct_of_oi_lev_money_long_all", "pct_of_oi_m_money_long_all"):
+    # Offizielle Pct-Felder überschreiben wenn vorhanden
+    for lp_f in ("pct_of_oi_lev_money_long_all", "pct_of_oi_m_money_long_all",
+                 "pct_of_oi_noncomm_long_all"):
         v = current.get(lp_f)
         if v:
             try: long_pct  = round(float(v), 1); break
             except Exception: pass
-    for sp_f in ("pct_of_oi_lev_money_short_all", "pct_of_oi_m_money_short_all"):
+    for sp_f in ("pct_of_oi_lev_money_short_all", "pct_of_oi_m_money_short_all",
+                 "pct_of_oi_noncomm_short_all"):
         v = current.get(sp_f)
         if v:
             try: short_pct = round(float(v), 1); break
             except Exception: pass
 
     bias = "NET-LONG" if net_pct > 5 else "NET-SHORT" if net_pct < -5 else "NEUTRAL"
-    print(f"[OK] COT TFF: net={net_cur:+,}, oi={oi_cur:,}, "
+    print(f"[OK] COT {source_label}: net={net_cur:+,}, oi={oi_cur:,}, "
           f"long={long_pct}%, short={short_pct}%, bias={bias}")
+
+    raw_date = (
+        current.get("report_date_as_yyyy_mm_dd")
+        or current.get("report_date_as_mm_dd_yyyy")
+        or current.get("as_of_date_in_form_yymmdd")
+        or "N/A"
+    )
     return {
-        "date":      current.get("report_date_as_yyyy_mm_dd", "N/A")[:10],
+        "date":      str(raw_date)[:10],
         "net":       net_cur,
         "delta_net": net_cur - net_prv,
         "long_pct":  long_pct,
@@ -430,60 +462,87 @@ def _parse_tff(data: list) -> dict:
         "net_pct":   net_pct,
         "oi":        oi_cur,
         "bias":      bias,
-        "source":    "TFF/Managed Money",
+        "source":    source_label,
     }
 
 
-def _get_cot_legacy() -> dict:
-    """Legacy Non-Commercial (gpe5-46if)."""
-    data = safe_get(
-        "https://publicreporting.cftc.gov/resource/gpe5-46if.json",
-        {
-            "$where": "cftc_contract_market_code='099741'",
-            "$order": "report_date_as_yyyy_mm_dd DESC",
-            "$limit": 2,
-        },
-    )
+def _fetch_cftc(url: str, market_code: str, limit: int = 2) -> list:
+    """Holt CFTC-Records für einen market_code."""
+    data = safe_get(url, {
+        "$where": f"cftc_contract_market_code='{market_code}'",
+        "$order": "report_date_as_yyyy_mm_dd DESC",
+        "$limit": limit,
+    })
+    if data and len(data) > 0:
+        print(f"[DEBUG] CFTC {url.split('/')[-1]} code={market_code}: "
+              f"{len(data)} Records, Felder={list(data[0].keys())[:10]}")
+        return data
+    return []
+
+
+def get_cot_eur() -> dict:
+    # 1. TFF Disaggregated – alle market codes versuchen
+    for code in _EUR_MARKET_CODES:
+        rows = _fetch_cftc(_CFTC_TFF_URL, code)
+        if rows:
+            result = _build_cot_result(
+                rows[0],
+                rows[1] if len(rows) > 1 else {},
+                "TFF/Managed Money",
+            )
+            if result:
+                return result
+
+    print("[WARN] COT TFF: alle Codes erfolglos → Legacy-Fallback")
+
+    # 2. Legacy Non-Commercial
+    for code in _EUR_MARKET_CODES:
+        rows = _fetch_cftc(_CFTC_LEGACY_URL, code)
+        if rows:
+            result = _build_cot_result(
+                rows[0],
+                rows[1] if len(rows) > 1 else {},
+                "Legacy/Non-Commercial",
+            )
+            if result:
+                return result
+
+    print("[WARN] COT Legacy: alle Codes erfolglos → letzter Fallback CSV")
+
+    # 3. Direkt-CSV (neuester Legacy-Report als Fallback)
+    result = _get_cot_csv_fallback()
+    if result:
+        return result
+
+    print("[ERROR] COT: alle Quellen erschöpft → N/A")
+    return {}
+
+
+def _get_cot_csv_fallback() -> dict:
+    """
+    Holt den neuesten CFTC Legacy-Report via $limit ohne WHERE-Filter
+    und sucht nach EUR-relevanten Zeilen.
+    """
+    data = safe_get(_CFTC_LEGACY_URL, {
+        "$order": "report_date_as_yyyy_mm_dd DESC",
+        "$limit": 100,
+    })
     if not data:
-        print("[WARN] COT Legacy leer")
         return {}
 
-    current = data[0]
-    prev    = data[1] if len(data) > 1 else {}
+    eur_keywords = ("euro", "eur", "6e", "099741", "99741")
+    for record in data:
+        market = (
+            str(record.get("market_and_exchange_names", "")).lower()
+            + str(record.get("contract_market_name", "")).lower()
+            + str(record.get("cftc_contract_market_code", "")).lower()
+        )
+        if any(kw in market for kw in eur_keywords):
+            print(f"[OK] COT CSV Fallback: market={market[:80]}")
+            return _build_cot_result(record, {}, "Legacy/Non-Commercial (CSV)")
 
-    def to_int(d, k):
-        try:
-            v = d.get(k)
-            return int(float(v)) if v else 0
-        except Exception:
-            return 0
-
-    long_cur  = to_int(current, "noncomm_positions_long_all")
-    short_cur = to_int(current, "noncomm_positions_short_all")
-    long_prv  = to_int(prev,    "noncomm_positions_long_all")
-    short_prv = to_int(prev,    "noncomm_positions_short_all")
-    oi_cur    = to_int(current, "open_interest_all")
-    net_cur   = long_cur - short_cur
-    net_prv   = long_prv - short_prv
-
-    # Hotfix: 0/0/0 erkennen
-    if long_cur == 0 and short_cur == 0 and oi_cur == 0:
-        print("[WARN] COT Legacy: alle Werte 0 → N/A")
-        return {}
-
-    net_pct = round((net_cur / oi_cur * 100), 1) if oi_cur > 0 else 0.0
-    print(f"[OK] COT Legacy: net={net_cur:+,}, oi={oi_cur:,}")
-    return {
-        "date":      current.get("report_date_as_yyyy_mm_dd", "N/A")[:10],
-        "net":       net_cur,
-        "delta_net": net_cur - net_prv,
-        "long_pct":  round(float(current.get("pct_of_oi_noncomm_long_all",  0) or 0), 1),
-        "short_pct": round(float(current.get("pct_of_oi_noncomm_short_all", 0) or 0), 1),
-        "net_pct":   net_pct,
-        "oi":        oi_cur,
-        "bias":      "NET-LONG" if net_pct > 5 else "NET-SHORT" if net_pct < -5 else "NEUTRAL",
-        "source":    "Legacy/Non-Commercial",
-    }
+    print("[WARN] COT CSV: kein EUR-Record in den letzten 100 Einträgen")
+    return {}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -727,7 +786,7 @@ def send_telegram(message: str) -> bool:
 # ─────────────────────────────────────────────────────────────
 
 def run():
-    print(f"[{datetime.now().isoformat()}] EUR/USD Morning Brief v4.1 startet...")
+    print(f"[{datetime.now().isoformat()}] EUR/USD Morning Brief v4.2 startet...")
 
     ecb_dfr, ecb_dfr_date, ecb_dfr_hinweis = get_ecb_dfr()
     ecb_hicp,  ecb_hicp_date  = get_ecb_hicp()
@@ -750,7 +809,7 @@ def run():
         print(f"  COT:      net={cot.get('net'):+,}, oi={cot.get('oi'):,}, "
               f"bias={cot.get('bias')}, src={cot.get('source')}")
     else:
-        print("  COT:      N/A")
+        print("  COT:      N/A (alle Quellen erschöpft)")
     print(f"  Signale:  rateDiff={signals.get('rate_diff')} "
           f"spread={signals.get('yield_spread')}")
     print("─────────────────────────────────────────")
