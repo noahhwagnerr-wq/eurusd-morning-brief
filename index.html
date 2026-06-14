@@ -54,8 +54,6 @@ body{
 }
 button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
 .app{max-width:1100px;margin-inline:auto;padding:var(--space-4) var(--space-3);display:grid;gap:var(--space-3);}
-
-/* HEADER */
 .header{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3) var(--space-4);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:var(--shadow);}
 .header-top{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);}
 .header-bottom{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);}
@@ -70,29 +68,21 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
 .bias-badge.neutral{color:var(--muted);border-color:var(--border);background:var(--surface-3);}
 .header-actions{display:flex;align-items:center;gap:var(--space-2);}
 .toggle-btn{width:30px;height:30px;border-radius:var(--radius-md);flex-shrink:0;background:var(--surface-3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);}
-
-/* REFRESH BUTTON */
 .refresh-btn{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--radius-md);background:var(--surface-3);border:1px solid var(--border);font-family:var(--font-mono);font-size:var(--text-xs);color:var(--muted);transition:all var(--transition);white-space:nowrap;}
 .refresh-btn:hover{color:var(--accent);border-color:var(--accent);background:color-mix(in oklch,var(--accent) 8%,transparent);}
 .refresh-btn:disabled{opacity:0.5;cursor:not-allowed;}
 .refresh-btn svg{transition:transform 0.6s linear;}
 .refresh-btn.spinning svg{animation:spin 1s linear infinite;}
 @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
-
-/* STATUS BAR */
 .status-bar{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-4);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);font-size:var(--text-xs);font-family:var(--font-mono);color:var(--muted);}
 .status-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;}
 .status-dot.loading{background:var(--yellow);animation:pulse 1s ease-in-out infinite;}
 .status-dot.error{background:var(--red);}
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
-
-/* LOADING OVERLAY */
 .loading-overlay{display:none;position:fixed;inset:0;background:rgba(13,15,17,0.7);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:var(--space-3);}
 .loading-overlay.visible{display:flex;}
 .spinner{width:40px;height:40px;border:3px solid var(--surface-3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
 .loading-text{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--muted);}
-
-/* KPI */
 .kpi-row{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--space-2);}
 @media(min-width:750px){.kpi-row{grid-template-columns:repeat(4,1fr);}}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-3);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:2px;}
@@ -103,8 +93,6 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
 .kpi-delta.up{color:var(--green);background:color-mix(in oklch,var(--green) 12%,transparent);}
 .kpi-delta.down{color:var(--red);background:color-mix(in oklch,var(--red) 12%,transparent);}
 .kpi-delta.flat{color:var(--muted);background:var(--surface-3);}
-
-/* GRID */
 .main-grid{display:grid;grid-template-columns:1fr;gap:var(--space-3);}
 @media(min-width:750px){.main-grid{grid-template-columns:1fr 1fr;}}
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:var(--shadow);overflow:hidden;}
@@ -114,22 +102,16 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
 .panel-badge.down{color:var(--red);background:color-mix(in oklch,var(--red) 12%,transparent);}
 .panel-badge.flat{color:var(--muted);background:var(--surface-3);}
 .panel-body{padding:var(--space-4);}
-
-/* RATE TABLE */
 .rate-table{width:100%;border-collapse:collapse;}
 .rate-table th{text-align:left;font-size:var(--text-xs);color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;padding:0 0 var(--space-2);font-family:var(--font-mono);}
 .rate-table td{padding:var(--space-2) 0;border-top:1px solid var(--divider);font-family:var(--font-mono);font-size:var(--text-sm);font-variant-numeric:tabular-nums;}
 .rate-table .label-cell{color:var(--muted);font-size:var(--text-xs);}
 .rate-table .val-cell{color:var(--text);font-weight:600;}
-
-/* COT */
 .cot-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3) var(--space-4);}
 .cot-item{display:flex;flex-direction:column;gap:2px;}
 .cot-item-label{font-size:var(--text-xs);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;}
 .cot-item-value{font-family:var(--font-mono);font-size:var(--text-base);font-weight:600;font-variant-numeric:tabular-nums;}
 .cot-item-value.negative{color:var(--red);}
-
-/* SPREAD PANEL */
 .spread-panel{grid-column:1/-1;}
 .spread-inner{display:flex;flex-direction:column;gap:var(--space-4);}
 @media(min-width:550px){.spread-inner{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:var(--space-4);}}
@@ -138,13 +120,9 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
 .spread-stat-label{font-size:var(--text-xs);color:var(--muted);flex-shrink:0;}
 .spread-stat-val{font-family:var(--font-mono);font-size:var(--text-sm);font-weight:600;text-align:right;}
 .spread-stat-val.bear{color:var(--red);}
-
-/* CHART */
 .chart-wrap{height:160px;position:relative;min-width:0;}
-
-/* EVENTS */
 .events-list{display:flex;flex-direction:column;gap:var(--space-2);}
-.event-row{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-3);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);}
+.event-row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-3);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);}
 .event-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .event-dot.high{background:var(--red);box-shadow:0 0 6px var(--red);}
 .event-dot.medium{background:var(--yellow);}
@@ -153,23 +131,14 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
 .event-date{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--muted);}
 .event-days{font-family:var(--font-mono);font-size:var(--text-xs);padding:2px 8px;border-radius:var(--radius-sm);background:var(--surface-3);color:var(--muted);white-space:nowrap;}
 .event-days.soon{color:var(--red);background:color-mix(in oklch,var(--red) 10%,transparent);}
-
-/* BIAS */
 .bias-row{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--space-2);}
 .bias-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-2) var(--space-3);display:flex;flex-direction:column;gap:2px;}
 .bias-card-label{font-size:var(--text-xs);color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;}
 .bias-card-val{font-family:var(--font-mono);font-size:var(--text-sm);font-weight:700;}
-.bc-bear{color:var(--red);}
-.bc-bull{color:var(--green);}
-.bc-neutral{color:var(--muted);}
-
-/* FOOTER */
+.bc-bear{color:var(--red);}.bc-bull{color:var(--green);}.bc-neutral{color:var(--muted);}
 .footer{text-align:center;font-size:var(--text-xs);color:var(--faint);padding:var(--space-2) 0 var(--space-4);font-family:var(--font-mono);}
-
-/* SKELETON */
 .skeleton{background:var(--surface-3);border-radius:var(--radius-sm);animation:shimmer 1.4s ease-in-out infinite;}
 @keyframes shimmer{0%,100%{opacity:0.4;}50%{opacity:0.8;}}
-
 /* EVENT EDITOR */
 .event-editor-panel{grid-column:1/-1;}
 .editor-tabs{display:flex;gap:var(--space-1);padding:var(--space-2) var(--space-4);border-bottom:1px solid var(--divider);overflow-x:auto;flex-wrap:nowrap;}
@@ -190,31 +159,27 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
 .editor-save-btn:disabled{opacity:0.4;cursor:not-allowed;}
 .editor-save-status{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--muted);}
 .editor-history{margin-top:var(--space-4);display:flex;flex-direction:column;gap:var(--space-2);}
-.editor-history-row{display:grid;grid-template-columns:auto 1fr auto auto auto;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-3);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:var(--text-xs);}
-.eh-date{color:var(--muted);}
+.editor-history-title{font-size:var(--text-xs);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-family:var(--font-mono);margin-bottom:4px;}
+.editor-history-row{display:grid;grid-template-columns:auto 1fr auto auto auto;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:var(--text-xs);}
+.eh-date{color:var(--muted);white-space:nowrap;}
 .eh-vals{color:var(--text);}
 .eh-note{color:var(--faint);font-size:0.7rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.eh-bias{font-weight:700;}
-.eh-bias.bull{color:var(--green);}
-.eh-bias.bear{color:var(--red);}
+.eh-bias{font-weight:700;white-space:nowrap;}
+.eh-bias.bull{color:var(--green);}.eh-bias.bear{color:var(--red);}
 .eh-del{color:var(--faint);font-size:0.75rem;padding:2px 6px;border-radius:var(--radius-sm);}
 .eh-del:hover{color:var(--red);}
 </style>
 </head>
 <body>
-
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
   <div class="loading-text" id="loadingText">Daten werden abgerufen…</div>
 </div>
-
 <div class="app" id="app">
-
   <div class="status-bar" id="statusBar">
     <div class="status-dot loading" id="statusDot"></div>
     <span id="statusText">Lade Daten…</span>
   </div>
-
   <header class="header">
     <div class="header-top">
       <div class="logo">
@@ -226,7 +191,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
     <div class="header-bottom">
       <div class="bias-badge neutral" id="biasBadge">⛯ …</div>
       <div class="header-actions">
-        <button class="refresh-btn" id="refreshBtn" onclick="refreshData()" title="Daten jetzt aktualisieren">
+        <button class="refresh-btn" id="refreshBtn" onclick="refreshData()">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-5H1"></path></svg>
           Aktualisieren
         </button>
@@ -236,209 +201,157 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
       </div>
     </div>
   </header>
-
   <div class="kpi-row" id="kpiRow">
     <div class="kpi"><div class="kpi-label skeleton" style="height:10px;width:60%">&nbsp;</div><div class="kpi-value skeleton" style="height:28px;margin-top:6px">&nbsp;</div></div>
     <div class="kpi"><div class="kpi-label skeleton" style="height:10px;width:60%">&nbsp;</div><div class="kpi-value skeleton" style="height:28px;margin-top:6px">&nbsp;</div></div>
     <div class="kpi"><div class="kpi-label skeleton" style="height:10px;width:60%">&nbsp;</div><div class="kpi-value skeleton" style="height:28px;margin-top:6px">&nbsp;</div></div>
     <div class="kpi"><div class="kpi-label skeleton" style="height:10px;width:60%">&nbsp;</div><div class="kpi-value skeleton" style="height:28px;margin-top:6px">&nbsp;</div></div>
   </div>
-
   <div class="main-grid" id="mainGrid"></div>
-
   <div class="footer" id="footer">Lade Quellen…</div>
 </div>
-
 <script>
-// ── CONFIG ────────────────────────────────────────────────────────────────────────────────────
 const WORKER_URL = 'https://eurusd-morning-brief.noahh-wagnerr.workers.dev';
 const DATA_URL   = 'data.json';
-const EVENTS_URL = 'events.json';
-// ────────────────────────────────────────────────────────────────────────────────────
 
 let _chart = null;
 let _data  = null;
-let _eventsData = {};
-let _activeEventTab = 'FOMC';
+let _eventsData = {}; // { FOMC: { entries: [...], sha: '...' }, ... }
+let _eventsSha  = null; // SHA der gesamten events.json für PUT
+let _activeTab  = 'FOMC';
 
-// ── Event-Konfig (Bias-Logik) ───────────────────────────────────────────────
-const EVENT_CONFIG = {
-  FOMC:  { importance: 'high',   unit: '%', label: 'Fed Leitzins',   bullDesc: 'Senkung → BULLISCH EUR/USD', bearDesc: 'Erhöhung → BÄRISCH EUR/USD',  invertBias: true  },
-  EZB:   { importance: 'low',    unit: '%', label: 'EZB Leitzins',   bullDesc: 'Erhöhung → BULLISCH EUR/USD', bearDesc: 'Senkung → BÄRISCH EUR/USD',   invertBias: false },
-  NFP:   { importance: 'medium', unit: 'K', label: 'NFP Stellen',    bullDesc: 'Schwächer → BULLISCH EUR/USD',bearDesc: 'Stärker → BÄRISCH EUR/USD',   invertBias: true  },
-  CPI:   { importance: 'medium', unit: '%', label: 'US CPI',         bullDesc: 'Fällt → BULLISCH EUR/USD',    bearDesc: 'Steigt → BÄRISCH EUR/USD',    invertBias: true  },
-  PPI:   { importance: 'low',    unit: '%', label: 'US PPI',         bullDesc: 'Fällt → BULLISCH EUR/USD',    bearDesc: 'Steigt → BÄRISCH EUR/USD',    invertBias: true  },
+const EVENT_CFG = {
+  FOMC: { importance:'high',   unit:'%', label:'Fed Leitzins',
+          bullDesc:'Senkung erwartet → BULLISCH EUR/USD',
+          bearDesc:'Erhöhung erwartet → BÄRISCH EUR/USD',  invert:true  },
+  EZB:  { importance:'high',   unit:'%', label:'EZB Leitzins',
+          bullDesc:'Erhöhung erwartet → BULLISCH EUR/USD',
+          bearDesc:'Senkung erwartet → BÄRISCH EUR/USD',   invert:false },
+  NFP:  { importance:'medium', unit:'K', label:'NFP Stellen',
+          bullDesc:'Schwächer als Vorwert → BULLISCH EUR/USD',
+          bearDesc:'Stärker als Vorwert → BÄRISCH EUR/USD', invert:true  },
+  CPI:  { importance:'medium', unit:'%', label:'US CPI',
+          bullDesc:'Prognose fällt → BULLISCH EUR/USD',
+          bearDesc:'Prognose steigt → BÄRISCH EUR/USD',    invert:true  },
+  PPI:  { importance:'low',    unit:'%', label:'US PPI',
+          bullDesc:'Prognose fällt → BULLISCH EUR/USD',
+          bearDesc:'Prognose steigt → BÄRISCH EUR/USD',    invert:true  },
 };
 
-// Bias-Berechnung: forecast vs previous
-// invertBias=true  → forecast < previous = BULLISCH (NFP, CPI, PPI, FOMC-Senkung)
-// invertBias=false → forecast > previous = BULLISCH (EZB-Erhöhung)
-function calcEventBias(label, forecast, previous) {
-  const cfg = EVENT_CONFIG[label];
-  if (!cfg || forecast === '' || previous === '') return null;
-  const f = parseFloat(forecast);
-  const p = parseFloat(previous);
-  if (isNaN(f) || isNaN(p)) return null;
-  if (f === p) return 'NEUTRAL';
-  const higherIsBull = !cfg.invertBias;
-  if (higherIsBull) return f > p ? 'BULLISCH' : 'BÄRISCH';
-  else              return f < p ? 'BULLISCH' : 'BÄRISCH';
+function calcBias(label, forecast, previous) {
+  const cfg = EVENT_CFG[label];
+  if (!cfg || forecast==='' || previous==='') return null;
+  const f = parseFloat(forecast), p = parseFloat(previous);
+  if (isNaN(f)||isNaN(p)) return null;
+  if (f===p) return 'NEUTRAL';
+  return (cfg.invert ? f<p : f>p) ? 'BULLISCH' : 'BÄRISCH';
 }
 
-function pp(val, digits=2) {
-  if (val === null || val === undefined) return 'N/A';
-  const n = parseFloat(val);
-  if (isNaN(n)) return 'N/A';
-  return (n >= 0 ? '+' : '') + n.toFixed(digits) + 'pp';
-}
-function pct(val, digits=2, prefix='') {
-  if (val === null || val === undefined) return 'N/A';
-  return prefix + parseFloat(val).toFixed(digits) + '%';
-}
-function num(val) {
-  if (val === null || val === undefined) return 'N/A';
-  return parseInt(val).toLocaleString('de-DE');
+function pp(v,d=2){if(v==null)return'N/A';const n=parseFloat(v);if(isNaN(n))return'N/A';return(n>=0?'+':'')+n.toFixed(d)+'pp';}
+function pct(v,d=2){if(v==null)return'N/A';return parseFloat(v).toFixed(d)+'%';}
+function num(v){if(v==null)return'N/A';return parseInt(v).toLocaleString('de-DE');}
+function round2(v){return Math.round(v*100)/100;}
+function wait(ms){return new Promise(r=>setTimeout(r,ms));}
+
+function setStatus(state,text){
+  document.getElementById('statusDot').className='status-dot'+(state==='loading'?' loading':state==='error'?' error':'');
+  document.getElementById('statusText').textContent=text;
 }
 
-async function loadData() {
-  setStatus('loading', 'Lade Daten…');
-  try {
+async function loadData(){
+  setStatus('loading','Lade Daten…');
+  try{
+    // Lade data.json und events (via Worker GET /events)
     const [res, evRes] = await Promise.all([
-      fetch(DATA_URL + '?_=' + Date.now()),
-      fetch(EVENTS_URL + '?_=' + Date.now()).catch(() => null),
+      fetch(DATA_URL+'?_='+Date.now()),
+      fetch(WORKER_URL+'/events').catch(()=>null),
     ]);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if(!res.ok) throw new Error('HTTP '+res.status);
     _data = await res.json();
-    if (evRes && evRes.ok) {
-      _eventsData = await evRes.json();
-    } else {
-      _eventsData = {};
+    if(evRes && evRes.ok){
+      const evJson = await evRes.json();
+      if(evJson.ok){
+        _eventsSha  = evJson.sha;
+        // events.json Format: { events:[...], last_updated:'...' }
+        // Wir bauen daraus ein Lookup: { FOMC: {entries:[...]}, ... }
+        _eventsData = {};
+        for(const ev of (evJson.data.events||[])){
+          const lbl = ev.label;
+          if(!_eventsData[lbl]) _eventsData[lbl] = {entries:[]};
+          _eventsData[lbl].entries.push(ev);
+        }
+      }
     }
     renderAll(_data);
-    setStatus('ok', 'Stand: ' + (_data.generated_at || '–'));
-  } catch(e) {
-    setStatus('error', 'Fehler: ' + e.message);
+    setStatus('ok','Stand: '+(_data.generated_at||'–'));
+  }catch(e){
+    setStatus('error','Fehler: '+e.message);
     renderFallback();
   }
 }
 
-function setStatus(state, text) {
-  const dot  = document.getElementById('statusDot');
-  const span = document.getElementById('statusText');
-  dot.className = 'status-dot' + (state === 'loading' ? ' loading' : state === 'error' ? ' error' : '');
-  span.textContent = text;
-}
-
-async function refreshData() {
-  const btn = document.getElementById('refreshBtn');
-  btn.disabled = true;
-  btn.classList.add('spinning');
-  setStatus('loading', 'Workflow wird gestartet…');
-  document.getElementById('loadingText').textContent = 'GitHub Actions läuft… (~60 Sek.)';
+async function refreshData(){
+  const btn=document.getElementById('refreshBtn');
+  btn.disabled=true; btn.classList.add('spinning');
+  setStatus('loading','Workflow wird gestartet…');
+  document.getElementById('loadingText').textContent='GitHub Actions läuft… (~60 Sek.)';
   document.getElementById('loadingOverlay').classList.add('visible');
-
-  try {
-    const r = await fetch(WORKER_URL, { method: 'POST' });
-    const json = await r.json();
-    if (r.ok && json.ok) {
-      setStatus('loading', 'Workflow gestartet. Warte 75 Sek…');
+  try{
+    const r=await fetch(WORKER_URL,{method:'POST'});
+    const j=await r.json();
+    if(r.ok&&j.ok){
+      setStatus('loading','Workflow gestartet. Warte 75 Sek…');
       await wait(75000);
       document.getElementById('loadingOverlay').classList.remove('visible');
       await loadData();
-    } else {
-      throw new Error(json.error || 'Status ' + r.status);
-    }
-  } catch(e) {
+    }else throw new Error(j.error||'Status '+r.status);
+  }catch(e){
     document.getElementById('loadingOverlay').classList.remove('visible');
-    setStatus('error', 'Workflow-Fehler: ' + e.message);
+    setStatus('error','Workflow-Fehler: '+e.message);
   }
-
-  btn.disabled = false;
-  btn.classList.remove('spinning');
+  btn.disabled=false; btn.classList.remove('spinning');
 }
 
-function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+function renderAll(d){renderHeader(d);renderKPI(d);renderMainGrid(d);renderFooter(d);}
 
-function renderAll(d) {
-  renderHeader(d);
-  renderKPI(d);
-  renderMainGrid(d);
-  renderFooter(d);
+function renderHeader(d){
+  const now=new Date();
+  const days=['So','Mo','Di','Mi','Do','Fr','Sa'];
+  document.getElementById('headerMeta').textContent=
+    days[now.getDay()]+', '+now.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})+
+    ' · '+now.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  const bias=(d.signals?.overall_bias||'NEUTRAL').toUpperCase();
+  const badge=document.getElementById('biasBadge');
+  badge.className='bias-badge '+(bias==='BÄRISCH'?'bearish':bias==='BULLISCH'?'bullish':'neutral');
+  badge.textContent=bias==='BÄRISCH'?'⬇ BÄRISCH':bias==='BULLISCH'?'⬆ BULLISCH':'⛯ NEUTRAL';
 }
 
-function renderHeader(d) {
-  const now  = new Date();
-  const days = ['So','Mo','Di','Mi','Do','Fr','Sa'];
-  const meta = days[now.getDay()] + ', ' +
-    now.toLocaleDateString('de-DE', {day:'2-digit',month:'2-digit',year:'numeric'}) +
-    ' · ' + now.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
-  document.getElementById('headerMeta').textContent = meta;
-  const bias  = (d.signals?.overall_bias || 'NEUTRAL').toUpperCase();
-  const badge = document.getElementById('biasBadge');
-  badge.className = 'bias-badge ' + (bias === 'BÄRISCH' ? 'bearish' : bias === 'BULLISCH' ? 'bullish' : 'neutral');
-  badge.textContent = (bias === 'BÄRISCH' ? '⬇ BÄRISCH' : bias === 'BULLISCH' ? '⬆ BULLISCH' : '⛯ NEUTRAL');
+function renderKPI(d){
+  const ecb=d.ecb||{},fed=d.fed||{};
+  const dfrPrev=2.00, dfrCur=ecb.dfr??null;
+  const dfrNote=ecb.dfr_note?`ab ${ecb.dfr_date}`:`Stand ${ecb.dfr_date||'–'}`;
+  const dfrDelta=dfrCur!==null?(dfrCur>dfrPrev?`▲ von ${dfrPrev.toFixed(2)}%`:dfrCur<dfrPrev?`▼ von ${dfrPrev.toFixed(2)}%`:'— unverändert'):'—';
+  const hicpVal=ecb.hicp!=null?'~'+parseFloat(ecb.hicp).toFixed(2)+'%':'N/A';
+  const hicpDate=(ecb.hicp_date||'').replace(/^(\d{4})-(\d{2})$/,(_,y,m)=>{const ms=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];return ms[parseInt(m)-1]+' '+y;})||'–';
+  const effrCur=fed.effr??null;
+  const cpiVal=fed.cpi!=null?parseFloat(fed.cpi).toFixed(1)+'%':'N/A';
+  const cpiDate=(fed.cpi_date||'').replace(/^(\d{4})-(\d{2})$/,(_,y,m)=>{const ms=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];return'BLS '+ms[parseInt(m)-1]+' '+y;})||'–';
+  document.getElementById('kpiRow').innerHTML=`
+    <div class="kpi"><div class="kpi-label">🇪🇺 EZB Leitzins</div><div class="kpi-value">${dfrCur!==null?parseFloat(dfrCur).toFixed(2)+'%':'N/A'}</div><div class="kpi-sub">${dfrNote}</div><span class="kpi-delta ${dfrCur!==null&&dfrCur>dfrPrev?'up':dfrCur!==null&&dfrCur<dfrPrev?'down':'flat'}">${dfrDelta}</span></div>
+    <div class="kpi"><div class="kpi-label">🇪🇺 HVPI</div><div class="kpi-value" style="color:var(--yellow)">${hicpVal}</div><div class="kpi-sub">${hicpDate}</div><span class="kpi-delta flat">Eurostat</span></div>
+    <div class="kpi"><div class="kpi-label">🇺🇸 Fed EFFR</div><div class="kpi-value">${effrCur!==null?parseFloat(effrCur).toFixed(2)+'%':'N/A'}</div><div class="kpi-sub">Stand ${fed.effr_date||'–'}</div><span class="kpi-delta flat">— unverändert</span></div>
+    <div class="kpi"><div class="kpi-label">🇺🇸 CPI USA</div><div class="kpi-value" style="color:var(--yellow)">${cpiVal}</div><div class="kpi-sub">${cpiDate}</div><span class="kpi-delta flat">FRED pc1</span></div>`;
 }
 
-function renderKPI(d) {
-  const ecb = d.ecb || {};
-  const fed = d.fed || {};
-  const dfrPrev = 2.00;
-  const dfrCur  = ecb.dfr ?? null;
-  const dfrNote = ecb.dfr_note ? `ab ${ecb.dfr_date}` : `Stand ${ecb.dfr_date || '–'}`;
-  const dfrDelta = dfrCur !== null ? (dfrCur > dfrPrev ? `▲ von ${dfrPrev.toFixed(2)}%` : dfrCur < dfrPrev ? `▼ von ${dfrPrev.toFixed(2)}%` : '— unverändert') : '—';
-  const hicpVal  = ecb.hicp !== null && ecb.hicp !== undefined ? '~' + parseFloat(ecb.hicp).toFixed(2) + '%' : 'N/A';
-  const hicpDate = ecb.hicp_date ? ecb.hicp_date.replace(/^(\d{4})-(\d{2})$/, (_, y, m) => {
-    const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-    return months[parseInt(m)-1] + ' ' + y;
-  }) : '–';
-  const effrCur  = fed.effr ?? null;
-  const effrDate = fed.effr_date || '–';
-  const cpiVal   = fed.cpi !== null && fed.cpi !== undefined ? parseFloat(fed.cpi).toFixed(1) + '%' : 'N/A';
-  const cpiDate  = fed.cpi_date ? fed.cpi_date.replace(/^(\d{4})-(\d{2})$/, (_, y, m) => {
-    const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-    return 'BLS ' + months[parseInt(m)-1] + ' ' + y;
-  }) : '–';
-  document.getElementById('kpiRow').innerHTML = `
-    <div class="kpi">
-      <div class="kpi-label">🇪🇺 EZB Leitzins</div>
-      <div class="kpi-value">${dfrCur !== null ? parseFloat(dfrCur).toFixed(2) + '%' : 'N/A'}</div>
-      <div class="kpi-sub">${dfrNote}</div>
-      <span class="kpi-delta ${dfrCur !== null && dfrCur > dfrPrev ? 'up' : dfrCur !== null && dfrCur < dfrPrev ? 'down' : 'flat'}">${dfrDelta}</span>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">🇪🇺 HVPI</div>
-      <div class="kpi-value" style="color:var(--yellow)">${hicpVal}</div>
-      <div class="kpi-sub">${hicpDate}</div>
-      <span class="kpi-delta flat">Eurostat</span>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">🇺🇸 Fed EFFR</div>
-      <div class="kpi-value">${effrCur !== null ? parseFloat(effrCur).toFixed(2) + '%' : 'N/A'}</div>
-      <div class="kpi-sub">Stand ${effrDate}</div>
-      <span class="kpi-delta flat">— unverändert</span>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">🇺🇸 CPI USA</div>
-      <div class="kpi-value" style="color:var(--yellow)">${cpiVal}</div>
-      <div class="kpi-sub">${cpiDate}</div>
-      <span class="kpi-delta flat">FRED pc1</span>
-    </div>`;
-}
+function renderMainGrid(d){
+  const sig=d.signals||{},cot=d.cot||null,retail=d.retail||null;
+  const events=d.events||[],yields=d.yields||{},ecb=d.ecb||{},fed=d.fed||{};
+  const hist=d.spread_history||[];
+  const rateDiff=sig.rate_diff??null,yieldSpread=sig.yield_spread??null;
+  const inflGap=(fed.cpi!=null&&ecb.hicp!=null)?round2(parseFloat(fed.cpi)-parseFloat(ecb.hicp)):null;
 
-function renderMainGrid(d) {
-  const sig    = d.signals  || {};
-  const cot    = d.cot      || null;
-  const retail = d.retail   || null;
-  const events = d.events   || [];
-  const yields = d.yields   || {};
-  const ecb    = d.ecb      || {};
-  const fed    = d.fed      || {};
-  const hist   = d.spread_history || [];
-  const rateDiff    = sig.rate_diff    ?? null;
-  const yieldSpread = sig.yield_spread ?? null;
-  const inflGap     = (fed.cpi !== null && ecb.hicp !== null) ? round2(parseFloat(fed.cpi) - parseFloat(ecb.hicp)) : null;
-
-  const rateTable = `
+  // Rate table
+  const rateTable=`
     <table class="rate-table">
       <thead><tr><th>Instrument</th><th>USD</th><th>EUR</th><th>Spread</th></tr></thead>
       <tbody>
@@ -448,27 +361,20 @@ function renderMainGrid(d) {
       </tbody>
     </table>
     <div style="margin-top:var(--space-3)">
-      <div style="font-size:var(--text-xs);color:var(--muted);margin-bottom:var(--space-2);display:flex;justify-content:space-between">
-        <span>US 2Y vs DE 2Y</span><span style="color:var(--red)">${pp(yieldSpread)}</span>
-      </div>
-      <div style="height:6px;background:var(--surface-3);border-radius:99px;overflow:hidden">
-        <div style="width:100%;height:100%;background:var(--red);border-radius:99px"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-top:4px;font-family:var(--font-mono);font-size:var(--text-xs);color:var(--faint)">
-        <span>DE ${pct(yields.de2y)}</span><span>US ${pct(yields.us2y)}</span>
-      </div>
+      <div style="font-size:var(--text-xs);color:var(--muted);margin-bottom:var(--space-2);display:flex;justify-content:space-between"><span>US 2Y vs DE 2Y</span><span style="color:var(--red)">${pp(yieldSpread)}</span></div>
+      <div style="height:6px;background:var(--surface-3);border-radius:99px;overflow:hidden"><div style="width:100%;height:100%;background:var(--red);border-radius:99px"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;font-family:var(--font-mono);font-size:var(--text-xs);color:var(--faint)"><span>DE ${pct(yields.de2y)}</span><span>US ${pct(yields.us2y)}</span></div>
     </div>`;
 
-  const cotBiasClass = !cot ? 'flat' : 'flat';
-  const cotBiasIcon  = !cot ? '⚪' : (cot.bias === 'NET-LONG' ? '🟢' : cot.bias === 'NET-SHORT' ? '🔴' : '⚪');
-  const longW  = cot ? Math.round(cot.long_pct  / (cot.long_pct + cot.short_pct) * 100) : 50;
-  const shortW = 100 - longW;
-  const cotPanel = cot ? `
+  // COT
+  const cotIcon=!cot?'⚪':cot.bias==='NET-LONG'?'🟢':cot.bias==='NET-SHORT'?'🔴':'⚪';
+  const longW=cot?Math.round(cot.long_pct/(cot.long_pct+cot.short_pct)*100):50;
+  const cotPanel=cot?`
     <div class="cot-grid">
-      <div class="cot-item"><div class="cot-item-label">Net-Position</div><div class="cot-item-value negative">${cot.net >= 0 ? '+' : ''}${num(cot.net)}</div></div>
-      <div class="cot-item"><div class="cot-item-label">Δ Vorwoche</div><div class="cot-item-value negative">${cot.delta_net >= 0 ? '▲' : '▼'} ${num(Math.abs(cot.delta_net))}</div></div>
+      <div class="cot-item"><div class="cot-item-label">Net-Position</div><div class="cot-item-value negative">${cot.net>=0?'+':''}${num(cot.net)}</div></div>
+      <div class="cot-item"><div class="cot-item-label">Δ Vorwoche</div><div class="cot-item-value negative">${cot.delta_net>=0?'▲':'▼'} ${num(Math.abs(cot.delta_net))}</div></div>
       <div class="cot-item"><div class="cot-item-label">Open Interest</div><div class="cot-item-value">${num(cot.oi)}</div></div>
-      <div class="cot-item"><div class="cot-item-label">Net-OI %</div><div class="cot-item-value ${cot.net_pct < 0 ? 'negative' : ''}">${cot.net_pct >= 0 ? '+' : ''}${parseFloat(cot.net_pct).toFixed(1)}%</div></div>
+      <div class="cot-item"><div class="cot-item-label">Net-OI %</div><div class="cot-item-value ${cot.net_pct<0?'negative':''}">${cot.net_pct>=0?'+':''}${parseFloat(cot.net_pct).toFixed(1)}%</div></div>
     </div>
     <div style="margin-top:var(--space-4)">
       <div style="font-size:var(--text-xs);color:var(--muted);margin-bottom:var(--space-2)">Long vs. Short (% OI)</div>
@@ -476,74 +382,64 @@ function renderMainGrid(d) {
         <span style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--green);width:3em;text-align:right">${parseFloat(cot.long_pct).toFixed(1)}%</span>
         <div style="flex:1;height:8px;background:var(--surface-3);border-radius:99px;overflow:hidden;display:flex">
           <div style="width:${longW}%;background:var(--green);border-radius:99px 0 0 99px"></div>
-          <div style="width:${shortW}%;background:var(--red);border-radius:0 99px 99px 0"></div>
+          <div style="width:${100-longW}%;background:var(--red);border-radius:0 99px 99px 0"></div>
         </div>
         <span style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--red);width:3em">${parseFloat(cot.short_pct).toFixed(1)}%</span>
       </div>
-      <div style="display:flex;gap:8px;justify-content:center;margin-top:var(--space-2);font-size:var(--text-xs);color:var(--muted)">
-        <span style="color:var(--green)">■ Long</span><span style="color:var(--red)">■ Short</span>
-      </div>
     </div>
     <div style="margin-top:var(--space-3);padding-top:var(--space-3);border-top:1px solid var(--divider);font-size:var(--text-xs);color:var(--faint);font-family:var(--font-mono)">${cot.date} · ${cot.source}</div>`
-    : `<div style="color:var(--muted);font-size:var(--text-xs);font-family:var(--font-mono)">N/A – CFTC-Daten nicht verfügbar</div>`;
+    :`<div style="color:var(--muted);font-size:var(--text-xs);font-family:var(--font-mono)">N/A – CFTC-Daten nicht verfügbar</div>`;
 
-  const retailVal = retail ? `${parseFloat(retail.long_pct).toFixed(1)}% L / ${parseFloat(retail.short_pct).toFixed(1)}% S` : 'N/A';
-  const spreadPanel = `
+  // Spread panel
+  const retailVal=retail?`${parseFloat(retail.long_pct).toFixed(1)}% L / ${parseFloat(retail.short_pct).toFixed(1)}% S`:'N/A';
+  const spreadPanel=`
     <div class="spread-stats">
       <div class="spread-stat"><span class="spread-stat-label">EFFR vs. DFR</span><span class="spread-stat-val bear">${pp(rateDiff)}</span></div>
       <div class="spread-stat"><span class="spread-stat-label">2Y-Spread</span><span class="spread-stat-val bear">${pp(yieldSpread)}</span></div>
-      <div class="spread-stat"><span class="spread-stat-label">Inflation-Gap</span><span class="spread-stat-val ${inflGap !== null && inflGap > 0 ? 'bear' : ''}">${pp(inflGap)}</span></div>
+      <div class="spread-stat"><span class="spread-stat-label">Inflation-Gap</span><span class="spread-stat-val ${inflGap!=null&&inflGap>0?'bear':''}">${pp(inflGap)}</span></div>
       <div class="spread-stat"><span class="spread-stat-label">Retail</span><span class="spread-stat-val" style="color:var(--muted)">${retailVal}</span></div>
     </div>
     <div class="chart-wrap"><canvas id="spreadChart"></canvas></div>`;
 
-  const evRows = events.map(ev => {
-    const days = ev.days;
-    const soon = days !== null && days <= 5;
-    // Prognose/Vorher aus _eventsData
-    const evInfo = (_eventsData[ev.label] || {});
-    const upcoming = (evInfo.entries || []).find(e => !e.actual);
-    const forecastBadge = upcoming
-      ? `<span style="font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);margin-left:4px">Prognose: ${upcoming.forecast || '?'} | Vorher: ${upcoming.previous || '?'}</span>`
-      : '';
-    const biasBadge = upcoming && upcoming.bias
-      ? `<span style="font-family:var(--font-mono);font-size:0.65rem;font-weight:700;margin-left:4px;color:${upcoming.bias === 'BULLISCH' ? 'var(--green)' : upcoming.bias === 'BÄRISCH' ? 'var(--red)' : 'var(--muted)'}">${upcoming.bias === 'BULLISCH' ? '🟢' : upcoming.bias === 'BÄRISCH' ? '🔴' : '⚪'} ${upcoming.bias}</span>`
-      : '';
-    return `<div class="event-row" style="grid-template-columns:auto 1fr auto">
+  // Events – zeige nächsten Termin pro Typ mit Prognose aus _eventsData
+  const evRows=events.map(ev=>{
+    const soon=ev.days!==null&&ev.days<=5;
+    // Finde Prognose aus _eventsData für dieses Datum
+    const entries=(_eventsData[ev.label]?.entries||[]);
+    const match=entries.find(e=>e.date===ev.date||(e.date||'').replace(/\./g,'-')===ev.date);
+    const forecastBadge=match?
+      `<span style="font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);margin-left:4px">Prog: ${match.forecast||'?'} | Vor: ${match.previous||'?'} ${EVENT_CFG[ev.label]?.unit||''}</span>`
+      :'';
+    const bias=match?calcBias(ev.label,match.forecast,match.previous):null;
+    const biasBadge=bias?
+      `<span style="font-family:var(--font-mono);font-size:0.65rem;font-weight:700;margin-left:4px;color:${bias==='BULLISCH'?'var(--green)':bias==='BÄRISCH'?'var(--red)':'var(--muted)'}">${bias==='BULLISCH'?'🟢':bias==='BÄRISCH'?'🔴':'⚪'} ${bias}</span>`
+      :'';
+    return `<div class="event-row">
       <div class="event-dot ${ev.importance}"></div>
-      <div>
-        <span class="event-name">${ev.label}</span>${forecastBadge}${biasBadge}
-        <div class="event-date">${ev.date}</div>
-      </div>
-      <div class="event-days${soon ? ' soon' : ''}">${days !== null ? days + 'T' : 'N/A'}</div>
+      <div><span class="event-name">${ev.label}</span>${forecastBadge}${biasBadge}<div class="event-date">${ev.date}</div></div>
+      <div class="event-days${soon?' soon':''}">${ev.days!==null?ev.days+'T':'N/A'}</div>
     </div>`;
   }).join('');
 
-  const rateBiasClass   = sig.rate_bias  === 'BÄRISCH' ? 'bc-bear' : sig.rate_bias  === 'BULLISCH' ? 'bc-bull' : 'bc-neutral';
-  const yieldBiasClass  = sig.yield_bias === 'USD-Vorteil' ? 'bc-bear' : sig.yield_bias === 'EUR-Vorteil' ? 'bc-bull' : 'bc-neutral';
-  const cotBiasClass2   = sig.cot_bias   === 'NET-SHORT' ? 'bc-bear' : sig.cot_bias === 'NET-LONG' ? 'bc-bull' : 'bc-neutral';
-  const retailBiasClass = (sig.retail_bias || '').includes('BÄRISCH') ? 'bc-bear' : (sig.retail_bias || '').includes('BULLISCH') ? 'bc-bull' : 'bc-neutral';
-  const rateIcon  = sig.rate_bias  === 'BÄRISCH' ? '🔴' : sig.rate_bias  === 'BULLISCH' ? '🟢' : '⚪';
-  const yieldIcon = sig.yield_bias === 'USD-Vorteil' ? '🔴' : sig.yield_bias === 'EUR-Vorteil' ? '🟢' : '⚪';
-  const cotIconB  = sig.cot_bias   === 'NET-SHORT' ? '🔴' : sig.cot_bias === 'NET-LONG' ? '🟢' : '⚪';
-  const retIcon   = (sig.retail_bias || '').includes('BÄRISCH') ? '🔴' : (sig.retail_bias || '').includes('BULLISCH') ? '🟢' : '⚪';
-  const overall      = (sig.overall_bias || 'NEUTRAL').toUpperCase();
-  const overallColor = overall === 'BÄRISCH' ? 'var(--red)' : overall === 'BULLISCH' ? 'var(--green)' : 'var(--muted)';
-  const fomc    = events.find(e => e.label === 'FOMC');
-  const fomcDays = fomc?.days;
-  const biasDesc = overall === 'BÄRISCH'
-    ? `USD-Zins- und Spread-Vorteil dominant.${fomcDays !== null ? ' FOMC in ' + fomcDays + 'T entscheidend.' : ''} COT ohne klare Gegenposition.`
-    : overall === 'BULLISCH'
-    ? `EUR-Zinsvorteil wächst. EZB-Straffung preisend.${fomcDays !== null ? ' FOMC in ' + fomcDays + 'T.' : ''}`
-    : 'Signale gemischt. Kein klarer Richtungsimpuls.';
+  // Bias summary
+  const rateBiasClass=sig.rate_bias==='BÄRISCH'?'bc-bear':sig.rate_bias==='BULLISCH'?'bc-bull':'bc-neutral';
+  const yieldBiasClass=sig.yield_bias==='USD-Vorteil'?'bc-bear':sig.yield_bias==='EUR-Vorteil'?'bc-bull':'bc-neutral';
+  const cotBiasClass2=sig.cot_bias==='NET-SHORT'?'bc-bear':sig.cot_bias==='NET-LONG'?'bc-bull':'bc-neutral';
+  const retailBiasClass=(sig.retail_bias||'').includes('BÄRISCH')?'bc-bear':(sig.retail_bias||'').includes('BULLISCH')?'bc-bull':'bc-neutral';
+  const overall=(sig.overall_bias||'NEUTRAL').toUpperCase();
+  const overallColor=overall==='BÄRISCH'?'var(--red)':overall==='BULLISCH'?'var(--green)':'var(--muted)';
+  const fomc=events.find(e=>e.label==='FOMC');
+  const biasDesc=overall==='BÄRISCH'?`USD-Zins- und Spread-Vorteil dominant.${fomc?.days!=null?' FOMC in '+fomc.days+'T entscheidend.':''} COT ohne klare Gegenposition.`
+    :overall==='BULLISCH'?`EUR-Zinsvorteil wächst.${fomc?.days!=null?' FOMC in '+fomc.days+'T.':''}`
+    :'Signale gemischt. Kein klarer Richtungsimpuls.';
 
-  document.getElementById('mainGrid').innerHTML = `
+  document.getElementById('mainGrid').innerHTML=`
     <div class="panel">
       <div class="panel-header"><div class="panel-title">📈 Zinsdifferenz &amp; Spreads</div><span class="panel-badge down">🔴 USD</span></div>
       <div class="panel-body">${rateTable}</div>
     </div>
     <div class="panel">
-      <div class="panel-header"><div class="panel-title">📋 COT · CME EUR 6E</div><span class="panel-badge ${cotBiasClass}">${cotBiasIcon} ${cot ? cot.bias : 'N/A'}</span></div>
+      <div class="panel-header"><div class="panel-title">📋 COT · CME EUR 6E</div><span class="panel-badge flat">${cotIcon} ${cot?cot.bias:'N/A'}</span></div>
       <div class="panel-body">${cotPanel}</div>
     </div>
     <div class="panel spread-panel">
@@ -558,199 +454,169 @@ function renderMainGrid(d) {
       <div class="panel-header"><div class="panel-title">🎯 Gesamt-Bias EUR/USD</div></div>
       <div class="panel-body">
         <div class="bias-row">
-          <div class="bias-card"><div class="bias-card-label">Zinsdiff.</div><div class="bias-card-val ${rateBiasClass}">${rateIcon} ${sig.rate_bias || 'N/A'}</div></div>
-          <div class="bias-card"><div class="bias-card-label">2Y-Spread</div><div class="bias-card-val ${yieldBiasClass}">${yieldIcon} ${sig.yield_bias || 'N/A'}</div></div>
-          <div class="bias-card"><div class="bias-card-label">COT</div><div class="bias-card-val ${cotBiasClass2}">${cotIconB} ${sig.cot_bias || 'N/A'}</div></div>
-          <div class="bias-card"><div class="bias-card-label">Retail</div><div class="bias-card-val ${retailBiasClass}">${retIcon} ${sig.retail_bias || 'N/A'}</div></div>
+          <div class="bias-card"><div class="bias-card-label">Zinsdiff.</div><div class="bias-card-val ${rateBiasClass}">${sig.rate_bias==='BÄRISCH'?'🔴':sig.rate_bias==='BULLISCH'?'🟢':'⚪'} ${sig.rate_bias||'N/A'}</div></div>
+          <div class="bias-card"><div class="bias-card-label">2Y-Spread</div><div class="bias-card-val ${yieldBiasClass}">${sig.yield_bias==='USD-Vorteil'?'🔴':sig.yield_bias==='EUR-Vorteil'?'🟢':'⚪'} ${sig.yield_bias||'N/A'}</div></div>
+          <div class="bias-card"><div class="bias-card-label">COT</div><div class="bias-card-val ${cotBiasClass2}">${sig.cot_bias==='NET-SHORT'?'🔴':sig.cot_bias==='NET-LONG'?'🟢':'⚪'} ${sig.cot_bias||'N/A'}</div></div>
+          <div class="bias-card"><div class="bias-card-label">Retail</div><div class="bias-card-val ${retailBiasClass}">${(sig.retail_bias||'').includes('BÄRISCH')?'🔴':(sig.retail_bias||'').includes('BULLISCH')?'🟢':'⚪'} ${sig.retail_bias||'N/A'}</div></div>
         </div>
         <div style="margin-top:var(--space-4);padding:var(--space-3);background:color-mix(in oklch,${overallColor} 8%,transparent);border:1px solid color-mix(in oklch,${overallColor} 20%,transparent);border-radius:var(--radius-md)">
-          <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:${overallColor};font-weight:700;margin-bottom:4px">GESAMT: ${overall === 'BÄRISCH' ? '🔴' : overall === 'BULLISCH' ? '🟢' : '⚪'} ${overall} EUR/USD</div>
+          <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:${overallColor};font-weight:700;margin-bottom:4px">GESAMT: ${overall==='BÄRISCH'?'🔴':overall==='BULLISCH'?'🟢':'⚪'} ${overall} EUR/USD</div>
           <div style="font-size:var(--text-xs);color:var(--muted);line-height:1.6">${biasDesc}</div>
         </div>
       </div>
     </div>
     <div class="panel event-editor-panel">
-      <div class="panel-header"><div class="panel-title">✏️ Event-Prognosen &amp; Kalender</div><span class="panel-badge flat">Manuell</span></div>
-      ${renderEditorTabs()}
-      <div class="panel-body" id="editorBody">${renderEditorForm(_activeEventTab)}</div>
+      <div class="panel-header"><div class="panel-title">✏️ Event-Prognosen &amp; Kalender</div><span class="panel-badge flat" id="editorSyncBadge">Manuell</span></div>
+      <div id="editorTabs"></div>
+      <div class="panel-body" id="editorBody"></div>
     </div>`;
 
-  renderChart(hist, yieldSpread);
+  renderChart(hist);
+  renderEditorTabs();
+  renderEditorForm();
 }
 
-function renderEditorTabs() {
-  return `<div class="editor-tabs">${Object.keys(EVENT_CONFIG).map(k =>
-    `<button class="editor-tab${k === _activeEventTab ? ' active' : ''}" onclick="switchTab('${k}')">${k}</button>`
-  ).join('')}</div>`;
+function renderEditorTabs(){
+  const el=document.getElementById('editorTabs');
+  if(!el)return;
+  el.className='editor-tabs';
+  el.innerHTML=Object.keys(EVENT_CFG).map(k=>
+    `<button class="editor-tab${k===_activeTab?' active':''}" onclick="switchTab('${k}')">${k}</button>`
+  ).join('');
 }
 
-function switchTab(label) {
-  _activeEventTab = label;
-  // Re-render tabs + form only
-  const panel = document.querySelector('.event-editor-panel');
-  if (!panel) return;
-  panel.querySelector('.editor-tabs').outerHTML = renderEditorTabs();
-  document.getElementById('editorBody').innerHTML = renderEditorForm(label);
-  // re-attach tabs
-  panel.querySelector('.panel-header').nextSibling;
-  // replace editor-tabs node
-  const newTabs = panel.querySelectorAll('.editor-tabs');
-  if (newTabs.length > 1) newTabs[0].remove();
+function switchTab(label){
+  _activeTab=label;
+  renderEditorTabs();
+  renderEditorForm();
 }
 
-function renderEditorForm(label) {
-  const cfg = EVENT_CONFIG[label];
-  const entries = (_eventsData[label] || {}).entries || [];
-  const histRows = entries.slice().reverse().map((e, i) => {
-    const idx = entries.length - 1 - i;
-    const biasClass = e.bias === 'BULLISCH' ? 'bull' : e.bias === 'BÄRISCH' ? 'bear' : '';
+function renderEditorForm(){
+  const el=document.getElementById('editorBody');
+  if(!el)return;
+  const label=_activeTab;
+  const cfg=EVENT_CFG[label];
+  const entries=(_eventsData[label]?.entries||[]);
+  const histRows=entries.slice().reverse().map((e,ri)=>{
+    const idx=entries.length-1-ri;
+    const bc=e.bias==='BULLISCH'?'bull':e.bias==='BÄRISCH'?'bear':'';
     return `<div class="editor-history-row">
-      <span class="eh-date">${e.date || '–'}</span>
-      <span class="eh-vals">${e.previous || '?'} → ${e.forecast || '?'} ${cfg.unit}</span>
-      <span class="eh-note">${e.note || ''}</span>
-      <span class="eh-bias ${biasClass}">${e.bias || '–'}</span>
-      <button class="eh-del" onclick="deleteEntry('${label}',${idx})">✕</button>
+      <span class="eh-date">${e.date||'–'}</span>
+      <span class="eh-vals">${e.previous||'?'} → ${e.forecast||'?'} ${cfg.unit}</span>
+      <span class="eh-note">${e.note||''}</span>
+      <span class="eh-bias ${bc}">${e.bias==='BULLISCH'?'🟢 BULLISCH':e.bias==='BÄRISCH'?'🔴 BÄRISCH':'⚪ –'}</span>
+      <button class="eh-del" onclick="deleteEntry('${label}',${idx})" title="Löschen">✕</button>
     </div>`;
   }).join('');
 
-  return `
-    <div class="editor-form">
-      <div class="editor-form-row">
-        <div class="form-group">
-          <label class="form-label">Datum (TT.MM.JJJJ)</label>
-          <input class="form-input" id="ev-date" type="text" placeholder="17.06.2026">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Vorheriger Wert (${cfg.unit})</label>
-          <input class="form-input" id="ev-prev" type="text" placeholder="z.B. 4.50" oninput="updateBiasPreview()">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Prognose (${cfg.unit})</label>
-          <input class="form-input" id="ev-forecast" type="text" placeholder="z.B. 4.25" oninput="updateBiasPreview()">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Notiz (optional)</label>
-          <input class="form-input" id="ev-note" type="text" placeholder="z.B. dovish signal erwartet">
-        </div>
-      </div>
-      <div id="ev-bias-preview" class="editor-bias-preview">⚪ Bias wird berechnet…</div>
-      <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap">
-        <button class="editor-save-btn" id="evSaveBtn" onclick="saveEntry('${label}')">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-          Speichern
-        </button>
-        <span class="editor-save-status" id="evSaveStatus"></span>
-      </div>
-      ${entries.length > 0 ? `
-        <div class="editor-history">
-          <div style="font-size:var(--text-xs);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-family:var(--font-mono);margin-bottom:4px">Einträge</div>
-          ${histRows}
-        </div>` : ''}
-    </div>`;
+  el.innerHTML=`<div class="editor-form">
+    <div style="font-size:var(--text-xs);color:var(--muted);font-family:var(--font-mono)">${cfg.label} · ${cfg.bullDesc}</div>
+    <div class="editor-form-row">
+      <div class="form-group"><label class="form-label">Datum</label><input class="form-input" id="ev-date" type="text" placeholder="17.06.2026"></div>
+      <div class="form-group"><label class="form-label">Vorheriger Wert (${cfg.unit})</label><input class="form-input" id="ev-prev" type="text" placeholder="z.B. 4.50" oninput="updateBiasPreview()"></div>
+      <div class="form-group"><label class="form-label">Prognose (${cfg.unit})</label><input class="form-input" id="ev-forecast" type="text" placeholder="z.B. 4.25" oninput="updateBiasPreview()"></div>
+      <div class="form-group"><label class="form-label">Notiz (optional)</label><input class="form-input" id="ev-note" type="text" placeholder="dovish erwartet…"></div>
+    </div>
+    <div id="ev-bias-preview" class="editor-bias-preview">⚪ Bias wird berechnet…</div>
+    <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap">
+      <button class="editor-save-btn" id="evSaveBtn" onclick="saveEntry('${label}')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Speichern
+      </button>
+      <span class="editor-save-status" id="evSaveStatus"></span>
+    </div>
+    ${entries.length>0?`<div class="editor-history"><div class="editor-history-title">Einträge</div>${histRows}</div>`:''}
+  </div>`;
 }
 
-function updateBiasPreview() {
-  const forecast = document.getElementById('ev-forecast')?.value || '';
-  const previous = document.getElementById('ev-prev')?.value || '';
-  const preview  = document.getElementById('ev-bias-preview');
-  if (!preview) return;
-  const bias = calcEventBias(_activeEventTab, forecast, previous);
-  if (!bias) {
-    preview.className = 'editor-bias-preview';
-    preview.textContent = '⚪ Bias wird berechnet…';
-  } else if (bias === 'BULLISCH') {
-    preview.className = 'editor-bias-preview bull';
-    preview.textContent = '🟢 BULLISCH EUR/USD – ' + EVENT_CONFIG[_activeEventTab].bullDesc;
-  } else if (bias === 'BÄRISCH') {
-    preview.className = 'editor-bias-preview bear';
-    preview.textContent = '🔴 BÄRISCH EUR/USD – ' + EVENT_CONFIG[_activeEventTab].bearDesc;
-  } else {
-    preview.className = 'editor-bias-preview';
-    preview.textContent = '⚪ NEUTRAL – keine Prognoseänderung';
-  }
+function updateBiasPreview(){
+  const f=document.getElementById('ev-forecast')?.value||'';
+  const p=document.getElementById('ev-prev')?.value||'';
+  const el=document.getElementById('ev-bias-preview');
+  if(!el)return;
+  const bias=calcBias(_activeTab,f,p);
+  const cfg=EVENT_CFG[_activeTab];
+  if(!bias){el.className='editor-bias-preview';el.textContent='⚪ Bias wird berechnet…';}
+  else if(bias==='BULLISCH'){el.className='editor-bias-preview bull';el.textContent='🟢 BULLISCH EUR/USD – '+cfg.bullDesc;}
+  else if(bias==='BÄRISCH'){el.className='editor-bias-preview bear';el.textContent='🔴 BÄRISCH EUR/USD – '+cfg.bearDesc;}
+  else{el.className='editor-bias-preview';el.textContent='⚪ NEUTRAL – keine Änderung';}
 }
 
-async function saveEntry(label) {
-  const date     = document.getElementById('ev-date')?.value.trim();
-  const previous = document.getElementById('ev-prev')?.value.trim();
-  const forecast = document.getElementById('ev-forecast')?.value.trim();
-  const note     = document.getElementById('ev-note')?.value.trim();
-  const bias     = calcEventBias(label, forecast, previous);
-
-  if (!date || !forecast) {
-    document.getElementById('evSaveStatus').textContent = '⚠️ Datum und Prognose benötigt';
-    return;
-  }
-
-  const btn = document.getElementById('evSaveBtn');
-  btn.disabled = true;
-  document.getElementById('evSaveStatus').textContent = 'Speichere…';
-
-  if (!_eventsData[label]) _eventsData[label] = { entries: [] };
-  _eventsData[label].entries.push({ date, previous, forecast, note, bias, actual: false });
-
-  try {
-    const r = await fetch(WORKER_URL + '/events', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(_eventsData),
+async function saveEntry(label){
+  const date=document.getElementById('ev-date')?.value.trim()||'';
+  const prev=document.getElementById('ev-prev')?.value.trim()||'';
+  const fore=document.getElementById('ev-forecast')?.value.trim()||'';
+  const note=document.getElementById('ev-note')?.value.trim()||'';
+  if(!date||!fore){document.getElementById('evSaveStatus').textContent='⚠️ Datum & Prognose nötig';return;}
+  const bias=calcBias(label,fore,prev);
+  const btn=document.getElementById('evSaveBtn');
+  btn.disabled=true;
+  document.getElementById('evSaveStatus').textContent='Speichere…';
+  if(!_eventsData[label])_eventsData[label]={entries:[]};
+  _eventsData[label].entries.push({label,date,previous:prev,forecast:fore,note,bias,actual:false});
+  // Baue flache events-Liste für events.json
+  const allEvents=Object.values(_eventsData).flatMap(v=>v.entries||[]);
+  try{
+    const r=await fetch(WORKER_URL+'/events',{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({events:allEvents,sha:_eventsSha}),
     });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    document.getElementById('evSaveStatus').textContent = '✅ Gespeichert';
-    document.getElementById('editorBody').innerHTML = renderEditorForm(label);
-  } catch(e) {
-    // Fallback: save locally only (already in _eventsData)
-    document.getElementById('evSaveStatus').textContent = '⚠️ Nur lokal gespeichert: ' + e.message;
+    const j=await r.json();
+    if(j.ok){
+      _eventsSha=j.sha;
+      document.getElementById('evSaveStatus').textContent='✅ Gespeichert';
+      document.getElementById('editorSyncBadge').textContent='✅ Synced';
+    }else throw new Error(j.error||'Fehler');
+  }catch(e){
+    document.getElementById('evSaveStatus').textContent='⚠️ Lokal: '+e.message;
   }
-  btn.disabled = false;
+  btn.disabled=false;
+  renderEditorForm();
 }
 
-async function deleteEntry(label, idx) {
-  if (!_eventsData[label]) return;
-  _eventsData[label].entries.splice(idx, 1);
-  try {
-    await fetch(WORKER_URL + '/events', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(_eventsData),
-    });
-  } catch(e) { /* lokal gelöscht, sync fehlgeschlagen */ }
-  document.getElementById('editorBody').innerHTML = renderEditorForm(label);
+async function deleteEntry(label,idx){
+  if(!_eventsData[label])return;
+  _eventsData[label].entries.splice(idx,1);
+  const allEvents=Object.values(_eventsData).flatMap(v=>v.entries||[]);
+  try{
+    const r=await fetch(WORKER_URL+'/events',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({events:allEvents,sha:_eventsSha})});
+    const j=await r.json();
+    if(j.ok)_eventsSha=j.sha;
+  }catch(e){}
+  renderEditorForm();
 }
 
-function renderChart(hist, currentSpread) {
-  const ctx = document.getElementById('spreadChart');
-  if (!ctx) return;
-  if (_chart) { _chart.destroy(); _chart = null; }
-  const labels = hist.map(p => p.date);
-  const vals   = hist.map(p => p.spread);
-  if (!labels.length) return;
-  const mn = Math.min(...vals), mx = Math.max(...vals), pad = 0.1;
-  _chart = window._chart = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets: [{ data: vals, borderColor: '#e05c6a', backgroundColor: 'rgba(224,92,106,0.08)', borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#e05c6a', tension: 0.4, fill: true }]},
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { backgroundColor: '#131619', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, titleColor: '#808892', bodyColor: '#e2e4e8', callbacks: { label: c => (c.raw >= 0 ? '+' : '') + c.raw.toFixed(2) + ' pp' } } },
-      scales: {
-        x: { ticks: { color:'#808892', font:{family:'JetBrains Mono',size:9}, maxTicksLimit:5 }, grid:{color:'rgba(255,255,255,0.05)'} },
-        y: { min: Math.floor((mn-pad)*10)/10, max: Math.ceil((mx+pad)*10)/10, ticks: { color:'#808892', font:{family:'JetBrains Mono',size:9}, callback: v => (v>=0?'+':'') + v.toFixed(2) }, grid:{color:'rgba(255,255,255,0.05)'} }
+function renderChart(hist){
+  const ctx=document.getElementById('spreadChart');
+  if(!ctx)return;
+  if(_chart){_chart.destroy();_chart=null;}
+  const labels=hist.map(p=>p.date),vals=hist.map(p=>p.spread);
+  if(!labels.length)return;
+  const mn=Math.min(...vals),mx=Math.max(...vals),pad=0.1;
+  _chart=window._chart=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[{data:vals,borderColor:'#e05c6a',backgroundColor:'rgba(224,92,106,0.08)',borderWidth:2,pointRadius:3,pointBackgroundColor:'#e05c6a',tension:0.4,fill:true}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#131619',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#808892',bodyColor:'#e2e4e8',callbacks:{label:c=>(c.raw>=0?'+':'')+c.raw.toFixed(2)+' pp'}}},
+      scales:{
+        x:{ticks:{color:'#808892',font:{family:'JetBrains Mono',size:9},maxTicksLimit:5},grid:{color:'rgba(255,255,255,0.05)'}},
+        y:{min:Math.floor((mn-pad)*10)/10,max:Math.ceil((mx+pad)*10)/10,ticks:{color:'#808892',font:{family:'JetBrains Mono',size:9},callback:v=>(v>=0?'+':'')+v.toFixed(2)},grid:{color:'rgba(255,255,255,0.05)'}}
       }
     }
   });
 }
 
-function renderFooter(d) {
-  document.getElementById('footer').textContent = 'ECB · Eurostat · FRED · CFTC · BLS | ' + (d.generated_at || '–');
+function renderFooter(d){
+  document.getElementById('footer').textContent='ECB · Eurostat · FRED · CFTC · BLS | '+(d.generated_at||'–');
 }
 
-function renderFallback() {
-  document.getElementById('headerMeta').textContent = 'Daten nicht verfügbar';
-  document.getElementById('biasBadge').textContent  = '⚠ Fehler';
-  document.getElementById('mainGrid').innerHTML = '<div style="grid-column:1/-1;padding:var(--space-4);text-align:center;color:var(--muted);font-family:var(--font-mono);font-size:var(--text-xs)">data.json nicht gefunden.<br>Bitte Workflow in GitHub Actions manuell ausführen.</div>';
+function renderFallback(){
+  document.getElementById('headerMeta').textContent='Daten nicht verfügbar';
+  document.getElementById('biasBadge').textContent='⚠ Fehler';
+  document.getElementById('mainGrid').innerHTML='<div style="grid-column:1/-1;padding:var(--space-4);text-align:center;color:var(--muted);font-family:var(--font-mono);font-size:var(--text-xs)">data.json nicht gefunden.<br>Bitte Workflow in GitHub Actions manuell ausführen.</div>';
 }
-
-function round2(v) { return Math.round(v * 100) / 100; }
 
 (function(){
   const btn=document.querySelector('[data-theme-toggle]');
@@ -758,14 +624,13 @@ function round2(v) { return Math.round(v * 100) / 100; }
   let theme='dark';
   const moon='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
   const sun='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
-  if(btn) btn.addEventListener('click',()=>{
+  if(btn)btn.addEventListener('click',()=>{
     theme=theme==='dark'?'light':'dark';
     root.setAttribute('data-theme',theme);
     btn.innerHTML=theme==='dark'?moon:sun;
     if(window._chart){
       const d=theme==='dark';
-      const tc=d?'#808892':'#6b7280';
-      const gc=d?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.05)';
+      const tc=d?'#808892':'#6b7280',gc=d?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.05)';
       window._chart.options.scales.x.ticks.color=tc;
       window._chart.options.scales.y.ticks.color=tc;
       window._chart.options.scales.x.grid.color=gc;
@@ -776,9 +641,7 @@ function round2(v) { return Math.round(v * 100) / 100; }
 })();
 
 loadData();
-if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js'));
-}
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js'));}
 </script>
 </body>
 </html>
