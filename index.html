@@ -131,7 +131,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
 .event-date{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--muted);}
 .event-days{font-family:var(--font-mono);font-size:var(--text-xs);padding:2px 8px;border-radius:var(--radius-sm);background:var(--surface-3);color:var(--muted);white-space:nowrap;}
 .event-days.soon{color:var(--red);background:color-mix(in oklch,var(--red) 10%,transparent);}
-.bias-row{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--space-2);}
+.bias-row{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-2);}
 .bias-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-2) var(--space-3);display:flex;flex-direction:column;gap:2px;}
 .bias-card-label{font-size:var(--text-xs);color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;}
 .bias-card-val{font-family:var(--font-mono);font-size:var(--text-sm);font-weight:700;}
@@ -139,7 +139,6 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
 .footer{text-align:center;font-size:var(--text-xs);color:var(--faint);padding:var(--space-2) 0 var(--space-4);font-family:var(--font-mono);}
 .skeleton{background:var(--surface-3);border-radius:var(--radius-sm);animation:shimmer 1.4s ease-in-out infinite;}
 @keyframes shimmer{0%,100%{opacity:0.4;}50%{opacity:0.8;}}
-/* EVENT EDITOR */
 .event-editor-panel{grid-column:1/-1;}
 .editor-tabs{display:flex;gap:var(--space-1);padding:var(--space-2) var(--space-4);border-bottom:1px solid var(--divider);overflow-x:auto;flex-wrap:nowrap;}
 .editor-tab{font-family:var(--font-mono);font-size:var(--text-xs);padding:4px 12px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface-2);color:var(--muted);white-space:nowrap;transition:all var(--transition);}
@@ -216,26 +215,26 @@ const DATA_URL   = 'data.json';
 
 let _chart = null;
 let _data  = null;
-let _eventsData = {}; // { FOMC: { entries: [...], sha: '...' }, ... }
-let _eventsSha  = null; // SHA der gesamten events.json für PUT
+let _eventsData = {};
+let _eventsSha  = null;
 let _activeTab  = 'FOMC';
 
 const EVENT_CFG = {
   FOMC: { importance:'high',   unit:'%', label:'Fed Leitzins',
           bullDesc:'Senkung erwartet → BULLISCH EUR/USD',
-          bearDesc:'Erhöhung erwartet → BÄRISCH EUR/USD',  invert:true  },
+          bearDesc:'Erhöhung erwartet → BÄRISCH EUR/USD', invert:true  },
   EZB:  { importance:'high',   unit:'%', label:'EZB Leitzins',
           bullDesc:'Erhöhung erwartet → BULLISCH EUR/USD',
-          bearDesc:'Senkung erwartet → BÄRISCH EUR/USD',   invert:false },
+          bearDesc:'Senkung erwartet → BÄRISCH EUR/USD',  invert:false },
   NFP:  { importance:'medium', unit:'K', label:'NFP Stellen',
           bullDesc:'Schwächer als Vorwert → BULLISCH EUR/USD',
           bearDesc:'Stärker als Vorwert → BÄRISCH EUR/USD', invert:true  },
   CPI:  { importance:'medium', unit:'%', label:'US CPI',
           bullDesc:'Prognose fällt → BULLISCH EUR/USD',
-          bearDesc:'Prognose steigt → BÄRISCH EUR/USD',    invert:true  },
+          bearDesc:'Prognose steigt → BÄRISCH EUR/USD',   invert:true  },
   PPI:  { importance:'low',    unit:'%', label:'US PPI',
           bullDesc:'Prognose fällt → BULLISCH EUR/USD',
-          bearDesc:'Prognose steigt → BÄRISCH EUR/USD',    invert:true  },
+          bearDesc:'Prognose steigt → BÄRISCH EUR/USD',   invert:true  },
 };
 
 function calcBias(label, forecast, previous) {
@@ -261,7 +260,6 @@ function setStatus(state,text){
 async function loadData(){
   setStatus('loading','Lade Daten…');
   try{
-    // Lade data.json und events (via Worker GET /events)
     const [res, evRes] = await Promise.all([
       fetch(DATA_URL+'?_='+Date.now()),
       fetch(WORKER_URL+'/events').catch(()=>null),
@@ -271,9 +269,7 @@ async function loadData(){
     if(evRes && evRes.ok){
       const evJson = await evRes.json();
       if(evJson.ok){
-        _eventsSha  = evJson.sha;
-        // events.json Format: { events:[...], last_updated:'...' }
-        // Wir bauen daraus ein Lookup: { FOMC: {entries:[...]}, ... }
+        _eventsSha = evJson.sha;
         _eventsData = {};
         for(const ev of (evJson.data.events||[])){
           const lbl = ev.label;
@@ -344,13 +340,12 @@ function renderKPI(d){
 }
 
 function renderMainGrid(d){
-  const sig=d.signals||{},cot=d.cot||null,retail=d.retail||null;
+  const sig=d.signals||{},cot=d.cot||null;
   const events=d.events||[],yields=d.yields||{},ecb=d.ecb||{},fed=d.fed||{};
   const hist=d.spread_history||[];
   const rateDiff=sig.rate_diff??null,yieldSpread=sig.yield_spread??null;
   const inflGap=(fed.cpi!=null&&ecb.hicp!=null)?round2(parseFloat(fed.cpi)-parseFloat(ecb.hicp)):null;
 
-  // Rate table
   const rateTable=`
     <table class="rate-table">
       <thead><tr><th>Instrument</th><th>USD</th><th>EUR</th><th>Spread</th></tr></thead>
@@ -366,7 +361,6 @@ function renderMainGrid(d){
       <div style="display:flex;justify-content:space-between;margin-top:4px;font-family:var(--font-mono);font-size:var(--text-xs);color:var(--faint)"><span>DE ${pct(yields.de2y)}</span><span>US ${pct(yields.us2y)}</span></div>
     </div>`;
 
-  // COT
   const cotIcon=!cot?'⚪':cot.bias==='NET-LONG'?'🟢':cot.bias==='NET-SHORT'?'🔴':'⚪';
   const longW=cot?Math.round(cot.long_pct/(cot.long_pct+cot.short_pct)*100):50;
   const cotPanel=cot?`
@@ -390,21 +384,16 @@ function renderMainGrid(d){
     <div style="margin-top:var(--space-3);padding-top:var(--space-3);border-top:1px solid var(--divider);font-size:var(--text-xs);color:var(--faint);font-family:var(--font-mono)">${cot.date} · ${cot.source}</div>`
     :`<div style="color:var(--muted);font-size:var(--text-xs);font-family:var(--font-mono)">N/A – CFTC-Daten nicht verfügbar</div>`;
 
-  // Spread panel
-  const retailVal=retail?`${parseFloat(retail.long_pct).toFixed(1)}% L / ${parseFloat(retail.short_pct).toFixed(1)}% S`:'N/A';
   const spreadPanel=`
     <div class="spread-stats">
       <div class="spread-stat"><span class="spread-stat-label">EFFR vs. DFR</span><span class="spread-stat-val bear">${pp(rateDiff)}</span></div>
       <div class="spread-stat"><span class="spread-stat-label">2Y-Spread</span><span class="spread-stat-val bear">${pp(yieldSpread)}</span></div>
       <div class="spread-stat"><span class="spread-stat-label">Inflation-Gap</span><span class="spread-stat-val ${inflGap!=null&&inflGap>0?'bear':''}">${pp(inflGap)}</span></div>
-      <div class="spread-stat"><span class="spread-stat-label">Retail</span><span class="spread-stat-val" style="color:var(--muted)">${retailVal}</span></div>
     </div>
     <div class="chart-wrap"><canvas id="spreadChart"></canvas></div>`;
 
-  // Events – zeige nächsten Termin pro Typ mit Prognose aus _eventsData
   const evRows=events.map(ev=>{
     const soon=ev.days!==null&&ev.days<=5;
-    // Finde Prognose aus _eventsData für dieses Datum
     const entries=(_eventsData[ev.label]?.entries||[]);
     const match=entries.find(e=>e.date===ev.date||(e.date||'').replace(/\./g,'-')===ev.date);
     const forecastBadge=match?
@@ -421,11 +410,9 @@ function renderMainGrid(d){
     </div>`;
   }).join('');
 
-  // Bias summary
   const rateBiasClass=sig.rate_bias==='BÄRISCH'?'bc-bear':sig.rate_bias==='BULLISCH'?'bc-bull':'bc-neutral';
   const yieldBiasClass=sig.yield_bias==='USD-Vorteil'?'bc-bear':sig.yield_bias==='EUR-Vorteil'?'bc-bull':'bc-neutral';
-  const cotBiasClass2=sig.cot_bias==='NET-SHORT'?'bc-bear':sig.cot_bias==='NET-LONG'?'bc-bull':'bc-neutral';
-  const retailBiasClass=(sig.retail_bias||'').includes('BÄRISCH')?'bc-bear':(sig.retail_bias||'').includes('BULLISCH')?'bc-bull':'bc-neutral';
+  const cotBiasClass=sig.cot_bias==='NET-SHORT'?'bc-bear':sig.cot_bias==='NET-LONG'?'bc-bull':'bc-neutral';
   const overall=(sig.overall_bias||'NEUTRAL').toUpperCase();
   const overallColor=overall==='BÄRISCH'?'var(--red)':overall==='BULLISCH'?'var(--green)':'var(--muted)';
   const fomc=events.find(e=>e.label==='FOMC');
@@ -456,8 +443,7 @@ function renderMainGrid(d){
         <div class="bias-row">
           <div class="bias-card"><div class="bias-card-label">Zinsdiff.</div><div class="bias-card-val ${rateBiasClass}">${sig.rate_bias==='BÄRISCH'?'🔴':sig.rate_bias==='BULLISCH'?'🟢':'⚪'} ${sig.rate_bias||'N/A'}</div></div>
           <div class="bias-card"><div class="bias-card-label">2Y-Spread</div><div class="bias-card-val ${yieldBiasClass}">${sig.yield_bias==='USD-Vorteil'?'🔴':sig.yield_bias==='EUR-Vorteil'?'🟢':'⚪'} ${sig.yield_bias||'N/A'}</div></div>
-          <div class="bias-card"><div class="bias-card-label">COT</div><div class="bias-card-val ${cotBiasClass2}">${sig.cot_bias==='NET-SHORT'?'🔴':sig.cot_bias==='NET-LONG'?'🟢':'⚪'} ${sig.cot_bias||'N/A'}</div></div>
-          <div class="bias-card"><div class="bias-card-label">Retail</div><div class="bias-card-val ${retailBiasClass}">${(sig.retail_bias||'').includes('BÄRISCH')?'🔴':(sig.retail_bias||'').includes('BULLISCH')?'🟢':'⚪'} ${sig.retail_bias||'N/A'}</div></div>
+          <div class="bias-card"><div class="bias-card-label">COT</div><div class="bias-card-val ${cotBiasClass}">${sig.cot_bias==='NET-SHORT'?'🔴':sig.cot_bias==='NET-LONG'?'🟢':'⚪'} ${sig.cot_bias||'N/A'}</div></div>
         </div>
         <div style="margin-top:var(--space-4);padding:var(--space-3);background:color-mix(in oklch,${overallColor} 8%,transparent);border:1px solid color-mix(in oklch,${overallColor} 20%,transparent);border-radius:var(--radius-md)">
           <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:${overallColor};font-weight:700;margin-bottom:4px">GESAMT: ${overall==='BÄRISCH'?'🔴':overall==='BULLISCH'?'🟢':'⚪'} ${overall} EUR/USD</div>
@@ -508,7 +494,6 @@ function renderEditorForm(){
       <button class="eh-del" onclick="deleteEntry('${label}',${idx})" title="Löschen">✕</button>
     </div>`;
   }).join('');
-
   el.innerHTML=`<div class="editor-form">
     <div style="font-size:var(--text-xs);color:var(--muted);font-family:var(--font-mono)">${cfg.label} · ${cfg.bullDesc}</div>
     <div class="editor-form-row">
@@ -554,7 +539,6 @@ async function saveEntry(label){
   document.getElementById('evSaveStatus').textContent='Speichere…';
   if(!_eventsData[label])_eventsData[label]={entries:[]};
   _eventsData[label].entries.push({label,date,previous:prev,forecast:fore,note,bias,actual:false});
-  // Baue flache events-Liste für events.json
   const allEvents=Object.values(_eventsData).flatMap(v=>v.entries||[]);
   try{
     const r=await fetch(WORKER_URL+'/events',{
