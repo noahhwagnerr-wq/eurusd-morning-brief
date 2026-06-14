@@ -194,7 +194,7 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
       <div class="header-meta" id="headerMeta">Lädt…</div>
     </div>
     <div class="header-bottom">
-      <div class="bias-badge neutral" id="biasBadge">⬤ …</div>
+      <div class="bias-badge neutral" id="biasBadge">⛯ …</div>
       <div class="header-actions">
         <button class="refresh-btn" id="refreshBtn" onclick="refreshData()" title="Daten jetzt aktualisieren">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-5H1"></path></svg>
@@ -208,39 +208,22 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
   </header>
 
   <div class="kpi-row" id="kpiRow">
-    <!-- populated by JS -->
     <div class="kpi"><div class="kpi-label skeleton" style="height:10px;width:60%">&nbsp;</div><div class="kpi-value skeleton" style="height:28px;margin-top:6px">&nbsp;</div></div>
     <div class="kpi"><div class="kpi-label skeleton" style="height:10px;width:60%">&nbsp;</div><div class="kpi-value skeleton" style="height:28px;margin-top:6px">&nbsp;</div></div>
     <div class="kpi"><div class="kpi-label skeleton" style="height:10px;width:60%">&nbsp;</div><div class="kpi-value skeleton" style="height:28px;margin-top:6px">&nbsp;</div></div>
     <div class="kpi"><div class="kpi-label skeleton" style="height:10px;width:60%">&nbsp;</div><div class="kpi-value skeleton" style="height:28px;margin-top:6px">&nbsp;</div></div>
   </div>
 
-  <div class="main-grid" id="mainGrid">
-    <!-- populated by JS -->
-  </div>
+  <div class="main-grid" id="mainGrid"></div>
 
   <div class="footer" id="footer">Lade Quellen…</div>
 </div>
 
 <script>
-// ── CONFIG ──────────────────────────────────────────────────────────────────
-// Setze DATA_REFRESH_TOKEN als GitHub-Secret und ersetze den Wert hier NICHT
-// im Code. Stattdessen wird der Token aus dem Seitentitel-Kommentar gelesen
-// oder du setzt window.GH_PAT vor dem Script-Load (z.B. via meta-Tag).
-// Für den Button-Trigger OHNE Token: Workflow manuell starten über GitHub UI.
-// MIT Token (empfohlen): Füge in deinem gh-pages build einen Token ein oder
-// nutze einen Cloudflare Worker als Proxy (kein Token im Frontend nötig).
-const REPO_OWNER = 'noahhwagnerr-wq';
-const REPO_NAME  = 'eurusd-morning-brief';
-const WORKFLOW_ID = 'update-data.yml';
-// GH_PAT: Personal Access Token mit workflow-Scope.
-// Trage ihn ENTWEDER hier direkt ein (nur für private Repos) ODER
-// nutze den Cloudflare-Worker-Ansatz (öffentlich sicher).
-// Für jetzt: leer lassen → Button zeigt Info-Modal statt direkten Trigger.
-const GH_PAT = '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';
-
-const DATA_URL = 'data.json';
-// ────────────────────────────────────────────────────────────────────────────
+// ── CONFIG ────────────────────────────────────────────────────────────────────────────
+const WORKER_URL = 'https://eurusd-morning-brief.noahh-wagnerr.workers.dev';
+const DATA_URL   = 'data.json';
+// ──────────────────────────────────────────────────────────────────────────────
 
 let _chart = null;
 let _data  = null;
@@ -269,7 +252,7 @@ async function loadData() {
     renderAll(_data);
     setStatus('ok', 'Stand: ' + (_data.generated_at || '–'));
   } catch(e) {
-    setStatus('error', 'Fehler: ' + e.message + ' – data.json noch nicht vorhanden?');
+    setStatus('error', 'Fehler: ' + e.message);
     renderFallback();
   }
 }
@@ -285,44 +268,24 @@ async function refreshData() {
   const btn = document.getElementById('refreshBtn');
   btn.disabled = true;
   btn.classList.add('spinning');
+  setStatus('loading', 'Workflow wird gestartet…');
+  document.getElementById('loadingText').textContent = 'GitHub Actions läuft… (~60 Sek.)';
+  document.getElementById('loadingOverlay').classList.add('visible');
 
-  if (GH_PAT) {
-    // Trigger GitHub Actions workflow_dispatch
-    setStatus('loading', 'Workflow wird gestartet…');
-    document.getElementById('loadingText').textContent = 'GitHub Actions läuft… (~60 Sek.)';
-    document.getElementById('loadingOverlay').classList.add('visible');
-    try {
-      const r = await fetch(
-        `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_ID}/dispatches`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': 'token ' + GH_PAT,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ ref: 'gh-pages', inputs: { reason: 'Button-Klick aus App' } })
-        }
-      );
-      if (r.status === 204) {
-        setStatus('loading', 'Workflow gestartet. Warte 75 Sek…');
-        await wait(75000);
-        document.getElementById('loadingOverlay').classList.remove('visible');
-        await loadData();
-      } else {
-        throw new Error('Status ' + r.status);
-      }
-    } catch(e) {
+  try {
+    const r = await fetch(WORKER_URL, { method: 'POST' });
+    const json = await r.json();
+    if (r.ok && json.ok) {
+      setStatus('loading', 'Workflow gestartet. Warte 75 Sek…');
+      await wait(75000);
       document.getElementById('loadingOverlay').classList.remove('visible');
-      setStatus('error', 'Workflow-Fehler: ' + e.message);
+      await loadData();
+    } else {
+      throw new Error(json.error || 'Status ' + r.status);
     }
-  } else {
-    // Kein Token → nur data.json neu laden (evtl. schon aktuell)
-    document.getElementById('loadingOverlay').classList.add('visible');
-    document.getElementById('loadingText').textContent = 'Daten werden neu geladen…';
-    await wait(800);
+  } catch(e) {
     document.getElementById('loadingOverlay').classList.remove('visible');
-    await loadData();
+    setStatus('error', 'Workflow-Fehler: ' + e.message);
   }
 
   btn.disabled = false;
@@ -330,8 +293,6 @@ async function refreshData() {
 }
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-// ── RENDER ───────────────────────────────────────────────────────────────────
 
 function renderAll(d) {
   renderHeader(d);
@@ -347,42 +308,31 @@ function renderHeader(d) {
     now.toLocaleDateString('de-DE', {day:'2-digit',month:'2-digit',year:'numeric'}) +
     ' · ' + now.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
   document.getElementById('headerMeta').textContent = meta;
-
   const bias  = (d.signals?.overall_bias || 'NEUTRAL').toUpperCase();
   const badge = document.getElementById('biasBadge');
-  badge.className = 'bias-badge ' +
-    (bias === 'BÄRISCH' ? 'bearish' : bias === 'BULLISCH' ? 'bullish' : 'neutral');
-  badge.textContent = (bias === 'BÄRISCH' ? '⬇ BÄRISCH' : bias === 'BULLISCH' ? '⬆ BULLISCH' : '⬤ NEUTRAL');
+  badge.className = 'bias-badge ' + (bias === 'BÄRISCH' ? 'bearish' : bias === 'BULLISCH' ? 'bullish' : 'neutral');
+  badge.textContent = (bias === 'BÄRISCH' ? '⬇ BÄRISCH' : bias === 'BULLISCH' ? '⬆ BULLISCH' : '⛯ NEUTRAL');
 }
 
 function renderKPI(d) {
-  const ecb  = d.ecb  || {};
-  const fed  = d.fed  || {};
-
-  // EZB Leitzins
-  const dfrPrev = 2.00; // bekannter Vorwert
+  const ecb = d.ecb || {};
+  const fed = d.fed || {};
+  const dfrPrev = 2.00;
   const dfrCur  = ecb.dfr ?? null;
   const dfrNote = ecb.dfr_note ? `ab ${ecb.dfr_date}` : `Stand ${ecb.dfr_date || '–'}`;
   const dfrDelta = dfrCur !== null ? (dfrCur > dfrPrev ? `▲ von ${dfrPrev.toFixed(2)}%` : dfrCur < dfrPrev ? `▼ von ${dfrPrev.toFixed(2)}%` : '— unverändert') : '—';
-
-  // HICP
   const hicpVal  = ecb.hicp !== null && ecb.hicp !== undefined ? '~' + parseFloat(ecb.hicp).toFixed(2) + '%' : 'N/A';
   const hicpDate = ecb.hicp_date ? ecb.hicp_date.replace(/^(\d{4})-(\d{2})$/, (_, y, m) => {
     const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
     return months[parseInt(m)-1] + ' ' + y;
   }) : '–';
-
-  // EFFR
-  const effrCur = fed.effr ?? null;
+  const effrCur  = fed.effr ?? null;
   const effrDate = fed.effr_date || '–';
-
-  // CPI
-  const cpiVal = fed.cpi !== null && fed.cpi !== undefined ? parseFloat(fed.cpi).toFixed(1) + '%' : 'N/A';
-  const cpiDate = fed.cpi_date ? fed.cpi_date.replace(/^(\d{4})-(\d{2})$/, (_, y, m) => {
+  const cpiVal   = fed.cpi !== null && fed.cpi !== undefined ? parseFloat(fed.cpi).toFixed(1) + '%' : 'N/A';
+  const cpiDate  = fed.cpi_date ? fed.cpi_date.replace(/^(\d{4})-(\d{2})$/, (_, y, m) => {
     const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
     return 'BLS ' + months[parseInt(m)-1] + ' ' + y;
   }) : '–';
-
   document.getElementById('kpiRow').innerHTML = `
     <div class="kpi">
       <div class="kpi-label">🇪🇺 EZB Leitzins</div>
@@ -419,35 +369,17 @@ function renderMainGrid(d) {
   const ecb    = d.ecb      || {};
   const fed    = d.fed      || {};
   const hist   = d.spread_history || [];
-
   const rateDiff    = sig.rate_diff    ?? null;
   const yieldSpread = sig.yield_spread ?? null;
-  const inflGap     = (fed.cpi !== null && ecb.hicp !== null)
-    ? round2(parseFloat(fed.cpi) - parseFloat(ecb.hicp)) : null;
+  const inflGap     = (fed.cpi !== null && ecb.hicp !== null) ? round2(parseFloat(fed.cpi) - parseFloat(ecb.hicp)) : null;
 
-  // ── Panel 1: Zinsdifferenz ──
   const rateTable = `
     <table class="rate-table">
       <thead><tr><th>Instrument</th><th>USD</th><th>EUR</th><th>Spread</th></tr></thead>
       <tbody>
-        <tr>
-          <td class="label-cell">Leitzins</td>
-          <td class="val-cell">${pct(fed.effr)}</td>
-          <td class="val-cell">${pct(ecb.dfr)}</td>
-          <td class="val-cell" style="color:var(--red)">${pp(rateDiff)}</td>
-        </tr>
-        <tr>
-          <td class="label-cell">2Y Rendite</td>
-          <td class="val-cell">${pct(yields.us2y)}</td>
-          <td class="val-cell">${pct(yields.de2y)}</td>
-          <td class="val-cell" style="color:var(--red)">${pp(yieldSpread)}</td>
-        </tr>
-        <tr>
-          <td class="label-cell">CPI</td>
-          <td class="val-cell">${pct(fed.cpi,1)}</td>
-          <td class="val-cell">~${pct(ecb.hicp)}</td>
-          <td class="val-cell">${pp(inflGap)}</td>
-        </tr>
+        <tr><td class="label-cell">Leitzins</td><td class="val-cell">${pct(fed.effr)}</td><td class="val-cell">${pct(ecb.dfr)}</td><td class="val-cell" style="color:var(--red)">${pp(rateDiff)}</td></tr>
+        <tr><td class="label-cell">2Y Rendite</td><td class="val-cell">${pct(yields.us2y)}</td><td class="val-cell">${pct(yields.de2y)}</td><td class="val-cell" style="color:var(--red)">${pp(yieldSpread)}</td></tr>
+        <tr><td class="label-cell">CPI</td><td class="val-cell">${pct(fed.cpi,1)}</td><td class="val-cell">~${pct(ecb.hicp)}</td><td class="val-cell">${pp(inflGap)}</td></tr>
       </tbody>
     </table>
     <div style="margin-top:var(--space-3)">
@@ -462,21 +394,16 @@ function renderMainGrid(d) {
       </div>
     </div>`;
 
-  // ── Panel 2: COT ──
-  const cotBiasClass = !cot ? 'flat' : (cot.bias === 'NET-LONG' ? 'down' : cot.bias === 'NET-SHORT' ? 'down' : 'flat');
+  const cotBiasClass = !cot ? 'flat' : 'flat';
   const cotBiasIcon  = !cot ? '⚪' : (cot.bias === 'NET-LONG' ? '🟢' : cot.bias === 'NET-SHORT' ? '🔴' : '⚪');
   const longW  = cot ? Math.round(cot.long_pct  / (cot.long_pct + cot.short_pct) * 100) : 50;
   const shortW = 100 - longW;
   const cotPanel = cot ? `
     <div class="cot-grid">
-      <div class="cot-item"><div class="cot-item-label">Net-Position</div>
-        <div class="cot-item-value negative">${cot.net >= 0 ? '+' : ''}${num(cot.net)}</div></div>
-      <div class="cot-item"><div class="cot-item-label">Δ Vorwoche</div>
-        <div class="cot-item-value negative">${cot.delta_net >= 0 ? '▲' : '▼'} ${num(Math.abs(cot.delta_net))}</div></div>
-      <div class="cot-item"><div class="cot-item-label">Open Interest</div>
-        <div class="cot-item-value">${num(cot.oi)}</div></div>
-      <div class="cot-item"><div class="cot-item-label">Net-OI %</div>
-        <div class="cot-item-value ${cot.net_pct < 0 ? 'negative' : ''}">${cot.net_pct >= 0 ? '+' : ''}${parseFloat(cot.net_pct).toFixed(1)}%</div></div>
+      <div class="cot-item"><div class="cot-item-label">Net-Position</div><div class="cot-item-value negative">${cot.net >= 0 ? '+' : ''}${num(cot.net)}</div></div>
+      <div class="cot-item"><div class="cot-item-label">Δ Vorwoche</div><div class="cot-item-value negative">${cot.delta_net >= 0 ? '▲' : '▼'} ${num(Math.abs(cot.delta_net))}</div></div>
+      <div class="cot-item"><div class="cot-item-label">Open Interest</div><div class="cot-item-value">${num(cot.oi)}</div></div>
+      <div class="cot-item"><div class="cot-item-label">Net-OI %</div><div class="cot-item-value ${cot.net_pct < 0 ? 'negative' : ''}">${cot.net_pct >= 0 ? '+' : ''}${parseFloat(cot.net_pct).toFixed(1)}%</div></div>
     </div>
     <div style="margin-top:var(--space-4)">
       <div style="font-size:var(--text-xs);color:var(--muted);margin-bottom:var(--space-2)">Long vs. Short (% OI)</div>
@@ -492,10 +419,10 @@ function renderMainGrid(d) {
         <span style="color:var(--green)">■ Long</span><span style="color:var(--red)">■ Short</span>
       </div>
     </div>
-    <div style="margin-top:var(--space-3);padding-top:var(--space-3);border-top:1px solid var(--divider);font-size:var(--text-xs);color:var(--faint);font-family:var(--font-mono)">${cot.date} · ${cot.source}</div>` : `<div style="color:var(--muted);font-size:var(--text-xs);font-family:var(--font-mono)">N/A – CFTC-Daten nicht verfügbar</div>`;
+    <div style="margin-top:var(--space-3);padding-top:var(--space-3);border-top:1px solid var(--divider);font-size:var(--text-xs);color:var(--faint);font-family:var(--font-mono)">${cot.date} · ${cot.source}</div>`
+    : `<div style="color:var(--muted);font-size:var(--text-xs);font-family:var(--font-mono)">N/A – CFTC-Daten nicht verfügbar</div>`;
 
-  // ── Panel 3: Spread-Chart ──
-  const retailVal  = retail ? `${parseFloat(retail.long_pct).toFixed(1)}% L / ${parseFloat(retail.short_pct).toFixed(1)}% S` : 'N/A';
+  const retailVal = retail ? `${parseFloat(retail.long_pct).toFixed(1)}% L / ${parseFloat(retail.short_pct).toFixed(1)}% S` : 'N/A';
   const spreadPanel = `
     <div class="spread-stats">
       <div class="spread-stat"><span class="spread-stat-label">EFFR vs. DFR</span><span class="spread-stat-val bear">${pp(rateDiff)}</span></div>
@@ -505,35 +432,30 @@ function renderMainGrid(d) {
     </div>
     <div class="chart-wrap"><canvas id="spreadChart"></canvas></div>`;
 
-  // ── Panel 4: Events ──
   const evRows = events.map(ev => {
-    const days  = ev.days;
-    const soon  = days !== null && days <= 5;
-    const daysTxt = days !== null ? days + 'T' : 'N/A';
+    const days = ev.days;
+    const soon = days !== null && days <= 5;
     return `<div class="event-row">
       <div class="event-dot ${ev.importance}"></div>
       <div class="event-name">${ev.label}</div>
       <div class="event-date">${ev.date}</div>
-      <div class="event-days${soon ? ' soon' : ''}">${daysTxt}</div>
+      <div class="event-days${soon ? ' soon' : ''}">${days !== null ? days + 'T' : 'N/A'}</div>
     </div>`;
   }).join('');
 
-  // ── Panel 5: Gesamt-Bias ──
-  const rateBiasClass  = sig.rate_bias  === 'BÄRISCH' ? 'bc-bear' : sig.rate_bias  === 'BULLISCH' ? 'bc-bull' : 'bc-neutral';
-  const yieldBiasClass = sig.yield_bias === 'USD-Vorteil' ? 'bc-bear' : sig.yield_bias === 'EUR-Vorteil' ? 'bc-bull' : 'bc-neutral';
-  const cotBiasClass2  = sig.cot_bias   === 'NET-SHORT' ? 'bc-bear' : sig.cot_bias === 'NET-LONG' ? 'bc-bull' : 'bc-neutral';
-  const retailBiasClass= (sig.retail_bias || '').includes('BÄRISCH') ? 'bc-bear' : (sig.retail_bias || '').includes('BULLISCH') ? 'bc-bull' : 'bc-neutral';
-
+  const rateBiasClass   = sig.rate_bias  === 'BÄRISCH' ? 'bc-bear' : sig.rate_bias  === 'BULLISCH' ? 'bc-bull' : 'bc-neutral';
+  const yieldBiasClass  = sig.yield_bias === 'USD-Vorteil' ? 'bc-bear' : sig.yield_bias === 'EUR-Vorteil' ? 'bc-bull' : 'bc-neutral';
+  const cotBiasClass2   = sig.cot_bias   === 'NET-SHORT' ? 'bc-bear' : sig.cot_bias === 'NET-LONG' ? 'bc-bull' : 'bc-neutral';
+  const retailBiasClass = (sig.retail_bias || '').includes('BÄRISCH') ? 'bc-bear' : (sig.retail_bias || '').includes('BULLISCH') ? 'bc-bull' : 'bc-neutral';
   const rateIcon  = sig.rate_bias  === 'BÄRISCH' ? '🔴' : sig.rate_bias  === 'BULLISCH' ? '🟢' : '⚪';
   const yieldIcon = sig.yield_bias === 'USD-Vorteil' ? '🔴' : sig.yield_bias === 'EUR-Vorteil' ? '🟢' : '⚪';
   const cotIconB  = sig.cot_bias   === 'NET-SHORT' ? '🔴' : sig.cot_bias === 'NET-LONG' ? '🟢' : '⚪';
   const retIcon   = (sig.retail_bias || '').includes('BÄRISCH') ? '🔴' : (sig.retail_bias || '').includes('BULLISCH') ? '🟢' : '⚪';
-
-  const overall   = (sig.overall_bias || 'NEUTRAL').toUpperCase();
+  const overall      = (sig.overall_bias || 'NEUTRAL').toUpperCase();
   const overallColor = overall === 'BÄRISCH' ? 'var(--red)' : overall === 'BULLISCH' ? 'var(--green)' : 'var(--muted)';
-  const fomc      = events.find(e => e.label === 'FOMC');
-  const fomcDays  = fomc?.days;
-  const biasDesc  = overall === 'BÄRISCH'
+  const fomc    = events.find(e => e.label === 'FOMC');
+  const fomcDays = fomc?.days;
+  const biasDesc = overall === 'BÄRISCH'
     ? `USD-Zins- und Spread-Vorteil dominant.${fomcDays !== null ? ' FOMC in ' + fomcDays + 'T entscheidend.' : ''} COT ohne klare Gegenposition.`
     : overall === 'BULLISCH'
     ? `EUR-Zinsvorteil wächst. EZB-Straffung preisend.${fomcDays !== null ? ' FOMC in ' + fomcDays + 'T.' : ''}`
@@ -541,35 +463,21 @@ function renderMainGrid(d) {
 
   document.getElementById('mainGrid').innerHTML = `
     <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title">📈 Zinsdifferenz &amp; Spreads</div>
-        <span class="panel-badge down">🔴 USD</span>
-      </div>
+      <div class="panel-header"><div class="panel-title">📈 Zinsdifferenz &amp; Spreads</div><span class="panel-badge down">🔴 USD</span></div>
       <div class="panel-body">${rateTable}</div>
     </div>
-
     <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title">📋 COT · CME EUR 6E</div>
-        <span class="panel-badge ${cotBiasClass}">${cotBiasIcon} ${cot ? cot.bias : 'N/A'}</span>
-      </div>
+      <div class="panel-header"><div class="panel-title">📋 COT · CME EUR 6E</div><span class="panel-badge ${cotBiasClass}">${cotBiasIcon} ${cot ? cot.bias : 'N/A'}</span></div>
       <div class="panel-body">${cotPanel}</div>
     </div>
-
     <div class="panel spread-panel">
       <div class="panel-header"><div class="panel-title">📊 2Y-Spread · US vs. DE</div></div>
-      <div class="panel-body">
-        <div class="spread-inner">${spreadPanel}</div>
-      </div>
+      <div class="panel-body"><div class="spread-inner">${spreadPanel}</div></div>
     </div>
-
     <div class="panel">
       <div class="panel-header"><div class="panel-title">🗓 High-Impact Events</div></div>
-      <div class="panel-body">
-        <div class="events-list">${evRows}</div>
-      </div>
+      <div class="panel-body"><div class="events-list">${evRows}</div></div>
     </div>
-
     <div class="panel">
       <div class="panel-header"><div class="panel-title">🎯 Gesamt-Bias EUR/USD</div></div>
       <div class="panel-body">
@@ -596,60 +504,33 @@ function renderChart(hist, currentSpread) {
   const labels = hist.map(p => p.date);
   const vals   = hist.map(p => p.spread);
   if (!labels.length) return;
-
-  const mn = Math.min(...vals);
-  const mx = Math.max(...vals);
-  const pad = 0.1;
-
+  const mn = Math.min(...vals), mx = Math.max(...vals), pad = 0.1;
   _chart = window._chart = new Chart(ctx, {
     type: 'line',
-    data: { labels, datasets: [{
-      data: vals,
-      borderColor: '#e05c6a',
-      backgroundColor: 'rgba(224,92,106,0.08)',
-      borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#e05c6a',
-      tension: 0.4, fill: true
-    }]},
+    data: { labels, datasets: [{ data: vals, borderColor: '#e05c6a', backgroundColor: 'rgba(224,92,106,0.08)', borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#e05c6a', tension: 0.4, fill: true }]},
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: '#131619', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1,
-          titleColor: '#808892', bodyColor: '#e2e4e8',
-          callbacks: { label: c => (c.raw >= 0 ? '+' : '') + c.raw.toFixed(2) + ' pp' }
-        }
-      },
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: '#131619', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, titleColor: '#808892', bodyColor: '#e2e4e8', callbacks: { label: c => (c.raw >= 0 ? '+' : '') + c.raw.toFixed(2) + ' pp' } } },
       scales: {
         x: { ticks: { color:'#808892', font:{family:'JetBrains Mono',size:9}, maxTicksLimit:5 }, grid:{color:'rgba(255,255,255,0.05)'} },
-        y: {
-          min: Math.floor((mn - pad) * 10) / 10,
-          max: Math.ceil((mx + pad) * 10) / 10,
-          ticks: { color:'#808892', font:{family:'JetBrains Mono',size:9}, callback: v => (v>=0?'+':'') + v.toFixed(2) },
-          grid: { color:'rgba(255,255,255,0.05)' }
-        }
+        y: { min: Math.floor((mn-pad)*10)/10, max: Math.ceil((mx+pad)*10)/10, ticks: { color:'#808892', font:{family:'JetBrains Mono',size:9}, callback: v => (v>=0?'+':'') + v.toFixed(2) }, grid:{color:'rgba(255,255,255,0.05)'} }
       }
     }
   });
 }
 
 function renderFooter(d) {
-  document.getElementById('footer').textContent =
-    'ECB · Eurostat · FRED · CFTC · BLS | ' + (d.generated_at || '–');
+  document.getElementById('footer').textContent = 'ECB · Eurostat · FRED · CFTC · BLS | ' + (d.generated_at || '–');
 }
 
 function renderFallback() {
   document.getElementById('headerMeta').textContent = 'Daten nicht verfügbar';
   document.getElementById('biasBadge').textContent  = '⚠ Fehler';
-  document.getElementById('mainGrid').innerHTML =
-    '<div style="grid-column:1/-1;padding:var(--space-4);text-align:center;color:var(--muted);font-family:var(--font-mono);font-size:var(--text-xs)">' +
-    'data.json nicht gefunden.<br>Bitte erst den Workflow "Update Live Data" in GitHub Actions manuell ausführen.' +
-    '</div>';
+  document.getElementById('mainGrid').innerHTML = '<div style="grid-column:1/-1;padding:var(--space-4);text-align:center;color:var(--muted);font-family:var(--font-mono);font-size:var(--text-xs)">data.json nicht gefunden.<br>Bitte Workflow in GitHub Actions manuell ausführen.</div>';
 }
 
 function round2(v) { return Math.round(v * 100) / 100; }
 
-// ── THEME TOGGLE ─────────────────────────────────────────────────────────────
 (function(){
   const btn=document.querySelector('[data-theme-toggle]');
   const root=document.documentElement;
@@ -673,7 +554,6 @@ function round2(v) { return Math.round(v * 100) / 100; }
   });
 })();
 
-// ── INIT ──────────────────────────────────────────────────────────────────────
 loadData();
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js'));
