@@ -1,1 +1,215 @@
-{}
+{
+  "events": [
+    {
+      "id": "fomc-2026-06-17",
+      "label": "FOMC",
+      "importance": "high",
+      "date": "2026-06-17",
+      "previous": "4.25",
+      "forecast": "4.25",
+      "unit": "%",
+      "note": "Fed hält voraussichtlich"
+    },
+    {
+      "id": "fomc-2026-07-29",
+      "label": "FOMC",
+      "importance": "high",
+      "date": "2026-07-29",
+      "previous": "4.25",
+      "forecast": "4.25",
+      "unit": "%",
+      "note": ""
+    },
+    {
+      "id": "fomc-2026-09-16",
+      "label": "FOMC",
+      "importance": "high",
+      "date": "2026-09-16",
+      "previous": "",
+      "forecast": "",
+      "unit": "%",
+      "note": ""
+    },
+    {
+      "id": "fomc-2026-10-28",
+      "label": "FOMC",
+      "importance": "high",
+      "date": "2026-10-28",
+      "previous": "",
+      "forecast": "",
+      "unit": "%",
+      "note": ""
+    },
+    {
+      "id": "fomc-2026-12-09",
+      "label": "FOMC",
+      "importance": "high",
+      "date": "2026-12-09",
+      "previous": "",
+      "forecast": "",
+      "unit": "%",
+      "note": ""
+    },
+    {
+      "id": "ezb-2026-07-23",
+      "label": "EZB",
+      "importance": "high",
+      "date": "2026-07-23",
+      "previous": "2.25",
+      "forecast": "2.00",
+      "unit": "%",
+      "note": ""
+    },
+    {
+      "id": "ezb-2026-09-10",
+      "label": "EZB",
+      "importance": "high",
+      "date": "2026-09-10",
+      "previous": "",
+      "forecast": "",
+      "unit": "%",
+      "note": ""
+    },
+    {
+      "id": "ezb-2026-10-29",
+      "label": "EZB",
+      "importance": "high",
+      "date": "2026-10-29",
+      "previous": "",
+      "forecast": "",
+      "unit": "%",
+      "note": ""
+    },
+    {
+      "id": "ezb-2026-12-03",
+      "label": "EZB",
+      "importance": "high",
+      "date": "2026-12-03",
+      "previous": "",
+      "forecast": "",
+      "unit": "%",
+      "note": ""
+    },
+    {
+      "id": "nfp-2026-07-02",
+      "label": "NFP",
+      "importance": "medium",
+      "date": "2026-07-02",
+      "previous": "139",
+      "forecast": "145",
+      "unit": "K",
+      "note": ""
+    },
+    {
+      "id": "nfp-2026-08-07",
+      "label": "NFP",
+      "importance": "medium",
+      "date": "2026-08-07",
+      "previous": "",
+      "forecast": "",
+      "unit": "K",
+      "note": ""
+    },
+    {
+      "id": "nfp-2026-09-04",
+      "label": "NFP",
+      "importance": "medium",
+      "date": "2026-09-04",
+      "previous": "",
+      "forecast": "",
+      "unit": "K",
+      "note": ""
+    },
+    {
+      "id": "nfp-2026-10-02",
+      "label": "NFP",
+      "importance": "medium",
+      "date": "2026-10-02",
+      "previous": "",
+      "forecast": "",
+      "unit": "K",
+      "note": ""
+    },
+    {
+      "id": "cpi-2026-07-14",
+      "label": "CPI",
+      "importance": "medium",
+      "date": "2026-07-14",
+      "previous": "2.4",
+      "forecast": "2.3",
+      "unit": "%",
+      "note": ""
+    },
+    {
+      "id": "cpi-2026-08-12",
+      "label": "CPI",
+      "importance": "medium",
+      "date": "2026-08-12",
+      "previous": "",
+      "forecast": "",
+      "unit": "%",
+      "note": ""
+    },
+    {
+      "id": "cpi-2026-09-11",
+      "label": "CPI",
+      "importance": "medium",
+      "date": "2026-09-11",
+      "previous": "",
+      "forecast": "",
+      "unit": "%",
+      "note": ""
+    },
+    {
+      "id": "cpi-2026-10-14",
+      "label": "CPI",
+      "importance": "medium",
+      "date": "2026-10-14",
+      "previous": "",
+      "forecast": "",
+      "unit": "%",
+      "note": ""
+    },
+    {
+      "id": "ppi-2026-07-15",
+      "label": "PPI",
+      "importance": "low",
+      "date": "2026-07-15",
+      "previous": "2.1",
+      "forecast": "2.0",
+      "unit": "%",
+      "note": ""
+    },
+    {
+      "id": "ppi-2026-08-13",
+      "label": "PPI",
+      "importance": "low",
+      "date": "2026-08-13",
+      "previous": "",
+      "forecast": "",
+      "unit": "%",
+      "note": ""
+    },
+    {
+      "id": "ppi-2026-09-12",
+      "label": "PPI",
+      "importance": "low",
+      "date": "2026-09-12",
+      "previous": "",
+      "forecast": "",
+      "unit": "%",
+      "note": ""
+    },
+    {
+      "id": "ppi-2026-10-15",
+      "label": "PPI",
+      "importance": "low",
+      "date": "2026-10-15",
+      "previous": "",
+      "forecast": "",
+      "unit": "%",
+      "note": ""
+    }
+  ],
+  "last_updated": "2026-06-14T18:00:00Z"
+}
