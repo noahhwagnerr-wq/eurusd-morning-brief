@@ -5,7 +5,7 @@ Wird von GitHub Actions (update-data.yml) ausgeführt.
 """
 
 import os, json, sys
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 try:
     import requests
@@ -164,6 +164,40 @@ def get_us2y():
         return v, d
     return None, "N/A"
 
+def get_spread_history():
+    """Holt echte wöchentliche US 2Y und DE 2Y Daten der letzten 14 Wochen von FRED."""
+    since = (TODAY - timedelta(weeks=14)).strftime("%Y-%m-%d")
+
+    us_obs = _fred("DGS2", limit=100, sort="asc")
+    us_obs = [(v, d) for v, d in us_obs if d >= since]
+
+    de_obs = _fred("INTGSTDEM193N", limit=100, sort="asc")
+    de_obs = [(v, d) for v, d in de_obs if d >= since]
+
+    if not us_obs or not de_obs:
+        print("[WARN] Spread-History: FRED-Daten unvollständig")
+        return []
+
+    de_map = {d: float(v) for v, d in de_obs}
+
+    result = []
+    seen_weeks = set()
+    for val_us, d_str in us_obs:
+        d = date.fromisoformat(d_str)
+        week = d.isocalendar()[:2]
+        if week in seen_weeks:
+            continue
+        seen_weeks.add(week)
+        closest_de = min(de_map.keys(), key=lambda x: abs(date.fromisoformat(x) - d), default=None)
+        if closest_de is None:
+            continue
+        spread = round(float(val_us) - de_map[closest_de], 2)
+        label = d.strftime("%d.%m")
+        result.append({"date": label, "spread": spread})
+
+    print(f"[OK] Spread-History: {len(result)} Datenpunkte")
+    return result[-14:]
+
 def get_cot():
     _CFTC = "https://publicreporting.cftc.gov/resource/gpe5-46if.json"
     for code in ("099741", "99741"):
@@ -263,6 +297,7 @@ def run():
     cot                         = get_cot()
     retail                      = get_retail()
     events                      = get_events()
+    spread_history              = get_spread_history()
 
     rate_diff    = round(effr - dfr, 2)  if (effr and dfr)  else None
     yield_spread = round(us2y - de2y, 2) if (us2y and de2y) else None
@@ -282,19 +317,6 @@ def run():
     sv = [s for s in signals_list if s]
     overall_bias = "BÄRISCH" if sv.count("BÄRISCH") > sv.count("BULLISCH") else \
                    "BULLISCH" if sv.count("BULLISCH") > sv.count("BÄRISCH") else "NEUTRAL"
-
-    spread_history = []
-    if us2y and de2y:
-        spread_history = [
-            {"date": "14.03", "spread": 1.12}, {"date": "21.03", "spread": 1.08},
-            {"date": "28.03", "spread": 1.15}, {"date": "04.04", "spread": 1.22},
-            {"date": "11.04", "spread": 1.28}, {"date": "18.04", "spread": 1.31},
-            {"date": "25.04", "spread": 1.25}, {"date": "02.05", "spread": 1.30},
-            {"date": "09.05", "spread": 1.35}, {"date": "16.05", "spread": 1.38},
-            {"date": "23.05", "spread": 1.40}, {"date": "30.05", "spread": 1.42},
-            {"date": "06.06", "spread": 1.43},
-            {"date": "heute", "spread": round(us2y - de2y, 2)},
-        ]
 
     out = {
         "generated_at": now.strftime("%d.%m.%Y %H:%M UTC"),
