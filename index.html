@@ -169,6 +169,36 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
 /* SKELETON */
 .skeleton{background:var(--surface-3);border-radius:var(--radius-sm);animation:shimmer 1.4s ease-in-out infinite;}
 @keyframes shimmer{0%,100%{opacity:0.4;}50%{opacity:0.8;}}
+
+/* EVENT EDITOR */
+.event-editor-panel{grid-column:1/-1;}
+.editor-tabs{display:flex;gap:var(--space-1);padding:var(--space-2) var(--space-4);border-bottom:1px solid var(--divider);overflow-x:auto;flex-wrap:nowrap;}
+.editor-tab{font-family:var(--font-mono);font-size:var(--text-xs);padding:4px 12px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface-2);color:var(--muted);white-space:nowrap;transition:all var(--transition);}
+.editor-tab.active{background:color-mix(in oklch,var(--accent) 12%,transparent);color:var(--accent);border-color:color-mix(in oklch,var(--accent) 40%,transparent);}
+.editor-form{display:grid;gap:var(--space-3);}
+.editor-form-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);}
+@media(min-width:750px){.editor-form-row{grid-template-columns:repeat(4,1fr);}}
+.form-group{display:flex;flex-direction:column;gap:4px;}
+.form-label{font-size:var(--text-xs);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-family:var(--font-mono);}
+.form-input{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);padding:6px 10px;font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text);width:100%;transition:border-color var(--transition);}
+.form-input:focus{outline:none;border-color:var(--accent);}
+.editor-bias-preview{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:var(--text-xs);font-weight:700;margin-top:var(--space-1);border:1px solid var(--border);background:var(--surface-2);}
+.editor-bias-preview.bull{color:var(--green);border-color:color-mix(in oklch,var(--green) 30%,transparent);background:color-mix(in oklch,var(--green) 8%,transparent);}
+.editor-bias-preview.bear{color:var(--red);border-color:color-mix(in oklch,var(--red) 30%,transparent);background:color-mix(in oklch,var(--red) 8%,transparent);}
+.editor-save-btn{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-md);background:var(--accent);color:#fff;font-family:var(--font-mono);font-size:var(--text-xs);font-weight:700;transition:opacity var(--transition);}
+.editor-save-btn:hover{opacity:0.85;}
+.editor-save-btn:disabled{opacity:0.4;cursor:not-allowed;}
+.editor-save-status{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--muted);}
+.editor-history{margin-top:var(--space-4);display:flex;flex-direction:column;gap:var(--space-2);}
+.editor-history-row{display:grid;grid-template-columns:auto 1fr auto auto auto;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-3);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:var(--text-xs);}
+.eh-date{color:var(--muted);}
+.eh-vals{color:var(--text);}
+.eh-note{color:var(--faint);font-size:0.7rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.eh-bias{font-weight:700;}
+.eh-bias.bull{color:var(--green);}
+.eh-bias.bear{color:var(--red);}
+.eh-del{color:var(--faint);font-size:0.75rem;padding:2px 6px;border-radius:var(--radius-sm);}
+.eh-del:hover{color:var(--red);}
 </style>
 </head>
 <body>
@@ -220,13 +250,40 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
 </div>
 
 <script>
-// ── CONFIG ────────────────────────────────────────────────────────────────────────────
+// ── CONFIG ────────────────────────────────────────────────────────────────────────────────────
 const WORKER_URL = 'https://eurusd-morning-brief.noahh-wagnerr.workers.dev';
 const DATA_URL   = 'data.json';
-// ──────────────────────────────────────────────────────────────────────────────
+const EVENTS_URL = 'events.json';
+// ────────────────────────────────────────────────────────────────────────────────────
 
 let _chart = null;
 let _data  = null;
+let _eventsData = {};
+let _activeEventTab = 'FOMC';
+
+// ── Event-Konfig (Bias-Logik) ───────────────────────────────────────────────
+const EVENT_CONFIG = {
+  FOMC:  { importance: 'high',   unit: '%', label: 'Fed Leitzins',   bullDesc: 'Senkung → BULLISCH EUR/USD', bearDesc: 'Erhöhung → BÄRISCH EUR/USD',  invertBias: true  },
+  EZB:   { importance: 'low',    unit: '%', label: 'EZB Leitzins',   bullDesc: 'Erhöhung → BULLISCH EUR/USD', bearDesc: 'Senkung → BÄRISCH EUR/USD',   invertBias: false },
+  NFP:   { importance: 'medium', unit: 'K', label: 'NFP Stellen',    bullDesc: 'Schwächer → BULLISCH EUR/USD',bearDesc: 'Stärker → BÄRISCH EUR/USD',   invertBias: true  },
+  CPI:   { importance: 'medium', unit: '%', label: 'US CPI',         bullDesc: 'Fällt → BULLISCH EUR/USD',    bearDesc: 'Steigt → BÄRISCH EUR/USD',    invertBias: true  },
+  PPI:   { importance: 'low',    unit: '%', label: 'US PPI',         bullDesc: 'Fällt → BULLISCH EUR/USD',    bearDesc: 'Steigt → BÄRISCH EUR/USD',    invertBias: true  },
+};
+
+// Bias-Berechnung: forecast vs previous
+// invertBias=true  → forecast < previous = BULLISCH (NFP, CPI, PPI, FOMC-Senkung)
+// invertBias=false → forecast > previous = BULLISCH (EZB-Erhöhung)
+function calcEventBias(label, forecast, previous) {
+  const cfg = EVENT_CONFIG[label];
+  if (!cfg || forecast === '' || previous === '') return null;
+  const f = parseFloat(forecast);
+  const p = parseFloat(previous);
+  if (isNaN(f) || isNaN(p)) return null;
+  if (f === p) return 'NEUTRAL';
+  const higherIsBull = !cfg.invertBias;
+  if (higherIsBull) return f > p ? 'BULLISCH' : 'BÄRISCH';
+  else              return f < p ? 'BULLISCH' : 'BÄRISCH';
+}
 
 function pp(val, digits=2) {
   if (val === null || val === undefined) return 'N/A';
@@ -246,9 +303,17 @@ function num(val) {
 async function loadData() {
   setStatus('loading', 'Lade Daten…');
   try {
-    const res = await fetch(DATA_URL + '?_=' + Date.now());
+    const [res, evRes] = await Promise.all([
+      fetch(DATA_URL + '?_=' + Date.now()),
+      fetch(EVENTS_URL + '?_=' + Date.now()).catch(() => null),
+    ]);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     _data = await res.json();
+    if (evRes && evRes.ok) {
+      _eventsData = await evRes.json();
+    } else {
+      _eventsData = {};
+    }
     renderAll(_data);
     setStatus('ok', 'Stand: ' + (_data.generated_at || '–'));
   } catch(e) {
@@ -435,10 +500,21 @@ function renderMainGrid(d) {
   const evRows = events.map(ev => {
     const days = ev.days;
     const soon = days !== null && days <= 5;
-    return `<div class="event-row">
+    // Prognose/Vorher aus _eventsData
+    const evInfo = (_eventsData[ev.label] || {});
+    const upcoming = (evInfo.entries || []).find(e => !e.actual);
+    const forecastBadge = upcoming
+      ? `<span style="font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);margin-left:4px">Prognose: ${upcoming.forecast || '?'} | Vorher: ${upcoming.previous || '?'}</span>`
+      : '';
+    const biasBadge = upcoming && upcoming.bias
+      ? `<span style="font-family:var(--font-mono);font-size:0.65rem;font-weight:700;margin-left:4px;color:${upcoming.bias === 'BULLISCH' ? 'var(--green)' : upcoming.bias === 'BÄRISCH' ? 'var(--red)' : 'var(--muted)'}">${upcoming.bias === 'BULLISCH' ? '🟢' : upcoming.bias === 'BÄRISCH' ? '🔴' : '⚪'} ${upcoming.bias}</span>`
+      : '';
+    return `<div class="event-row" style="grid-template-columns:auto 1fr auto">
       <div class="event-dot ${ev.importance}"></div>
-      <div class="event-name">${ev.label}</div>
-      <div class="event-date">${ev.date}</div>
+      <div>
+        <span class="event-name">${ev.label}</span>${forecastBadge}${biasBadge}
+        <div class="event-date">${ev.date}</div>
+      </div>
       <div class="event-days${soon ? ' soon' : ''}">${days !== null ? days + 'T' : 'N/A'}</div>
     </div>`;
   }).join('');
@@ -492,9 +568,154 @@ function renderMainGrid(d) {
           <div style="font-size:var(--text-xs);color:var(--muted);line-height:1.6">${biasDesc}</div>
         </div>
       </div>
+    </div>
+    <div class="panel event-editor-panel">
+      <div class="panel-header"><div class="panel-title">✏️ Event-Prognosen &amp; Kalender</div><span class="panel-badge flat">Manuell</span></div>
+      ${renderEditorTabs()}
+      <div class="panel-body" id="editorBody">${renderEditorForm(_activeEventTab)}</div>
     </div>`;
 
   renderChart(hist, yieldSpread);
+}
+
+function renderEditorTabs() {
+  return `<div class="editor-tabs">${Object.keys(EVENT_CONFIG).map(k =>
+    `<button class="editor-tab${k === _activeEventTab ? ' active' : ''}" onclick="switchTab('${k}')">${k}</button>`
+  ).join('')}</div>`;
+}
+
+function switchTab(label) {
+  _activeEventTab = label;
+  // Re-render tabs + form only
+  const panel = document.querySelector('.event-editor-panel');
+  if (!panel) return;
+  panel.querySelector('.editor-tabs').outerHTML = renderEditorTabs();
+  document.getElementById('editorBody').innerHTML = renderEditorForm(label);
+  // re-attach tabs
+  panel.querySelector('.panel-header').nextSibling;
+  // replace editor-tabs node
+  const newTabs = panel.querySelectorAll('.editor-tabs');
+  if (newTabs.length > 1) newTabs[0].remove();
+}
+
+function renderEditorForm(label) {
+  const cfg = EVENT_CONFIG[label];
+  const entries = (_eventsData[label] || {}).entries || [];
+  const histRows = entries.slice().reverse().map((e, i) => {
+    const idx = entries.length - 1 - i;
+    const biasClass = e.bias === 'BULLISCH' ? 'bull' : e.bias === 'BÄRISCH' ? 'bear' : '';
+    return `<div class="editor-history-row">
+      <span class="eh-date">${e.date || '–'}</span>
+      <span class="eh-vals">${e.previous || '?'} → ${e.forecast || '?'} ${cfg.unit}</span>
+      <span class="eh-note">${e.note || ''}</span>
+      <span class="eh-bias ${biasClass}">${e.bias || '–'}</span>
+      <button class="eh-del" onclick="deleteEntry('${label}',${idx})">✕</button>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="editor-form">
+      <div class="editor-form-row">
+        <div class="form-group">
+          <label class="form-label">Datum (TT.MM.JJJJ)</label>
+          <input class="form-input" id="ev-date" type="text" placeholder="17.06.2026">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Vorheriger Wert (${cfg.unit})</label>
+          <input class="form-input" id="ev-prev" type="text" placeholder="z.B. 4.50" oninput="updateBiasPreview()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prognose (${cfg.unit})</label>
+          <input class="form-input" id="ev-forecast" type="text" placeholder="z.B. 4.25" oninput="updateBiasPreview()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notiz (optional)</label>
+          <input class="form-input" id="ev-note" type="text" placeholder="z.B. dovish signal erwartet">
+        </div>
+      </div>
+      <div id="ev-bias-preview" class="editor-bias-preview">⚪ Bias wird berechnet…</div>
+      <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap">
+        <button class="editor-save-btn" id="evSaveBtn" onclick="saveEntry('${label}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Speichern
+        </button>
+        <span class="editor-save-status" id="evSaveStatus"></span>
+      </div>
+      ${entries.length > 0 ? `
+        <div class="editor-history">
+          <div style="font-size:var(--text-xs);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-family:var(--font-mono);margin-bottom:4px">Einträge</div>
+          ${histRows}
+        </div>` : ''}
+    </div>`;
+}
+
+function updateBiasPreview() {
+  const forecast = document.getElementById('ev-forecast')?.value || '';
+  const previous = document.getElementById('ev-prev')?.value || '';
+  const preview  = document.getElementById('ev-bias-preview');
+  if (!preview) return;
+  const bias = calcEventBias(_activeEventTab, forecast, previous);
+  if (!bias) {
+    preview.className = 'editor-bias-preview';
+    preview.textContent = '⚪ Bias wird berechnet…';
+  } else if (bias === 'BULLISCH') {
+    preview.className = 'editor-bias-preview bull';
+    preview.textContent = '🟢 BULLISCH EUR/USD – ' + EVENT_CONFIG[_activeEventTab].bullDesc;
+  } else if (bias === 'BÄRISCH') {
+    preview.className = 'editor-bias-preview bear';
+    preview.textContent = '🔴 BÄRISCH EUR/USD – ' + EVENT_CONFIG[_activeEventTab].bearDesc;
+  } else {
+    preview.className = 'editor-bias-preview';
+    preview.textContent = '⚪ NEUTRAL – keine Prognoseänderung';
+  }
+}
+
+async function saveEntry(label) {
+  const date     = document.getElementById('ev-date')?.value.trim();
+  const previous = document.getElementById('ev-prev')?.value.trim();
+  const forecast = document.getElementById('ev-forecast')?.value.trim();
+  const note     = document.getElementById('ev-note')?.value.trim();
+  const bias     = calcEventBias(label, forecast, previous);
+
+  if (!date || !forecast) {
+    document.getElementById('evSaveStatus').textContent = '⚠️ Datum und Prognose benötigt';
+    return;
+  }
+
+  const btn = document.getElementById('evSaveBtn');
+  btn.disabled = true;
+  document.getElementById('evSaveStatus').textContent = 'Speichere…';
+
+  if (!_eventsData[label]) _eventsData[label] = { entries: [] };
+  _eventsData[label].entries.push({ date, previous, forecast, note, bias, actual: false });
+
+  try {
+    const r = await fetch(WORKER_URL + '/events', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(_eventsData),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    document.getElementById('evSaveStatus').textContent = '✅ Gespeichert';
+    document.getElementById('editorBody').innerHTML = renderEditorForm(label);
+  } catch(e) {
+    // Fallback: save locally only (already in _eventsData)
+    document.getElementById('evSaveStatus').textContent = '⚠️ Nur lokal gespeichert: ' + e.message;
+  }
+  btn.disabled = false;
+}
+
+async function deleteEntry(label, idx) {
+  if (!_eventsData[label]) return;
+  _eventsData[label].entries.splice(idx, 1);
+  try {
+    await fetch(WORKER_URL + '/events', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(_eventsData),
+    });
+  } catch(e) { /* lokal gelöscht, sync fehlgeschlagen */ }
+  document.getElementById('editorBody').innerHTML = renderEditorForm(label);
 }
 
 function renderChart(hist, currentSpread) {
