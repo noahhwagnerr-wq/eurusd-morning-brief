@@ -61,7 +61,8 @@ jobs:
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
         run: |
-          sed -i "s|const GH_PAT = window\.GH_PAT \|\| '';|const GH_PAT = '${GH_PAT}';|" index.html
+          # Ersetzt jede bestehende const GH_PAT = '...' Zeile (egal was drin steht)
+          sed -i "s|const GH_PAT = '.*';|const GH_PAT = '${GH_PAT}';|" index.html
           echo "=== Prüfung GH_PAT Zeile ==="
           grep -n "const GH_PAT" index.html
 
