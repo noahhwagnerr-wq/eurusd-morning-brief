@@ -98,6 +98,13 @@ def get_dfr():
     return val, period, note
 
 def get_hicp():
+    # 1) ECB primär – wird oft früher aktualisiert als Eurostat SDMX
+    val, period = _ecb_last("ICP/M.U2.N.000000.4.ANR")
+    if val is not None and 0.0 < abs(val) <= 25.0:
+        print(f"[OK] HICP (ECB): {val}% ({period})")
+        return val, period
+
+    # 2) Eurostat SDMX als Fallback
     data = safe_get("https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/prc_hicp_manr",
                     {"format": "JSON", "geo": "EA", "unit": "RCH_A", "coicop": "CP00"})
     if data:
@@ -120,13 +127,11 @@ def get_hicp():
             if candidates:
                 candidates.sort(reverse=True)
                 val, p_str = candidates[0][1], candidates[0][2]
-                print(f"[OK] HICP: {val}% ({p_str})")
+                print(f"[OK] HICP (Eurostat): {val}% ({p_str})")
                 return val, p_str
         except Exception as e:
             print(f"[WARN] HICP Eurostat: {e}")
-    val, period = _ecb_last("ICP/M.U2.N.000000.4.ANR")
-    if val is not None and 0.0 < abs(val) <= 25.0:
-        return val, period
+
     return None, "N/A"
 
 def get_de2y():
@@ -230,15 +235,21 @@ def get_cot():
                 src = "Disaggregated/Asset Manager"
             if lc == 0 and sc == 0:
                 continue
-            oi   = _f(cur, "open_interest_all") or lc + sc
-            net  = lc - sc
-            dnet = net - (lp - sp)
-            npct = round(net / oi * 100, 1) if oi > 0 else 0.0
-            lpct = _f(cur, "pct_of_oi_lev_money_long", "pct_of_oi_asset_mgr_long") or round(lc / oi * 100, 1)
-            spct = _f(cur, "pct_of_oi_lev_money_short", "pct_of_oi_asset_mgr_short") or round(sc / oi * 100, 1)
-            bias = "NET-LONG" if npct > 5 else "NET-SHORT" if npct < -5 else "NEUTRAL"
+            oi    = _f(cur, "open_interest_all") or lc + sc
+            net   = lc - sc
+            dnet  = net - (lp - sp)
+            npct  = round(net / oi * 100, 1) if oi > 0 else 0.0
+            lpct  = _f(cur, "pct_of_oi_lev_money_long", "pct_of_oi_asset_mgr_long") or round(lc / oi * 100, 1)
+            spct  = _f(cur, "pct_of_oi_lev_money_short", "pct_of_oi_asset_mgr_short") or round(sc / oi * 100, 1)
+            # Bias: prozentuales Kriterium (±5 %) ODER absolutes Kriterium (|net| > 10.000)
+            if npct > 5 or net > 10000:
+                bias = "NET-LONG"
+            elif npct < -5 or net < -10000:
+                bias = "NET-SHORT"
+            else:
+                bias = "NEUTRAL"
             raw_d = str(cur.get("report_date_as_yyyy_mm_dd") or "N/A")[:10]
-            print(f"[OK] COT: net={net:+,.0f}, bias={bias}")
+            print(f"[OK] COT: net={net:+,.0f}, npct={npct:+.1f}%, bias={bias}")
             return {"date": raw_d, "net": int(net), "delta_net": int(dnet),
                     "long_pct": lpct, "short_pct": spct, "net_pct": npct,
                     "oi": int(oi), "bias": bias, "source": src}
