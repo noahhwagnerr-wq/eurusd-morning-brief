@@ -67,6 +67,29 @@ def _ecb_last(series, extra=None):
         print(f"[WARN] ECB parse {series}: {e}")
         return None, "N/A"
 
+def _ecb_series(series, n=100):
+    """Gibt Liste von (date_str, float) für die letzten n Beobachtungen zurück."""
+    params = {"format": "jsondata", "lastNObservations": n, "detail": "dataonly"}
+    data = safe_get(f"{ECB_BASE}/{series}", params)
+    if not data:
+        return []
+    try:
+        sm   = data["dataSets"][0]["series"]
+        key  = list(sm.keys())[0]
+        obs  = sm[key]["observations"]
+        dims = data["structure"]["dimensions"]["observation"][0]["values"]
+        result = []
+        for k, v in obs.items():
+            if v[0] is None:
+                continue
+            raw = _fix_year(dims[int(k)]["id"])
+            result.append((raw, float(v[0])))
+        result.sort(key=lambda x: x[0])
+        return result
+    except Exception as e:
+        print(f"[WARN] ECB series {series}: {e}")
+        return []
+
 def _fred(series_id, limit=2, sort="desc", units=None):
     p = {"series_id": series_id, "api_key": FRED_API_KEY,
          "file_type": "json", "sort_order": sort, "limit": limit}
@@ -98,12 +121,11 @@ def get_dfr():
     return val, period, note
 
 def get_hicp():
-    # 1) ECB primär – wird oft früher aktualisiert als Eurostat SDMX
+    # 1) ECB primär
     val, period = _ecb_last("ICP/M.U2.N.000000.4.ANR")
     if val is not None and 0.0 < abs(val) <= 25.0:
         print(f"[OK] HICP (ECB): {val}% ({period})")
         return val, period
-
     # 2) Eurostat SDMX als Fallback
     data = safe_get("https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/prc_hicp_manr",
                     {"format": "JSON", "geo": "EA", "unit": "RCH_A", "coicop": "CP00"})
@@ -131,7 +153,6 @@ def get_hicp():
                 return val, p_str
         except Exception as e:
             print(f"[WARN] HICP Eurostat: {e}")
-
     return None, "N/A"
 
 def get_de2y():
@@ -170,24 +191,29 @@ def get_us2y():
     return None, "N/A"
 
 def get_spread_history():
-    """Holt echte wöchentliche US 2Y und DE 2Y Daten der letzten 14 Wochen von FRED."""
-    since = (TODAY - timedelta(weeks=14)).strftime("%Y-%m-%d")
+    """14 wöchentliche US-2Y vs. DE-2Y Spreads.
+    US 2Y: FRED DGS2 (täglich).
+    DE 2Y: ECB YC Tagesdaten (YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y).
+    """
+    since = (TODAY - timedelta(weeks=16)).strftime("%Y-%m-%d")
 
-    us_obs = _fred("DGS2", limit=100, sort="asc")
-    us_obs = [(v, d) for v, d in us_obs if d >= since]
+    # US 2Y aus FRED
+    us_raw = _fred("DGS2", limit=100, sort="asc")
+    us_obs = [(d, float(v)) for v, d in us_raw if d >= since]
 
-    de_obs = _fred("INTGSTDEM193N", limit=100, sort="asc")
-    de_obs = [(v, d) for v, d in de_obs if d >= since]
+    # DE 2Y aus ECB Yield Curve (täglich)
+    de_raw = _ecb_series("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y", n=100)
+    de_obs = [(d, v) for d, v in de_raw if d >= since]
 
     if not us_obs or not de_obs:
-        print("[WARN] Spread-History: FRED-Daten unvollständig")
+        print(f"[WARN] Spread-History: US={len(us_obs)} DE={len(de_obs)} Punkte")
         return []
 
-    de_map = {d: float(v) for v, d in de_obs}
+    de_map = {d: v for d, v in de_obs}
 
     result = []
     seen_weeks = set()
-    for val_us, d_str in us_obs:
+    for d_str, us_v in us_obs:
         d = date.fromisoformat(d_str)
         week = d.isocalendar()[:2]
         if week in seen_weeks:
@@ -196,12 +222,12 @@ def get_spread_history():
         closest_de = min(de_map.keys(), key=lambda x: abs(date.fromisoformat(x) - d), default=None)
         if closest_de is None:
             continue
-        spread = round(float(val_us) - de_map[closest_de], 2)
-        label = d.strftime("%d.%m")
-        result.append({"date": label, "spread": spread})
+        spread = round(us_v - de_map[closest_de], 2)
+        result.append({"date": d.strftime("%d.%m"), "spread": spread})
 
+    result = result[-14:]
     print(f"[OK] Spread-History: {len(result)} Datenpunkte")
-    return result[-14:]
+    return result
 
 def get_cot():
     _CFTC = "https://publicreporting.cftc.gov/resource/gpe5-46if.json"
@@ -241,7 +267,6 @@ def get_cot():
             npct  = round(net / oi * 100, 1) if oi > 0 else 0.0
             lpct  = _f(cur, "pct_of_oi_lev_money_long", "pct_of_oi_asset_mgr_long") or round(lc / oi * 100, 1)
             spct  = _f(cur, "pct_of_oi_lev_money_short", "pct_of_oi_asset_mgr_short") or round(sc / oi * 100, 1)
-            # Bias: prozentuales Kriterium (±5 %) ODER absolutes Kriterium (|net| > 10.000)
             if npct > 5 or net > 10000:
                 bias = "NET-LONG"
             elif npct < -5 or net < -10000:
