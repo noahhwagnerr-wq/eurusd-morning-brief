@@ -1,7 +1,7 @@
 /**
  * =============================================================
  *  EUR/USD Morning Brief – Cloudflare Worker (TypeScript)
- *  Version: 4.4
+ *  Version: 4.5
  *
  *  Cron Trigger:  0 5 * * *   → 05:00 UTC = 07:00 CEST
  *  wrangler.toml: [triggers] crons = ["0 5 * * *"]
@@ -10,14 +10,18 @@
  *    TELEGRAM_BOT_TOKEN   wrangler secret put TELEGRAM_BOT_TOKEN
  *    TELEGRAM_CHAT_ID     wrangler secret put TELEGRAM_CHAT_ID
  *    FRED_API_KEY         wrangler secret put FRED_API_KEY
- *    MYFXBOOK_SESSION     wrangler secret put MYFXBOOK_SESSION  (optional)
  *
  *  Quellen:
  *    ECB SDMX 2.1    data-api.ecb.europa.eu
  *    Eurostat JSON   ec.europa.eu/eurostat
  *    FRED API        api.stlouisfed.org
  *    CFTC Disagg.    publicreporting.cftc.gov
- *    Myfxbook        api.myfxbook.com
+ *    MarketMilk      marketmilk.babypips.com
+ *
+ *  FIX-LOG v4.5
+ *  ─────────────────────────────────────────────────────────────
+ *  #11 HICP Flash-Pins entfernt – nur noch live API
+ *  #12 Myfxbook ersetzt durch MarketMilk/BabyPips + Oanda Fallback
  * =============================================================
  */
 
@@ -25,7 +29,6 @@ export interface Env {
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_CHAT_ID: string;
   FRED_API_KEY: string;
-  MYFXBOOK_SESSION?: string;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -77,23 +80,19 @@ interface Signals {
 //  Konstanten
 // ─────────────────────────────────────────────────────────────
 
-const ECB_BASE = "https://data-api.ecb.europa.eu/service/data";
-const CFTC_URL = "https://publicreporting.cftc.gov/resource/gpe5-46if.json";
-const MYFXBOOK_URL = "https://api.myfxbook.com/api/get-community-outlook.json";
-const EUR_CODES = ["099741", "99741"];
-const WEEKDAY_DE = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+const ECB_BASE       = "https://data-api.ecb.europa.eu/service/data";
+const CFTC_URL       = "https://publicreporting.cftc.gov/resource/gpe5-46if.json";
+const MARKETMILK_URL = "https://marketmilk.babypips.com/api/sentiment.json";
+const OANDA_URL      = "https://www.oanda.com/oanda_fx_sentiment/data/getdata.json";
+const EUR_CODES      = ["099741", "99741"];
+const WEEKDAY_DE     = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
 // Bekannte EZB-Entscheide
 const ECB_KNOWN_DECISIONS = [
   { dec: "2026-06-11", dfr: 2.25, eff: "2026-06-17" },
 ];
 
-// HICP Flash-Pins
-const HICP_FLASH_PINS = [
-  { from: "2026-06-02", until: "2026-07-01", val: 3.2, period: "2026-05" },
-];
-
-// Event-Kalender 2026 (ISO-Strings)
+// Event-Kalender 2026
 const FOMC_2026 = ["2026-01-29","2026-03-18","2026-04-29","2026-06-17","2026-07-29","2026-09-16","2026-10-28","2026-12-09"];
 const ECB_2026  = ["2026-01-30","2026-03-19","2026-04-30","2026-06-11","2026-07-23","2026-09-10","2026-10-29","2026-12-03"];
 const NFP_2026  = ["2026-02-11","2026-03-06","2026-04-03","2026-05-08","2026-06-05","2026-07-02","2026-08-07","2026-09-04","2026-10-02","2026-11-06","2026-12-04"];
@@ -104,11 +103,13 @@ const PPI_2026  = ["2026-01-14","2026-02-12","2026-03-18","2026-04-14","2026-05-
 //  Hilfsfunktionen
 // ─────────────────────────────────────────────────────────────
 
-async function safeGet(url: string, params: Record<string, string> = {}): Promise<unknown> {
+async function safeGet(url: string, params: Record<string, string> = {}, extraHeaders: Record<string, string> = {}): Promise<unknown> {
   const u = new URL(url);
   Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
   try {
-    const r = await fetch(u.toString(), { headers: { "User-Agent": "eurusd-morning-brief/4.4" } });
+    const r = await fetch(u.toString(), {
+      headers: { "User-Agent": "eurusd-morning-brief/4.5", "Accept": "application/json", ...extraHeaders },
+    });
     if (!r.ok) { console.warn(`[WARN] ${url} → HTTP ${r.status}`); return null; }
     return await r.json();
   } catch (e) {
@@ -157,10 +158,12 @@ async function ecbLastObs(seriesPath: string, extra: Record<string, string> = {}
   }
 }
 
-async function fredObs(seriesId: string, limit = 2, sort = "desc", apiKey: string): Promise<Array<[string, string]>> {
-  const data = await safeGet("https://api.stlouisfed.org/fred/series/observations", {
+async function fredObs(seriesId: string, limit = 2, sort = "desc", apiKey: string, units?: string): Promise<Array<[string, string]>> {
+  const params: Record<string, string> = {
     series_id: seriesId, api_key: apiKey, file_type: "json", sort_order: sort, limit: String(limit),
-  }) as any;
+  };
+  if (units) params.units = units;
+  const data = await safeGet("https://api.stlouisfed.org/fred/series/observations", params) as any;
   if (data?.observations) {
     return (data.observations as any[])
       .filter((o: any) => o.value !== ".")
@@ -190,42 +193,34 @@ async function getEcbDfr(today: Date): Promise<{ val: number | null; period: str
   return { val, period, hinweis };
 }
 
-async function getEcbHicp(today: Date): Promise<[number | null, string]> {
-  // Flash-Pin check
-  for (const pin of HICP_FLASH_PINS) {
-    if (today >= new Date(pin.from) && today < new Date(pin.until)) {
-      const [apiVal, apiPeriod] = await getHicpFromApi();
-      if (parseYM(apiPeriod) < parseYM(pin.period)) {
-        console.log(`[PIN] HICP Flash-Pin ${pin.val}% (${pin.period})`);
-        return [pin.val, pin.period];
-      }
-    }
-  }
-  return await getHicpFromApi();
-}
-
-async function getHicpFromApi(): Promise<[number | null, string]> {
+async function getEcbHicp(): Promise<[number | null, string]> {
   const eurostatBase = "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data";
-  const data = await safeGet(`${eurostatBase}/prc_hicp_manr`, { format: "JSON", geo: "EA", unit: "RCH_A", coicop: "CP00" }) as any;
-  if (data) {
-    try {
-      const sm   = data.dataSets[0].series;
-      const k    = Object.keys(sm)[0];
-      const obs  = sm[k].observations;
-      const meta = data.structure.dimensions.observation[0].values;
-      const candidates: Array<[Date, number, string]> = [];
-      for (const [ok, ov] of Object.entries(obs) as any) {
-        if (ov[0] !== null) {
-          const pStr = meta[+ok].id;
-          const v = parseFloat(ov[0]);
-          if (Math.abs(v) > 0 && Math.abs(v) <= 25) candidates.push([parseYM(pStr), v, pStr]);
+  for (const params of [
+    { format: "JSON", geo: "EA", unit: "RCH_A", coicop: "CP00" },
+    { format: "JSON", geo: "EA", unit: "RCH_A", coicop: "CP00", startPeriod: "2025-06" },
+  ]) {
+    const data = await safeGet(`${eurostatBase}/prc_hicp_manr`, params) as any;
+    if (data) {
+      try {
+        const sm   = data.dataSets[0].series;
+        const k    = Object.keys(sm)[0];
+        const obs  = sm[k].observations;
+        const meta = data.structure.dimensions.observation[0].values;
+        const candidates: Array<[Date, number, string]> = [];
+        for (const [ok, ov] of Object.entries(obs) as any) {
+          if (ov[0] !== null) {
+            const pStr = meta[+ok].id;
+            const v = parseFloat(ov[0]);
+            if (Math.abs(v) > 0 && Math.abs(v) <= 25) candidates.push([parseYM(pStr), v, pStr]);
+          }
         }
-      }
-      if (candidates.length > 0) {
-        candidates.sort((a, b) => b[0].getTime() - a[0].getTime());
-        return [candidates[0][1], candidates[0][2]];
-      }
-    } catch (e) { console.warn(`[WARN] Eurostat HICP: ${e}`); }
+        if (candidates.length > 0) {
+          candidates.sort((a, b) => b[0].getTime() - a[0].getTime());
+          console.log(`[OK] HICP Eurostat: ${candidates[0][1]}% (${candidates[0][2]})`);
+          return [candidates[0][1], candidates[0][2]];
+        }
+      } catch (e) { console.warn(`[WARN] Eurostat HICP: ${e}`); }
+    }
   }
   const [val, period] = await ecbLastObs("ICP/M.U2.N.000000.4.ANR");
   if (val !== null && Math.abs(val) > 0 && Math.abs(val) <= 25) return [val, period];
@@ -242,7 +237,17 @@ async function getFedEffr(apiKey: string): Promise<[number | null, string]> {
 }
 
 async function getUsCpi(apiKey: string): Promise<[number | null, string]> {
-  for (const sid of ["CPIAUCNS", "CPIAUCSL"]) {
+  for (const sid of ["CPIAUCSL", "CPIAUCNS"]) {
+    const obs = await fredObs(sid, 1, "desc", apiKey, "pc1");
+    if (obs.length > 0) {
+      try {
+        const yoy = Math.round(parseFloat(obs[0][0]) * 10) / 10;
+        console.log(`[OK] US CPI YoY (FRED pc1, ${sid}): ${yoy}% (${obs[0][1]})`);
+        return [yoy, obs[0][1]];
+      } catch { continue; }
+    }
+  }
+  for (const sid of ["CPIAUCSL", "CPIAUCNS"]) {
     const obs = await fredObs(sid, 14, "desc", apiKey);
     if (obs.length < 13) continue;
     try {
@@ -308,22 +313,49 @@ function parseCot(cur: Record<string, unknown>, prev: Record<string, unknown>): 
   return { date: rawDate, net: Math.round(net), delta_net: Math.round(net - netPrev), long_pct: longPct, short_pct: shortPct, net_pct: netPct, oi: Math.round(oi), bias, source };
 }
 
-async function getRetailSentiment(session?: string): Promise<RetailData | null> {
-  const params: Record<string, string> = { symbols: "EURUSD" };
-  if (session) params.session = session;
-  const data = await safeGet(MYFXBOOK_URL, params) as any;
-  if (!data || data.error) { console.warn("[WARN] Myfxbook:", data?.message ?? "no response"); return null; }
-  const rec = (data.symbols as any[])?.find((s: any) => s.name?.toUpperCase() === "EURUSD");
-  if (!rec) return null;
-  const lp = parseFloat(rec.longPercentage ?? 0);
-  const sp = parseFloat(rec.shortPercentage ?? 0);
+function buildRetail(longPct: number, shortPct: number, longPos: number, shortPos: number, source: string): RetailData {
   let bias: string; let icon: string;
-  if (sp >= 60)      { bias = "CONTRARIAN BULLISCH"; icon = "🟢"; }
-  else if (lp >= 60) { bias = "CONTRARIAN BÄRISCH";  icon = "🔴"; }
-  else if (sp >= 55) { bias = "LEICHT CONTRARIAN BULLISCH"; icon = "🟡"; }
-  else if (lp >= 55) { bias = "LEICHT CONTRARIAN BÄRISCH";  icon = "🟡"; }
-  else               { bias = "NEUTRAL"; icon = "⚪"; }
-  return { long_pct: lp, short_pct: sp, long_pos: +rec.longPositions, short_pos: +rec.shortPositions, bias, icon, source: "Myfxbook Community Outlook" };
+  if (shortPct >= 60)      { bias = "CONTRARIAN BULLISCH"; icon = "🟢"; }
+  else if (longPct >= 60)  { bias = "CONTRARIAN BÄRISCH";  icon = "🔴"; }
+  else if (shortPct >= 55) { bias = "LEICHT CONTRARIAN BULLISCH"; icon = "🟡"; }
+  else if (longPct >= 55)  { bias = "LEICHT CONTRARIAN BÄRISCH";  icon = "🟡"; }
+  else                     { bias = "NEUTRAL"; icon = "⚪"; }
+  return { long_pct: longPct, short_pct: shortPct, long_pos: longPos, short_pos: shortPos, bias, icon, source };
+}
+
+async function getRetailSentiment(): Promise<RetailData | null> {
+  const mmData = await safeGet(MARKETMILK_URL, { pair: "EURUSD" }) as any;
+  if (mmData && !mmData.error) {
+    try {
+      const lp = parseFloat(mmData.long_percentage ?? mmData.longPercentage ?? 0);
+      const sp = parseFloat(mmData.short_percentage ?? mmData.shortPercentage ?? 0);
+      if (lp + sp > 0) {
+        const lpos = parseInt(mmData.long_positions ?? mmData.longPositions ?? 0);
+        const spos = parseInt(mmData.short_positions ?? mmData.shortPositions ?? 0);
+        console.log(`[OK] Retail (MarketMilk): Long=${lp.toFixed(1)}% Short=${sp.toFixed(1)}%`);
+        return buildRetail(lp, sp, lpos, spos, "MarketMilk/BabyPips");
+      }
+    } catch (e) { console.warn(`[WARN] MarketMilk parse: ${e}`); }
+  }
+  const oandaData = await safeGet(OANDA_URL, { instrument: "EUR_USD" }) as any;
+  if (oandaData) {
+    try {
+      const items: any[] = oandaData.data ?? oandaData.orderBook ?? [];
+      if (items.length > 0) {
+        const longVol  = items.reduce((s: number, i: any) => s + parseFloat(i.longCountPercent  ?? 0), 0);
+        const shortVol = items.reduce((s: number, i: any) => s + parseFloat(i.shortCountPercent ?? 0), 0);
+        const total = longVol + shortVol;
+        if (total > 0) {
+          const lp = Math.round(longVol  / total * 1000) / 10;
+          const sp = Math.round(shortVol / total * 1000) / 10;
+          console.log(`[OK] Retail (Oanda): Long=${lp.toFixed(1)}% Short=${sp.toFixed(1)}%`);
+          return buildRetail(lp, sp, 0, 0, "Oanda Orderbook");
+        }
+      }
+    } catch (e) { console.warn(`[WARN] Oanda parse: ${e}`); }
+  }
+  console.warn("[WARN] Retail Sentiment: alle Quellen nicht erreichbar");
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -398,24 +430,24 @@ function buildMessage(
 ): string {
   const wd = WEEKDAY_DE[today.getDay()];
   const dd = today.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const dateStr = esc(`${wd}, ${dd.replace(/\./g, ".")}`);
+  const dateStr = esc(`${wd}, ${dd}`);
 
   const rd = signals.rate_diff;
   const rdStr = esc(rd !== null ? (rd >= 0 ? `+${rd.toFixed(2)}pp` : `${rd.toFixed(2)}pp`) : "N/A");
   const ys = signals.yield_spread;
   const ysStr = esc(ys !== null ? (ys >= 0 ? `+${ys.toFixed(2)}pp` : `${ys.toFixed(2)}pp`) : "N/A");
 
-  const netVal  = cot?.net ?? 0;
-  const delta   = cot?.delta_net ?? 0;
+  const netVal   = cot?.net ?? 0;
+  const delta    = cot?.delta_net ?? 0;
   const deltaSym = delta >= 0 ? "▲" : "▼";
-  const netStr  = cot ? esc(`${netVal >= 0 ? "+" : ""}${netVal.toLocaleString("de-DE")}`) : esc("N/A");
+  const netStr   = cot ? esc(`${netVal >= 0 ? "+" : ""}${netVal.toLocaleString("de-DE")}`) : esc("N/A");
   const deltaStr = cot ? esc(`${deltaSym} ${Math.abs(delta).toLocaleString("de-DE")}`) : esc("N/A");
-  const oiStr   = cot ? esc(cot.oi.toLocaleString("de-DE")) : esc("N/A");
-  const lp      = cot ? esc(`${cot.long_pct.toFixed(1)}%`) : esc("N/A");
-  const sp      = cot ? esc(`${cot.short_pct.toFixed(1)}%`) : esc("N/A");
-  const npPct   = cot ? esc(`${cot.net_pct.toFixed(1)}%`) : esc("N/A");
-  const cotDate = esc(cot?.date ?? "N/A");
-  const cotSrc  = esc(cot?.source ?? "N/A");
+  const oiStr    = cot ? esc(cot.oi.toLocaleString("de-DE")) : esc("N/A");
+  const lp       = cot ? esc(`${cot.long_pct.toFixed(1)}%`) : esc("N/A");
+  const sp       = cot ? esc(`${cot.short_pct.toFixed(1)}%`) : esc("N/A");
+  const npPct    = cot ? esc(`${cot.net_pct.toFixed(1)}%`) : esc("N/A");
+  const cotDate  = esc(cot?.date ?? "N/A");
+  const cotSrc   = esc(cot?.source ?? "N/A");
 
   const eDfr      = esc(fmt(ecbDfr));
   const eDfrDate  = esc(ecbDfrDate.slice(0, 10));
@@ -439,16 +471,15 @@ function buildMessage(
     "👥 *Retail Sentiment · EUR/USD*",
     `_${esc(retail.source)}_`,
     "",
-    `  Long  \`${esc(retail.long_pct.toFixed(1))}%\` \\(${esc(retail.long_pos.toLocaleString("de-DE"))} Positionen\\)`,
-    `  Short \`${esc(retail.short_pct.toFixed(1))}%\` \\(${esc(retail.short_pos.toLocaleString("de-DE"))} Positionen\\)`,
+    `  Long  \`${esc(retail.long_pct.toFixed(1))}%\` \\(${retail.long_pos > 0 ? esc(retail.long_pos.toLocaleString("de-DE")) : esc("–")} Positionen\\)`,
+    `  Short \`${esc(retail.short_pct.toFixed(1))}%\` \\(${retail.short_pos > 0 ? esc(retail.short_pos.toLocaleString("de-DE")) : esc("–")} Positionen\\)`,
     `  Contrarian\\-Bias: ${retail.icon} \`${esc(retail.bias)}\``,
   ] : [
     "",
     "━━━━━━━━━━━━━━━━━━━━━━",
     "👥 *Retail Sentiment · EUR/USD*",
-    "_Myfxbook Community Outlook_",
     "",
-    "  `N/A` – API nicht erreichbar",
+    "  `N/A` – alle Quellen nicht erreichbar",
   ];
 
   return [
@@ -499,7 +530,7 @@ function buildMessage(
     `  COT        ${ci} \`${esc(signals.cot_bias)}\``,
     `  Retail     ${retail?.icon ?? "⚪"} \`${esc(retail?.bias ?? "N/A")}\``,
     "",
-    "_ECB SDMX · Eurostat · FRED · CFTC · Myfxbook_",
+    "_ECB SDMX · Eurostat · FRED · CFTC · MarketMilk_",
   ].join("\n");
 }
 
@@ -527,18 +558,18 @@ async function sendTelegram(token: string, chatId: string, message: string): Pro
 
 async function run(env: Env): Promise<void> {
   const today = new Date();
-  console.log(`[${today.toISOString()}] EUR/USD Morning Brief v4.4 (Worker)`);
+  console.log(`[${today.toISOString()}] EUR/USD Morning Brief v4.5 (Worker)`);
 
   const [ecbDfrResult, [ecbHicp, ecbHicpDate], [fedEffr, fedEffrDate], [usCpi, usCpiDate], [us2y, us2yDate], [de2y, de2yDate], cot, retail] =
     await Promise.all([
       getEcbDfr(today),
-      getEcbHicp(today),
+      getEcbHicp(),
       getFedEffr(env.FRED_API_KEY),
       getUsCpi(env.FRED_API_KEY),
       getUs2y(env.FRED_API_KEY),
       getDe2y(),
       getCotEur(),
-      getRetailSentiment(env.MYFXBOOK_SESSION),
+      getRetailSentiment(),
     ]);
 
   const { val: ecbDfr, period: ecbDfrDate, hinweis: ecbDfrHinweis } = ecbDfrResult;
@@ -562,12 +593,10 @@ async function run(env: Env): Promise<void> {
 // ─────────────────────────────────────────────────────────────
 
 export default {
-  // Cron Trigger (wrangler.toml: crons = ["0 5 * * *"])
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(run(env));
   },
 
-  // HTTP Trigger: GET / → sofort ausführen (z.B. manueller Test)
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === "/run") {
@@ -575,7 +604,7 @@ export default {
       return new Response("✅ Morning Brief gestartet", { status: 200 });
     }
     return new Response(
-      "EUR/USD Morning Brief Worker\nGET /run → Brief sofort senden",
+      "EUR/USD Morning Brief Worker v4.5\nGET /run → Brief sofort senden",
       { status: 200 }
     );
   },
