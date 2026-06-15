@@ -1,12 +1,12 @@
 {
-  "generated_at": "15.06.2026 19:08 UTC",
-  "generated_ts": "2026-06-15T19:08:50.618622Z",
+  "generated_at": "15.06.2026 19:31 UTC",
+  "generated_ts": "2026-06-15T19:31:10.389918Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-11",
     "dfr_note": "in Kraft ab 2026-06-17",
-    "hicp": 1.9,
-    "hicp_date": "2025-12"
+    "hicp": null,
+    "hicp_date": "N/A"
   },
   "fed": {
     "effr": 3.62,
