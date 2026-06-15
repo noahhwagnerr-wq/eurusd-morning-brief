@@ -100,6 +100,93 @@ def _fred(series_id, limit=2, sort="desc", units=None):
         return [(o["value"], o["date"]) for o in data["observations"] if o["value"] != "."]
     return []
 
+def _parse_sdmx_candidates(data):
+    """Extrahiert den neuesten gültigen (value, period) aus einer SDMX JSON-Antwort."""
+    try:
+        sm   = data["dataSets"][0]["series"]
+        key  = list(sm.keys())[0]
+        obs  = sm[key]["observations"]
+        dims = data["structure"]["dimensions"]["observation"][0]["values"]
+        candidates = []
+        for ok, ov in obs.items():
+            if ov[0] is None:
+                continue
+            v = float(ov[0])
+            if not (0.0 < abs(v) <= 25.0):
+                continue
+            raw = _fix_year(dims[int(ok)]["id"])
+            try:
+                pd_ = datetime.strptime(raw[:7] + "-01", "%Y-%m-%d").date()
+            except Exception:
+                pd_ = date(1900, 1, 1)
+            candidates.append((pd_, v, raw[:7]))
+        if candidates:
+            candidates.sort(reverse=True)
+            return candidates[0][1], candidates[0][2]
+    except Exception as e:
+        print(f"[WARN] SDMX parse: {e}")
+    return None, None
+
+def get_hicp():
+    """
+    4-Quellen-Kaskade für Eurozone HICP (jährliche Veränderungsrate):
+    1. ECB HICP Dataset (data.ecb.europa.eu) – enthält Flash-Estimates
+    2. ECB ICP Monatsserie (data-api.ecb.europa.eu)
+    3. Bundesbank SDMX API
+    4. Eurostat SDMX als letzter Fallback
+    """
+    start = (TODAY.replace(day=1) - timedelta(days=32)).strftime("%Y-%m")
+
+    # 1) ECB HICP Dataset – separater Host, Flash-Estimates enthalten
+    d1 = safe_get(
+        "https://data.ecb.europa.eu/api/data/HICP/M.U2.N.000000.4.ANR",
+        {"format": "jsondata", "startPeriod": start, "detail": "dataonly"}
+    )
+    if d1:
+        val, period = _parse_sdmx_candidates(d1)
+        if val is not None:
+            print(f"[OK] HICP (ECB HICP Dataset): {val}% ({period})")
+            return val, period
+
+    # 2) ECB ICP Monatsserie
+    d2 = safe_get(
+        f"{ECB_BASE}/ICP/M.U2.N.000000.4.ANR",
+        {"format": "jsondata", "startPeriod": start,
+         "lastNObservations": 3, "detail": "dataonly"}
+    )
+    if d2:
+        val, period = _parse_sdmx_candidates(d2)
+        if val is not None:
+            print(f"[OK] HICP (ECB ICP): {val}% ({period})")
+            return val, period
+
+    # 3) Bundesbank SDMX (finale Daten ab 17.06. 12:00 CET)
+    d3 = safe_get(
+        "https://api.bundesbank.de/service/data/BBK_ICP/M.DE.N.000000.4.ANR",
+        {"format": "jsondata", "startPeriod": start,
+         "lastNObservations": 3, "detail": "dataonly"}
+    )
+    if d3:
+        val, period = _parse_sdmx_candidates(d3)
+        if val is not None:
+            print(f"[OK] HICP (Bundesbank): {val}% ({period})")
+            return val, period
+
+    # 4) Eurostat SDMX
+    d4 = safe_get(
+        "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/prc_hicp_manr",
+        {"format": "JSON", "geo": "EA", "unit": "RCH_A", "coicop": "CP00",
+         "startPeriod": start}
+    )
+    if d4:
+        val, period = _parse_sdmx_candidates(d4)
+        if val is not None:
+            print(f"[OK] HICP (Eurostat): {val}% ({period})")
+            return val, period
+
+    print("[WARN] HICP: alle Quellen erschoepft")
+    return None, "N/A"
+
 def get_dfr():
     val, period = None, "N/A"
     for key in ("FM/B.U2.EUR.4F.KR.DFR.LEV", "FM/D.U2.EUR.4F.KR.DFR.LEV"):
@@ -119,41 +206,6 @@ def get_dfr():
             val, period, note = new_dfr, dec_d, f"in Kraft ab {eff_d}"
     print(f"[OK] DFR: {val}% ({period})")
     return val, period, note
-
-def get_hicp():
-    # 1) ECB primär
-    val, period = _ecb_last("ICP/M.U2.N.000000.4.ANR")
-    if val is not None and 0.0 < abs(val) <= 25.0:
-        print(f"[OK] HICP (ECB): {val}% ({period})")
-        return val, period
-    # 2) Eurostat SDMX als Fallback
-    data = safe_get("https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/prc_hicp_manr",
-                    {"format": "JSON", "geo": "EA", "unit": "RCH_A", "coicop": "CP00"})
-    if data:
-        try:
-            sm   = data["dataSets"][0]["series"]
-            k    = list(sm.keys())[0]
-            obs  = sm[k]["observations"]
-            meta = data["structure"]["dimensions"]["observation"][0]["values"]
-            candidates = []
-            for ok, ov in obs.items():
-                if ov[0] is not None:
-                    p_str = meta[int(ok)]["id"]
-                    v = float(ov[0])
-                    if 0.0 < abs(v) <= 25.0:
-                        try:
-                            pd_ = datetime.strptime(p_str + "-01", "%Y-%m-%d").date()
-                        except Exception:
-                            pd_ = date(1900, 1, 1)
-                        candidates.append((pd_, v, p_str))
-            if candidates:
-                candidates.sort(reverse=True)
-                val, p_str = candidates[0][1], candidates[0][2]
-                print(f"[OK] HICP (Eurostat): {val}% ({p_str})")
-                return val, p_str
-        except Exception as e:
-            print(f"[WARN] HICP Eurostat: {e}")
-    return None, "N/A"
 
 def get_de2y():
     val, period = _ecb_last("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y")
@@ -197,11 +249,9 @@ def get_spread_history():
     """
     since = (TODAY - timedelta(weeks=16)).strftime("%Y-%m-%d")
 
-    # US 2Y aus FRED
     us_raw = _fred("DGS2", limit=100, sort="asc")
     us_obs = [(d, float(v)) for v, d in us_raw if d >= since]
 
-    # DE 2Y aus ECB Yield Curve (täglich)
     de_raw = _ecb_series("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y", n=100)
     de_obs = [(d, v) for d, v in de_raw if d >= since]
 
