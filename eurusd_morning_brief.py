@@ -13,7 +13,6 @@
 
   FIX-LOG v4.5
   ─────────────────────────────────────────────────────────
-  #10 HICP Flash-Pin korrigiert: 3.2 → 2.0% (Mai 2026 ECB Flash)
   #11 US CPI: FRED units=pc1 (direkte YoY-Serie CPIAUCSL_PC1) als
       primäre Quelle; manuelle Berechnung als Fallback
   #12 Retail Sentiment: Myfxbook ersetzt durch MarketMilk/BabyPips
@@ -36,24 +35,13 @@ FRED_API_KEY       = os.getenv("FRED_API_KEY", "")
 ECB_BASE = "https://data-api.ecb.europa.eu/service/data"
 TODAY    = date.today()
 
-# ── Bekannte EZB-Entscheide (Überbrückung bis SDMX aktualisiert) ──
 _ECB_KNOWN_DECISIONS = [
     ("2026-06-11", 2.25, "2026-06-17"),
-]
-
-# ── HICP Flash-Pins: (gültig_ab, gültig_bis, wert, periode) ──
-# FIX #10: Mai 2026 EZB Flash = 2.0%, nicht 3.2%
-_HICP_FLASH_PINS = [
-    (date(2026, 6, 4), date(2026, 7, 4), 2.0, "2026-05"),
 ]
 
 _CFTC_URL  = "https://publicreporting.cftc.gov/resource/gpe5-46if.json"
 _EUR_CODES = ("099741", "99741")
 
-
-# ─────────────────────────────────────────────────────────────
-#  Hilfsfunktionen
-# ─────────────────────────────────────────────────────────────
 
 def safe_get(url, params=None, timeout=20, headers=None):
     try:
@@ -147,10 +135,6 @@ def _fred_obs(series_id, limit=2, sort="desc", units=None):
     return []
 
 
-# ─────────────────────────────────────────────────────────────
-#  EZB – DFR
-# ─────────────────────────────────────────────────────────────
-
 def get_ecb_dfr():
     val, period = None, "N/A"
     for key in ("FM/B.U2.EUR.4F.KR.DFR.LEV", "FM/D.U2.EUR.4F.KR.DFR.LEV"):
@@ -175,17 +159,7 @@ def get_ecb_dfr():
     return val, period, hinweis
 
 
-# ─────────────────────────────────────────────────────────────
-#  EZB – HICP  (FIX #10: Pin 2.0%)
-# ─────────────────────────────────────────────────────────────
-
 def get_ecb_hicp():
-    # Prüfe zuerst ob ein aktueller Flash-Pin existiert
-    for (valid_from, valid_until, pin_val, pin_period) in _HICP_FLASH_PINS:
-        if valid_from <= TODAY < valid_until:
-            print(f"[PIN] HICP Flash: {pin_val}% ({pin_period}) – aktueller als API")
-            return pin_val, pin_period
-    # Sonst live von API
     return _hicp_from_api()
 
 
@@ -193,8 +167,7 @@ def _hicp_from_api():
     eurostat_base = "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data"
     for params in [
         {"format": "JSON", "geo": "EA", "unit": "RCH_A", "coicop": "CP00"},
-        {"format": "JSON", "geo": "EA", "unit": "RCH_A", "coicop": "CP00",
-         "startPeriod": "2025-06"},
+        {"format": "JSON", "geo": "EA", "unit": "RCH_A", "coicop": "CP00", "startPeriod": "2025-06"},
     ]:
         data = safe_get(f"{eurostat_base}/prc_hicp_manr", params)
         if data:
@@ -217,16 +190,11 @@ def _hicp_from_api():
                     return val, p_str
             except Exception as e:
                 print(f"[WARN] Eurostat HICP: {e}")
-    # ECB SDMX Fallback
     val, period = _ecb_last_obs("ICP/M.U2.N.000000.4.ANR")
     if val is not None and 0.0 < abs(val) <= 25.0:
         return val, period
     return None, "N/A"
 
-
-# ─────────────────────────────────────────────────────────────
-#  DE 2Y
-# ─────────────────────────────────────────────────────────────
 
 def get_de2y():
     val, period = _ecb_last_obs("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y")
@@ -236,10 +204,6 @@ def get_de2y():
     return None, "N/A"
 
 
-# ─────────────────────────────────────────────────────────────
-#  Fed – EFFR
-# ─────────────────────────────────────────────────────────────
-
 def get_fed_effr():
     obs = _fred_obs("DFF", limit=1)
     if obs:
@@ -248,12 +212,7 @@ def get_fed_effr():
     return None, "N/A"
 
 
-# ─────────────────────────────────────────────────────────────
-#  US CPI YoY  (FIX #11: FRED pc1-Einheit als Primärquelle)
-# ─────────────────────────────────────────────────────────────
-
 def get_us_cpi():
-    # Primär: FRED liefert YoY direkt via units=pc1 (prozentuale Veränderung)
     for series_id in ("CPIAUCSL", "CPIAUCNS"):
         obs = _fred_obs(series_id, limit=1, units="pc1")
         if obs:
@@ -264,8 +223,6 @@ def get_us_cpi():
                 return val, dt
             except Exception as e:
                 print(f"[WARN] CPI pc1 {series_id}: {e}")
-
-    # Fallback: manuelle YoY-Berechnung aus 14 Monaten
     for series_id in ("CPIAUCSL", "CPIAUCNS"):
         obs = _fred_obs(series_id, limit=14, sort="desc")
         if len(obs) < 13:
@@ -282,10 +239,6 @@ def get_us_cpi():
     return None, "N/A"
 
 
-# ─────────────────────────────────────────────────────────────
-#  US 2Y
-# ─────────────────────────────────────────────────────────────
-
 def get_us2y():
     obs = _fred_obs("DGS2", limit=1)
     if obs:
@@ -293,10 +246,6 @@ def get_us2y():
         return float(obs[0][0]), obs[0][1]
     return None, "N/A"
 
-
-# ─────────────────────────────────────────────────────────────
-#  CFTC COT
-# ─────────────────────────────────────────────────────────────
 
 def _to_float(record, *keys):
     for k in keys:
@@ -356,25 +305,6 @@ def _parse_cot(current, prev):
         "bias": bias, "source": source,
     }
 
-
-# ─────────────────────────────────────────────────────────────
-#  Retail Sentiment – MarketMilk (BabyPips)  FIX #12
-#
-#  Endpunkt:
-#  https://marketmilk.babypips.com/api/sentiment.json?pair=EURUSD
-#
-#  Antwort-Struktur (vereinfacht):
-#  { "pair": "EURUSD",
-#    "long_percentage": 44.6,
-#    "short_percentage": 55.4,
-#    "long_positions": 45123,
-#    "short_positions": 56789,
-#    "updated_at": "2026-06-13T..." }
-#
-#  Kein API-Key nötig. Kostenlos, öffentlich, zuverlässig.
-#  Fallback: Oanda sentiment (orderbook summary).
-# ─────────────────────────────────────────────────────────────
-
 _MARKETMILK_URL = "https://marketmilk.babypips.com/api/sentiment.json"
 _OANDA_URL      = "https://www.oanda.com/oanda_fx_sentiment/data/getdata.json"
 
@@ -385,11 +315,6 @@ _RETAIL_HEADERS = {
 
 
 def get_retail_sentiment() -> dict:
-    """
-    Holt Retail Long/Short-Quote. Versucht erst MarketMilk (BabyPips),
-    dann Oanda-Orderbook als Fallback.
-    """
-    # ── Versuch 1: MarketMilk ──
     data = safe_get(_MARKETMILK_URL, {"pair": "EURUSD"}, timeout=15, headers=_RETAIL_HEADERS)
     if data and not data.get("error"):
         try:
@@ -403,15 +328,11 @@ def get_retail_sentiment() -> dict:
                 return result
         except Exception as e:
             print(f"[WARN] MarketMilk parse: {e}")
-
-    # ── Versuch 2: Oanda Orderbook ──
     data = safe_get(_OANDA_URL, {"instrument": "EUR_USD"}, timeout=15, headers=_RETAIL_HEADERS)
     if data:
         try:
-            # Oanda gibt nested Struktur zurück
             items = data.get("data", data.get("orderBook", []))
             if isinstance(items, list) and items:
-                # Summe Long vs Short Volumen
                 long_vol  = sum(float(i.get("longCountPercent", 0)) for i in items)
                 short_vol = sum(float(i.get("shortCountPercent", 0)) for i in items)
                 total = long_vol + short_vol
@@ -423,7 +344,6 @@ def get_retail_sentiment() -> dict:
                     return result
         except Exception as e:
             print(f"[WARN] Oanda parse: {e}")
-
     print("[WARN] Retail Sentiment: alle Quellen nicht erreichbar")
     return {}
 
@@ -444,11 +364,6 @@ def _build_retail(long_pct, short_pct, long_pos, short_pos, source):
         "long_pos": long_pos, "short_pos": short_pos,
         "bias": bias, "icon": icon, "source": source,
     }
-
-
-# ─────────────────────────────────────────────────────────────
-#  Event-Kalender 2026
-# ─────────────────────────────────────────────────────────────
 
 FOMC_DATES_2026 = [
     date(2026,  1, 29), date(2026,  3, 18), date(2026,  4, 29),
@@ -479,7 +394,6 @@ PPI_DATES_2026 = [
     date(2026, 10, 15), date(2026, 11, 12), date(2026, 12, 11),
 ]
 
-
 def get_next_meetings():
     def _next(dates):
         fut = [d for d in sorted(dates) if d >= TODAY]
@@ -497,10 +411,6 @@ def get_next_meetings():
         "ppi_date":  _fmt(np_),"ppi_days":  _days(np_),
     }
 
-
-# ─────────────────────────────────────────────────────────────
-#  Signal-Logik
-# ─────────────────────────────────────────────────────────────
 
 def compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot):
     s = {}
@@ -520,31 +430,25 @@ def compute_signals(ecb_dfr, fed_effr, us2y, de2y, cot):
         s.update({"yield_spread": None, "yield_bias": "N/A", "yield_icon": "⚪"})
     if cot and cot.get("net") is not None:
         np_ = cot.get("net_pct", 0)
-        s.update({"cot_bias": "NET\u2011LONG"  if np_ > 5 else
-                               "NET\u2011SHORT" if np_ < -5 else "NEUTRAL",
+        s.update({"cot_bias": "NET\u2011LONG" if np_ > 5 else "NET\u2011SHORT" if np_ < -5 else "NEUTRAL",
                   "cot_icon": "🟢" if np_ > 5 else "🔴" if np_ < -5 else "⚪"})
     else:
         s.update({"cot_bias": "N/A", "cot_icon": "⚪"})
     return s
 
 
-# ─────────────────────────────────────────────────────────────
-#  Event-Zeile
-# ─────────────────────────────────────────────────────────────
-
 def _event_line(label, days, date_str):
     if days is None:
         return f"  {esc(label):<14} `N/A`"
-    if days == 0:   icon, cd = "🔴", "HEUTE"
-    elif days == 1: icon, cd = "🟠", "morgen"
-    elif days <= 5: icon, cd = "🟡", f"in {days}T"
-    else:           icon, cd = "⚫", f"in {days}T"
+    if days == 0:
+        icon, cd = "🔴", "HEUTE"
+    elif days == 1:
+        icon, cd = "🟠", "morgen"
+    elif days <= 5:
+        icon, cd = "🟡", f"in {days}T"
+    else:
+        icon, cd = "⚫", f"in {days}T"
     return f"  {icon} {esc(label):<10} `{esc(date_str)}` _{esc(cd)}_"
-
-
-# ─────────────────────────────────────────────────────────────
-#  Nachricht bauen – MarkdownV2
-# ─────────────────────────────────────────────────────────────
 
 WEEKDAY_DE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
@@ -594,7 +498,6 @@ def build_message(
     yi = signals["yield_icon"]
     ci = signals["cot_icon"]
 
-    # ── Retail Block ──
     if retail:
         r_long  = esc(f"{retail['long_pct']:.1f}%")
         r_short = esc(f"{retail['short_pct']:.1f}%")
@@ -676,10 +579,6 @@ def build_message(
     return "\n".join(lines)
 
 
-# ─────────────────────────────────────────────────────────────
-#  Telegram senden
-# ─────────────────────────────────────────────────────────────
-
 def send_telegram(message):
     url     = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN.strip()}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID.strip(), "text": message, "parse_mode": "MarkdownV2"}
@@ -694,10 +593,6 @@ def send_telegram(message):
             print(f"[ERROR] Body: {e.response.text}")
         return False
 
-
-# ─────────────────────────────────────────────────────────────
-#  Main
-# ─────────────────────────────────────────────────────────────
 
 def run():
     print(f"[{datetime.now().isoformat()}] EUR/USD Morning Brief v4.5 startet...")
