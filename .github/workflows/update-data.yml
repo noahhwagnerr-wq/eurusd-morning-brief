@@ -57,20 +57,11 @@ jobs:
           echo "--- data.json (erste 40 Zeilen) ---"
           head -40 data.json
 
-      - name: GH_PAT in index.html injizieren (sed)
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          # Ersetzt jede bestehende const GH_PAT = '...' Zeile (egal was drin steht)
-          sed -i "s|const GH_PAT = '.*';|const GH_PAT = '${GH_PAT}';|" index.html
-          echo "=== Prüfung GH_PAT Zeile ==="
-          grep -n "const GH_PAT" index.html
-
       - name: Dateien auf gh-pages committen
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data.json index.html
+          git add data.json
           git restore --staged fetch_data.py 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "Keine Änderungen."
