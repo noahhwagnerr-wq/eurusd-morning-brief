@@ -1,6 +1,6 @@
 {
-  "generated_at": "15.06.2026 08:00 UTC",
-  "generated_ts": "2026-06-15T08:00:00.000000Z",
+  "generated_at": "15.06.2026 18:59 UTC",
+  "generated_ts": "2026-06-15T18:59:21.333580Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-11",
@@ -17,16 +17,17 @@
   "yields": {
     "us2y": 4.05,
     "us2y_date": "2026-06-11",
-    "de2y": 2.6089401632,
-    "de2y_date": "2026-06-11"
+    "de2y": 2.5775819706,
+    "de2y_date": "2026-06-12"
   },
   "signals": {
     "rate_diff": 1.37,
-    "yield_spread": 1.44,
-    "rate_bias": "B\u00c4RISCH",
+    "yield_spread": 1.47,
+    "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
-    "cot_bias": "NEUTRAL",
-    "overall_bias": "B\u00c4RISCH"
+    "cot_bias": "NET-SHORT",
+    "retail_bias": "N/A",
+    "overall_bias": "BÄRISCH"
   },
   "cot": {
     "date": "2026-06-09",
@@ -36,31 +37,41 @@
     "short_pct": 12.5,
     "net_pct": -2.0,
     "oi": 871507,
-    "bias": "NEUTRAL",
+    "bias": "NET-SHORT",
     "source": "Disaggregated/Leveraged Money"
   },
   "retail": null,
   "events": [
-    {"label": "FOMC", "importance": "high",   "date": "17.06.2026", "days": 2},
-    {"label": "NFP",  "importance": "medium", "date": "02.07.2026", "days": 17},
-    {"label": "CPI",  "importance": "medium", "date": "14.07.2026", "days": 29},
-    {"label": "PPI",  "importance": "low",    "date": "15.07.2026", "days": 30},
-    {"label": "EZB",  "importance": "low",    "date": "23.07.2026", "days": 38}
+    {
+      "label": "FOMC",
+      "importance": "high",
+      "date": "17.06.2026",
+      "days": 2
+    },
+    {
+      "label": "NFP",
+      "importance": "medium",
+      "date": "02.07.2026",
+      "days": 17
+    },
+    {
+      "label": "CPI",
+      "importance": "medium",
+      "date": "14.07.2026",
+      "days": 29
+    },
+    {
+      "label": "PPI",
+      "importance": "low",
+      "date": "15.07.2026",
+      "days": 30
+    },
+    {
+      "label": "EZB",
+      "importance": "low",
+      "date": "23.07.2026",
+      "days": 38
+    }
   ],
-  "spread_history": [
-    {"date": "14.03", "spread": 1.12},
-    {"date": "21.03", "spread": 1.08},
-    {"date": "28.03", "spread": 1.15},
-    {"date": "04.04", "spread": 1.22},
-    {"date": "11.04", "spread": 1.28},
-    {"date": "18.04", "spread": 1.31},
-    {"date": "25.04", "spread": 1.25},
-    {"date": "02.05", "spread": 1.30},
-    {"date": "09.05", "spread": 1.35},
-    {"date": "16.05", "spread": 1.38},
-    {"date": "23.05", "spread": 1.40},
-    {"date": "30.05", "spread": 1.42},
-    {"date": "06.06", "spread": 1.43},
-    {"date": "heute", "spread": 1.44}
-  ]
+  "spread_history": []
 }
