@@ -23,6 +23,8 @@ FRED_API_KEY = os.getenv("FRED_API_KEY", "")
 ECB_BASE     = "https://data-api.ecb.europa.eu/service/data"
 TODAY        = date.today()
 
+# Einträge: (Beschlussdatum, neuer DFR, Inkrafttretungsdatum)
+# Note wird nur angezeigt wenn: dec_date <= TODAY < eff_date
 _ECB_DECISIONS = [
     ("2026-06-11", 2.25, "2026-06-17"),
 ]
@@ -67,10 +69,17 @@ def _ecb_last(series, extra=None):
         print(f"[WARN] ECB parse {series}: {e}")
         return None, "N/A"
 
-def _ecb_series(series, n=100):
-    """Gibt Liste von (date_str, float) für die letzten n Beobachtungen zurück."""
-    params = {"format": "jsondata", "lastNObservations": n, "detail": "dataonly"}
+def _ecb_series(series, n=120):
+    """Gibt Liste von (date_str, float) für die letzten n Beobachtungen zurück.
+    Verwendet startPeriod statt lastNObservations, da YC-Serie den Parameter
+    teilweise ignoriert."""
+    since = (TODAY - timedelta(days=n * 2)).strftime("%Y-%m-%d")
+    params = {"format": "jsondata", "startPeriod": since, "detail": "dataonly"}
     data = safe_get(f"{ECB_BASE}/{series}", params)
+    if not data:
+        # Fallback: lastNObservations
+        params2 = {"format": "jsondata", "lastNObservations": n, "detail": "dataonly"}
+        data = safe_get(f"{ECB_BASE}/{series}", params2)
     if not data:
         return []
     try:
@@ -160,7 +169,7 @@ def get_hicp():
             print(f"[OK] HICP (ECB ICP): {val}% ({period})")
             return val, period
 
-    # 3) Bundesbank SDMX (finale Daten ab 17.06. 12:00 CET)
+    # 3) Bundesbank SDMX
     d3 = safe_get(
         "https://api.bundesbank.de/service/data/BBK_ICP/M.DE.N.000000.4.ANR",
         {"format": "jsondata", "startPeriod": start,
@@ -202,6 +211,7 @@ def get_dfr():
     for dec_d, new_dfr, eff_d in _ECB_DECISIONS:
         eff = date.fromisoformat(eff_d)
         dec = date.fromisoformat(dec_d)
+        # Note nur anzeigen solange Entscheidung bekannt, aber noch nicht in Kraft
         if dec <= TODAY < eff and (val is None or abs(val - new_dfr) > 0.001):
             val, period, note = new_dfr, dec_d, f"in Kraft ab {eff_d}"
     print(f"[OK] DFR: {val}% ({period})")
@@ -245,14 +255,15 @@ def get_us2y():
 def get_spread_history():
     """14 wöchentliche US-2Y vs. DE-2Y Spreads.
     US 2Y: FRED DGS2 (täglich).
-    DE 2Y: ECB YC Tagesdaten (YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y).
+    DE 2Y: ECB YC Tagesdaten via startPeriod (zuverlässiger als lastNObservations).
     """
-    since = (TODAY - timedelta(weeks=16)).strftime("%Y-%m-%d")
+    since = (TODAY - timedelta(weeks=18)).strftime("%Y-%m-%d")
 
-    us_raw = _fred("DGS2", limit=100, sort="asc")
+    us_raw = _fred("DGS2", limit=120, sort="asc")
     us_obs = [(d, float(v)) for v, d in us_raw if d >= since]
 
-    de_raw = _ecb_series("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y", n=100)
+    # FIX: startPeriod statt lastNObservations – ECB YC ignoriert lastN teilweise
+    de_raw = _ecb_series("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y", n=120)
     de_obs = [(d, v) for d, v in de_raw if d >= since]
 
     if not us_obs or not de_obs:
@@ -349,6 +360,7 @@ def get_retail():
     return None
 
 def get_events():
+    # FOMC: 17.06 wird ab morgen (18.06) automatisch übersprungen → nächster: 29.07.2026
     FOMC = [date(2026,6,17), date(2026,7,29), date(2026,9,16), date(2026,10,28), date(2026,12,9)]
     ECB  = [date(2026,7,23), date(2026,9,10), date(2026,10,29), date(2026,12,3)]
     NFP  = [date(2026,7,2),  date(2026,8,7),  date(2026,9,4),  date(2026,10,2)]
