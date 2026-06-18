@@ -6,6 +6,11 @@ on:
     - cron: "50 5 * * 1-5"
     # Samstag 08:00 UTC
     - cron: "0 8 * * 6"
+  push:
+    branches:
+      - main
+    paths:
+      - fetch_data.py
   workflow_dispatch:
     inputs:
       reason:
