@@ -1,12 +1,12 @@
 {
-  "generated_at": "18.06.2026 08:26 UTC",
-  "generated_ts": "2026-06-18T08:26:49.609453Z",
+  "generated_at": "18.06.2026 08:47 UTC",
+  "generated_ts": "2026-06-18T08:47:58.917974Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
     "dfr_note": null,
-    "hicp": null,
-    "hicp_date": "N/A"
+    "hicp": 0.2,
+    "hicp_date": "2015-12"
   },
   "fed": {
     "effr": 3.63,
