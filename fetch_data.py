@@ -254,15 +254,17 @@ def get_us2y():
 
 def get_spread_history():
     """14 wöchentliche US-2Y vs. DE-2Y Spreads.
-    US 2Y: FRED DGS2 (täglich).
-    DE 2Y: ECB YC Tagesdaten via startPeriod (zuverlässiger als lastNObservations).
+    US 2Y: FRED DGS2 (täglich, neueste 120 Werte desc → umgekehrt zu asc).
+    DE 2Y: ECB YC Tagesdaten via startPeriod.
+    FIX: sort='desc' + limit=120 holt die NEUESTEN Daten, nicht die ältesten.
     """
     since = (TODAY - timedelta(weeks=18)).strftime("%Y-%m-%d")
 
-    us_raw = _fred("DGS2", limit=120, sort="asc")
+    # FIX: sort='desc' holt die neuesten 120 Einträge, dann umkehren für asc-Reihenfolge
+    us_raw_desc = _fred("DGS2", limit=120, sort="desc")
+    us_raw = list(reversed(us_raw_desc))  # älteste zuerst
     us_obs = [(d, float(v)) for v, d in us_raw if d >= since]
 
-    # FIX: startPeriod statt lastNObservations – ECB YC ignoriert lastN teilweise
     de_raw = _ecb_series("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y", n=120)
     de_obs = [(d, v) for d, v in de_raw if d >= since]
 
@@ -360,13 +362,15 @@ def get_retail():
     return None
 
 def get_events():
-    # FOMC: 17.06 wird ab morgen (18.06) automatisch übersprungen → nächster: 29.07.2026
+    # FIX: _next() filtert nur Termine > TODAY (strikt größer) → vergangene Events verschwinden am Folgetag
     FOMC = [date(2026,6,17), date(2026,7,29), date(2026,9,16), date(2026,10,28), date(2026,12,9)]
     ECB  = [date(2026,7,23), date(2026,9,10), date(2026,10,29), date(2026,12,3)]
     NFP  = [date(2026,7,2),  date(2026,8,7),  date(2026,9,4),  date(2026,10,2)]
     CPI  = [date(2026,7,14), date(2026,8,12), date(2026,9,11), date(2026,10,14)]
     PPI  = [date(2026,7,15), date(2026,8,13), date(2026,9,12), date(2026,10,15)]
     def _next(dates):
+        # Vergangene Events (< TODAY) werden nicht mehr angezeigt
+        # Events AM heutigen Tag (== TODAY) bleiben bis Mitternacht sichtbar
         fut = [d for d in sorted(dates) if d >= TODAY]
         return fut[0] if fut else None
     def _entry(label, importance, d):
