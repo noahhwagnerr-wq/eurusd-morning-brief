@@ -96,7 +96,6 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
 .panel-badge{display:inline-flex;align-items:center;gap:3px;font-family:var(--font-mono);font-size:var(--text-xs);font-weight:600;padding:2px 8px;border-radius:var(--radius-sm);white-space:nowrap;flex-shrink:0;}
 .panel-badge.down{color:var(--red);background:color-mix(in oklch,var(--red) 12%,transparent);}
 .panel-badge.flat{color:var(--muted);background:var(--surface-3);}
-.panel-body{padding:var(--space-4);}
 .rate-table{width:100%;border-collapse:collapse;}
 .rate-table th{text-align:left;font-size:var(--text-xs);color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;padding:0 0 var(--space-2);font-family:var(--font-mono);}
 .rate-table td{padding:var(--space-2) 0;border-top:1px solid var(--divider);font-family:var(--font-mono);font-size:var(--text-sm);font-variant-numeric:tabular-nums;}
@@ -116,8 +115,12 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
 .spread-stat-val{font-family:var(--font-mono);font-size:var(--text-sm);font-weight:600;text-align:right;}
 .spread-stat-val.bear{color:var(--red);}
 .chart-wrap{height:160px;position:relative;min-width:0;}
-.events-list{display:flex;flex-direction:column;gap:var(--space-2);}
-.event-row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-3);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);}
+
+/* ── Events ── */
+.events-list{display:flex;flex-direction:column;gap:0;}
+.event-item{border-bottom:1px solid var(--divider);}
+.event-item:last-child{border-bottom:none;}
+.event-row{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-3);}
 .event-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .event-dot.high{background:var(--red);box-shadow:0 0 6px var(--red);}
 .event-dot.medium{background:var(--yellow);}
@@ -126,6 +129,25 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
 .event-date{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--muted);}
 .event-days{font-family:var(--font-mono);font-size:var(--text-xs);padding:2px 8px;border-radius:var(--radius-sm);background:var(--surface-3);color:var(--muted);white-space:nowrap;}
 .event-days.soon{color:var(--red);background:color-mix(in oklch,var(--red) 10%,transparent);}
+.event-edit-btn{width:26px;height:26px;border-radius:var(--radius-md);background:var(--surface-3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:0.7rem;transition:all var(--transition);flex-shrink:0;}
+.event-edit-btn:hover,.event-edit-btn.active{color:var(--accent);border-color:color-mix(in oklch,var(--accent) 40%,transparent);background:color-mix(in oklch,var(--accent) 10%,transparent);}
+.event-inline-form{padding:var(--space-3) var(--space-3) var(--space-3) calc(var(--space-3) + 8px + var(--space-3));background:var(--surface-2);border-top:1px solid var(--divider);display:none;flex-direction:column;gap:var(--space-3);}
+.event-inline-form.open{display:flex;}
+.event-form-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2);}
+@media(min-width:500px){.event-form-row{grid-template-columns:repeat(3,1fr);}}
+.form-group{display:flex;flex-direction:column;gap:3px;}
+.form-label{font-size:var(--text-xs);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-family:var(--font-mono);}
+.form-input{background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius-md);padding:5px 9px;font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text);width:100%;transition:border-color var(--transition);}
+.form-input:focus{outline:none;border-color:var(--accent);}
+.event-form-actions{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;}
+.event-save-btn{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--radius-md);background:var(--accent);color:#fff;font-family:var(--font-mono);font-size:var(--text-xs);font-weight:700;transition:opacity var(--transition);}
+.event-save-btn:hover{opacity:0.85;}
+.event-save-btn:disabled{opacity:0.4;cursor:not-allowed;}
+.event-save-status{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--muted);}
+.event-bias-preview{display:flex;align-items:center;gap:var(--space-1);padding:3px 10px;border-radius:var(--radius-md);font-family:var(--font-mono);font-size:var(--text-xs);font-weight:700;border:1px solid var(--border);background:var(--surface-3);width:fit-content;}
+.event-bias-preview.bull{color:var(--green);border-color:color-mix(in oklch,var(--green) 30%,transparent);background:color-mix(in oklch,var(--green) 8%,transparent);}
+.event-bias-preview.bear{color:var(--red);border-color:color-mix(in oklch,var(--red) 30%,transparent);background:color-mix(in oklch,var(--red) 8%,transparent);}
+
 .bias-row{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-2);}
 .bias-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-2) var(--space-3);display:flex;flex-direction:column;gap:2px;}
 .bias-card-label{font-size:var(--text-xs);color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;}
@@ -134,34 +156,6 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
 .footer{text-align:center;font-size:var(--text-xs);color:var(--faint);padding:var(--space-2) 0 var(--space-4);font-family:var(--font-mono);}
 .skeleton{background:var(--surface-3);border-radius:var(--radius-sm);animation:shimmer 1.4s ease-in-out infinite;}
 @keyframes shimmer{0%,100%{opacity:0.4;}50%{opacity:0.8;}}
-.event-editor-panel{grid-column:1/-1;}
-.editor-tabs{display:flex;gap:var(--space-1);padding:var(--space-2) var(--space-4);border-bottom:1px solid var(--divider);overflow-x:auto;flex-wrap:nowrap;}
-.editor-tab{font-family:var(--font-mono);font-size:var(--text-xs);padding:4px 12px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface-2);color:var(--muted);white-space:nowrap;transition:all var(--transition);}
-.editor-tab.active{background:color-mix(in oklch,var(--accent) 12%,transparent);color:var(--accent);border-color:color-mix(in oklch,var(--accent) 40%,transparent);}
-.editor-form{display:grid;gap:var(--space-3);}
-.editor-form-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);}
-@media(min-width:750px){.editor-form-row{grid-template-columns:repeat(4,1fr);}}
-.form-group{display:flex;flex-direction:column;gap:4px;}
-.form-label{font-size:var(--text-xs);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-family:var(--font-mono);}
-.form-input{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);padding:6px 10px;font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text);width:100%;transition:border-color var(--transition);}
-.form-input:focus{outline:none;border-color:var(--accent);}
-.editor-bias-preview{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:var(--text-xs);font-weight:700;margin-top:var(--space-1);border:1px solid var(--border);background:var(--surface-2);}
-.editor-bias-preview.bull{color:var(--green);border-color:color-mix(in oklch,var(--green) 30%,transparent);background:color-mix(in oklch,var(--green) 8%,transparent);}
-.editor-bias-preview.bear{color:var(--red);border-color:color-mix(in oklch,var(--red) 30%,transparent);background:color-mix(in oklch,var(--red) 8%,transparent);}
-.editor-save-btn{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-md);background:var(--accent);color:#fff;font-family:var(--font-mono);font-size:var(--text-xs);font-weight:700;transition:opacity var(--transition);}
-.editor-save-btn:hover{opacity:0.85;}
-.editor-save-btn:disabled{opacity:0.4;cursor:not-allowed;}
-.editor-save-status{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--muted);}
-.editor-history{margin-top:var(--space-4);display:flex;flex-direction:column;gap:var(--space-2);}
-.editor-history-title{font-size:var(--text-xs);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-family:var(--font-mono);margin-bottom:4px;}
-.editor-history-row{display:grid;grid-template-columns:auto 1fr auto auto auto;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:var(--text-xs);}
-.eh-date{color:var(--muted);white-space:nowrap;}
-.eh-vals{color:var(--text);}
-.eh-note{color:var(--faint);font-size:0.7rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.eh-bias{font-weight:700;white-space:nowrap;}
-.eh-bias.bull{color:var(--green);}.eh-bias.bear{color:var(--red);}
-.eh-del{color:var(--faint);font-size:0.75rem;padding:2px 6px;border-radius:var(--radius-sm);}
-.eh-del:hover{color:var(--red);}
 </style>
 </head>
 <body>
@@ -208,7 +202,7 @@ let _chart = null;
 let _data  = null;
 let _eventsData = {};
 let _eventsSha  = null;
-let _activeTab  = 'FOMC';
+let _openEditLabel = null; // which event row has form open
 
 const EVENT_CFG = {
   FOMC: { importance:'high',   unit:'%', label:'Fed Leitzins',
@@ -235,6 +229,17 @@ function calcBias(label, forecast, previous) {
   if (isNaN(f)||isNaN(p)) return null;
   if (f===p) return 'NEUTRAL';
   return (cfg.invert ? f<p : f>p) ? 'BULLISCH' : 'BÄRISCH';
+}
+
+// Parse event date string (DD.MM.YYYY or YYYY-MM-DD) to comparable value
+function parseDateVal(str) {
+  if (!str) return 0;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str.replace(/-/g,'');
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(str)) {
+    const [d,m,y] = str.split('.');
+    return y+m+d;
+  }
+  return str;
 }
 
 function pp(v,d=2){if(v==null)return'N/A';const n=parseFloat(v);if(isNaN(n))return'N/A';return(n>=0?'+':'')+n.toFixed(d)+'pp';}
@@ -372,21 +377,65 @@ function renderMainGrid(d){
     </div>
     <div class="chart-wrap"><canvas id="spreadChart"></canvas></div>`;
 
-  const evRows=events.map(ev=>{
-    const soon=ev.days!==null&&ev.days<=5;
-    const entries=(_eventsData[ev.label]?.entries||[]);
-    const match=entries.find(e=>e.date===ev.date||(e.date||'').replace(/\./g,'-')===ev.date);
-    const forecastBadge=match?
-      `<span style="font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);margin-left:4px">Prog: ${match.forecast||'?'} | Vor: ${match.previous||'?'} ${EVENT_CFG[ev.label]?.unit||''}</span>`
-      :'';
-    const bias=match?calcBias(ev.label,match.forecast,match.previous):null;
-    const biasBadge=bias?
-      `<span style="font-family:var(--font-mono);font-size:0.65rem;font-weight:700;margin-left:4px;color:${bias==='BULLISCH'?'var(--green)':bias==='BÄRISCH'?'var(--red)':'var(--muted)'}">${bias==='BULLISCH'?'🟢':bias==='BÄRISCH'?'🔴':'⚪'} ${bias}</span>`
-      :'';
-    return `<div class="event-row">
-      <div class="event-dot ${ev.importance}"></div>
-      <div><span class="event-name">${ev.label}</span>${forecastBadge}${biasBadge}<div class="event-date">${ev.date}</div></div>
-      <div class="event-days${soon?' soon':''}">${ev.days!==null?ev.days+'T':'N/A'}</div>
+  // Sort events by date ascending
+  const sortedEvents = [...events].sort((a,b)=>parseDateVal(a.date)<parseDateVal(b.date)?-1:parseDateVal(a.date)>parseDateVal(b.date)?1:0);
+
+  const evItems = sortedEvents.map(ev=>{
+    const soon = ev.days!==null && ev.days<=5;
+    const entries = (_eventsData[ev.label]?.entries||[]);
+    const match = entries.find(e=>e.date===ev.date||(e.date||'').replace(/\./g,'-')===ev.date);
+    const cfg = EVENT_CFG[ev.label]||{unit:''};
+
+    let infoHtml = '';
+    if(match){
+      const bias = calcBias(ev.label, match.forecast, match.previous);
+      const biasColor = bias==='BULLISCH'?'var(--green)':bias==='BÄRISCH'?'var(--red)':'var(--muted)';
+      const biasEmoji = bias==='BULLISCH'?'🟢':bias==='BÄRISCH'?'🔴':'⚪';
+      infoHtml = `<div style="display:flex;gap:var(--space-2);flex-wrap:wrap;margin-top:2px;align-items:center">
+        <span style="font-family:var(--font-mono);font-size:0.65rem;color:var(--muted)">Prog: <b style="color:var(--text)">${match.forecast||'?'}</b> | Vor: <b style="color:var(--text)">${match.previous||'?'}</b> ${cfg.unit}</span>
+        ${bias?`<span style="font-family:var(--font-mono);font-size:0.65rem;font-weight:700;color:${biasColor}">${biasEmoji} ${bias}</span>`:''}
+      </div>`;
+    }
+
+    const isOpen = _openEditLabel === ev.label;
+    return `<div class="event-item" id="evitem-${ev.label}">
+      <div class="event-row">
+        <div class="event-dot ${ev.importance}"></div>
+        <div>
+          <span class="event-name">${ev.label}</span>
+          <div class="event-date">${ev.date}</div>
+          ${infoHtml}
+        </div>
+        <div class="event-days${soon?' soon':''}">${ev.days!==null?ev.days+'T':'N/A'}</div>
+        <button class="event-edit-btn${isOpen?' active':''}" onclick="toggleEventEdit('${ev.label}')" title="Vorwert & Prognose bearbeiten" aria-label="Bearbeiten">✏️</button>
+      </div>
+      <div class="event-inline-form${isOpen?' open':''}" id="evform-${ev.label}">
+        <div style="font-size:var(--text-xs);color:var(--muted);font-family:var(--font-mono)">${cfg.label||ev.label} · ${cfg.bullDesc||''}</div>
+        <div class="event-form-row">
+          <div class="form-group">
+            <label class="form-label">Vorwert (${cfg.unit})</label>
+            <input class="form-input" id="ev-prev-${ev.label}" type="text" placeholder="z.B. 4.50" value="${match?.previous||''}" oninput="updateInlineBias('${ev.label}')">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Prognose (${cfg.unit})</label>
+            <input class="form-input" id="ev-fore-${ev.label}" type="text" placeholder="z.B. 4.25" value="${match?.forecast||''}" oninput="updateInlineBias('${ev.label}')">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notiz (optional)</label>
+            <input class="form-input" id="ev-note-${ev.label}" type="text" placeholder="dovish erwartet…" value="${match?.note||''}">
+          </div>
+        </div>
+        <div class="event-form-actions">
+          <div class="event-bias-preview" id="evbias-${ev.label}">⚪ Bias wird berechnet…</div>
+        </div>
+        <div class="event-form-actions">
+          <button class="event-save-btn" id="evsave-${ev.label}" onclick="saveInlineEntry('${ev.label}','${ev.date}')">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Speichern
+          </button>
+          <span class="event-save-status" id="evstatus-${ev.label}"></span>
+        </div>
+      </div>
     </div>`;
   }).join('');
 
@@ -415,7 +464,7 @@ function renderMainGrid(d){
     </div>
     <div class="panel">
       <div class="panel-header"><div class="panel-title">🗓 High-Impact Events</div></div>
-      <div class="panel-body"><div class="events-list">${evRows}</div></div>
+      <div class="events-list">${evItems}</div>
     </div>
     <div class="panel">
       <div class="panel-header"><div class="panel-title">🎯 Gesamt-Bias EUR/USD</div></div>
@@ -430,125 +479,66 @@ function renderMainGrid(d){
           <div style="font-size:var(--text-xs);color:var(--muted);line-height:1.6">${biasDesc}</div>
         </div>
       </div>
-    </div>
-    <div class="panel event-editor-panel">
-      <div class="panel-header"><div class="panel-title">✏️ Event-Prognosen &amp; Kalender</div><span class="panel-badge flat" id="editorSyncBadge">Manuell</span></div>
-      <div id="editorTabs"></div>
-      <div class="panel-body" id="editorBody"></div>
     </div>`;
 
   renderChart(hist);
-  renderEditorTabs();
-  renderEditorForm();
+  // Init bias previews for open form
+  if(_openEditLabel) updateInlineBias(_openEditLabel);
 }
 
-function renderEditorTabs(){
-  const el=document.getElementById('editorTabs');
-  if(!el)return;
-  el.className='editor-tabs';
-  el.innerHTML=Object.keys(EVENT_CFG).map(k=>
-    `<button class="editor-tab${k===_activeTab?' active':''}" onclick="switchTab('${k}')">${k}</button>`
-  ).join('');
+function toggleEventEdit(label){
+  _openEditLabel = (_openEditLabel===label) ? null : label;
+  // Re-render only the events panel content to avoid chart re-init
+  renderMainGrid(_data);
 }
 
-function switchTab(label){
-  _activeTab=label;
-  renderEditorTabs();
-  renderEditorForm();
+function updateInlineBias(label){
+  const f = document.getElementById('ev-fore-'+label)?.value||'';
+  const p = document.getElementById('ev-prev-'+label)?.value||'';
+  const el = document.getElementById('evbias-'+label);
+  if(!el) return;
+  const bias = calcBias(label,f,p);
+  const cfg = EVENT_CFG[label]||{};
+  if(!bias){el.className='event-bias-preview';el.textContent='⚪ Bias wird berechnet…';}
+  else if(bias==='BULLISCH'){el.className='event-bias-preview bull';el.textContent='🟢 BULLISCH EUR/USD';}
+  else if(bias==='BÄRISCH'){el.className='event-bias-preview bear';el.textContent='🔴 BÄRISCH EUR/USD';}
+  else{el.className='event-bias-preview';el.textContent='⚪ NEUTRAL';}
 }
 
-function renderEditorForm(){
-  const el=document.getElementById('editorBody');
-  if(!el)return;
-  const label=_activeTab;
-  const cfg=EVENT_CFG[label];
-  const entries=(_eventsData[label]?.entries||[]);
-  const histRows=entries.slice().reverse().map((e,ri)=>{
-    const idx=entries.length-1-ri;
-    const bc=e.bias==='BULLISCH'?'bull':e.bias==='BÄRISCH'?'bear':'';
-    return `<div class="editor-history-row">
-      <span class="eh-date">${e.date||'–'}</span>
-      <span class="eh-vals">${e.previous||'?'} → ${e.forecast||'?'} ${cfg.unit}</span>
-      <span class="eh-note">${e.note||''}</span>
-      <span class="eh-bias ${bc}">${e.bias==='BULLISCH'?'🟢 BULLISCH':e.bias==='BÄRISCH'?'🔴 BÄRISCH':'⚪ –'}</span>
-      <button class="eh-del" onclick="deleteEntry('${label}',${idx})" title="Löschen">✕</button>
-    </div>`;
-  }).join('');
-  el.innerHTML=`<div class="editor-form">
-    <div style="font-size:var(--text-xs);color:var(--muted);font-family:var(--font-mono)">${cfg.label} · ${cfg.bullDesc}</div>
-    <div class="editor-form-row">
-      <div class="form-group"><label class="form-label">Datum</label><input class="form-input" id="ev-date" type="text" placeholder="17.06.2026"></div>
-      <div class="form-group"><label class="form-label">Vorheriger Wert (${cfg.unit})</label><input class="form-input" id="ev-prev" type="text" placeholder="z.B. 4.50" oninput="updateBiasPreview()"></div>
-      <div class="form-group"><label class="form-label">Prognose (${cfg.unit})</label><input class="form-input" id="ev-forecast" type="text" placeholder="z.B. 4.25" oninput="updateBiasPreview()"></div>
-      <div class="form-group"><label class="form-label">Notiz (optional)</label><input class="form-input" id="ev-note" type="text" placeholder="dovish erwartet…"></div>
-    </div>
-    <div id="ev-bias-preview" class="editor-bias-preview">⚪ Bias wird berechnet…</div>
-    <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap">
-      <button class="editor-save-btn" id="evSaveBtn" onclick="saveEntry('${label}')">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-        Speichern
-      </button>
-      <span class="editor-save-status" id="evSaveStatus"></span>
-    </div>
-    ${entries.length>0?`<div class="editor-history"><div class="editor-history-title">Einträge</div>${histRows}</div>`:''}
-  </div>`;
-}
+async function saveInlineEntry(label, evDate){
+  const prev  = document.getElementById('ev-prev-'+label)?.value.trim()||'';
+  const fore  = document.getElementById('ev-fore-'+label)?.value.trim()||'';
+  const note  = document.getElementById('ev-note-'+label)?.value.trim()||'';
+  if(!fore){ document.getElementById('evstatus-'+label).textContent='⚠️ Prognose nötig'; return; }
+  const bias = calcBias(label, fore, prev);
+  const btn  = document.getElementById('evsave-'+label);
+  btn.disabled = true;
+  document.getElementById('evstatus-'+label).textContent = 'Speichere…';
 
-function updateBiasPreview(){
-  const f=document.getElementById('ev-forecast')?.value||'';
-  const p=document.getElementById('ev-prev')?.value||'';
-  const el=document.getElementById('ev-bias-preview');
-  if(!el)return;
-  const bias=calcBias(_activeTab,f,p);
-  const cfg=EVENT_CFG[_activeTab];
-  if(!bias){el.className='editor-bias-preview';el.textContent='⚪ Bias wird berechnet…';}
-  else if(bias==='BULLISCH'){el.className='editor-bias-preview bull';el.textContent='🟢 BULLISCH EUR/USD – '+cfg.bullDesc;}
-  else if(bias==='BÄRISCH'){el.className='editor-bias-preview bear';el.textContent='🔴 BÄRISCH EUR/USD – '+cfg.bearDesc;}
-  else{el.className='editor-bias-preview';el.textContent='⚪ NEUTRAL – keine Änderung';}
-}
+  // Upsert: replace existing entry for same label+date or add new
+  if(!_eventsData[label]) _eventsData[label]={entries:[]};
+  const entries = _eventsData[label].entries;
+  const idx = entries.findIndex(e=>e.date===evDate||(e.date||'').replace(/\./g,'-')===evDate);
+  const entry = {label, date:evDate, previous:prev, forecast:fore, note, bias, actual:false};
+  if(idx>=0) entries[idx]=entry; else entries.push(entry);
 
-async function saveEntry(label){
-  const date=document.getElementById('ev-date')?.value.trim()||'';
-  const prev=document.getElementById('ev-prev')?.value.trim()||'';
-  const fore=document.getElementById('ev-forecast')?.value.trim()||'';
-  const note=document.getElementById('ev-note')?.value.trim()||'';
-  if(!date||!fore){document.getElementById('evSaveStatus').textContent='⚠️ Datum & Prognose nötig';return;}
-  const bias=calcBias(label,fore,prev);
-  const btn=document.getElementById('evSaveBtn');
-  btn.disabled=true;
-  document.getElementById('evSaveStatus').textContent='Speichere…';
-  if(!_eventsData[label])_eventsData[label]={entries:[]};
-  _eventsData[label].entries.push({label,date,previous:prev,forecast:fore,note,bias,actual:false});
-  const allEvents=Object.values(_eventsData).flatMap(v=>v.entries||[]);
+  const allEvents = Object.values(_eventsData).flatMap(v=>v.entries||[]);
   try{
-    const r=await fetch(WORKER_URL+'/events',{
+    const r = await fetch(WORKER_URL+'/events',{
       method:'PUT',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({events:allEvents,sha:_eventsSha}),
+      body:JSON.stringify({events:allEvents, sha:_eventsSha}),
     });
-    const j=await r.json();
+    const j = await r.json();
     if(j.ok){
-      _eventsSha=j.sha;
-      document.getElementById('evSaveStatus').textContent='✅ Gespeichert';
-      document.getElementById('editorSyncBadge').textContent='✅ Synced';
-    }else throw new Error(j.error||'Fehler');
+      _eventsSha = j.sha;
+      document.getElementById('evstatus-'+label).textContent='✅ Gespeichert';
+      setTimeout(()=>{ _openEditLabel=null; renderMainGrid(_data); },800);
+    } else throw new Error(j.error||'Fehler');
   }catch(e){
-    document.getElementById('evSaveStatus').textContent='⚠️ Lokal: '+e.message;
+    document.getElementById('evstatus-'+label).textContent='⚠️ '+e.message;
+    btn.disabled=false;
   }
-  btn.disabled=false;
-  renderEditorForm();
-}
-
-async function deleteEntry(label,idx){
-  if(!_eventsData[label])return;
-  _eventsData[label].entries.splice(idx,1);
-  const allEvents=Object.values(_eventsData).flatMap(v=>v.entries||[]);
-  try{
-    const r=await fetch(WORKER_URL+'/events',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({events:allEvents,sha:_eventsSha})});
-    const j=await r.json();
-    if(j.ok)_eventsSha=j.sha;
-  }catch(e){}
-  renderEditorForm();
 }
 
 function renderChart(hist){
@@ -588,24 +578,14 @@ function renderFallback(){
   let theme='dark';
   const moon='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
   const sun='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
-  if(btn)btn.addEventListener('click',()=>{
+  if(btn) btn.addEventListener('click',()=>{
     theme=theme==='dark'?'light':'dark';
     root.setAttribute('data-theme',theme);
     btn.innerHTML=theme==='dark'?moon:sun;
-    if(window._chart){
-      const d=theme==='dark';
-      const tc=d?'#808892':'#6b7280',gc=d?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.05)';
-      window._chart.options.scales.x.ticks.color=tc;
-      window._chart.options.scales.y.ticks.color=tc;
-      window._chart.options.scales.x.grid.color=gc;
-      window._chart.options.scales.y.grid.color=gc;
-      window._chart.update();
-    }
   });
 })();
 
 loadData();
-if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js'));}
 </script>
 </body>
 </html>
