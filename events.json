@@ -8,7 +8,7 @@
       "previous": "4.25",
       "forecast": "4.25",
       "unit": "%",
-      "note": "Fed hält voraussichtlich"
+      "note": "Fed hÃ¤lt voraussichtlich"
     },
     {
       "id": "fomc-2026-07-29",
@@ -49,6 +49,15 @@
       "forecast": "",
       "unit": "%",
       "note": ""
+    },
+    {
+      "label": "FOMC",
+      "date": "17.07.2026",
+      "previous": "3.75",
+      "forecast": "3.75",
+      "note": "",
+      "bias": "NEUTRAL",
+      "actual": false
     },
     {
       "id": "ezb-2026-07-23",
@@ -211,5 +220,5 @@
       "note": ""
     }
   ],
-  "last_updated": "2026-06-14T18:00:00Z"
+  "last_updated": "2026-06-18T08:10:12.109Z"
 }
