@@ -22,6 +22,8 @@ except ImportError:
 FRED_API_KEY = os.getenv("FRED_API_KEY", "")
 ECB_BASE     = "https://data-api.ecb.europa.eu/service/data"
 TODAY        = date.today()
+# Frühester akzeptierter Monat für HICP-Daten (verhindert Dez-2015-Artefakte)
+_MIN_HICP_DATE = date(TODAY.year - 1, 1, 1)
 
 _ECB_DECISIONS = [
     ("2026-06-11", 2.25, "2026-06-17"),
@@ -37,15 +39,23 @@ def safe_get(url, params=None, timeout=20, headers=None):
         print(f"[WARN] {url.split('/')[-1][:50]}: {e}")
         return None
 
-def _fix_year(p):
-    if not p or len(p) < 4:
-        return p
+def _parse_period(raw):
+    """
+    Wandelt einen SDMX-Perioden-String (z.B. '2026-05', '2026-05-01')
+    in ein date-Objekt um. Gibt None zurück wenn nicht parsebar.
+    Keine Jahr-Korrektur mehr — der rohe Wert der API wird 1:1 verwendet.
+    """
+    if not raw or len(raw) < 4:
+        return None
+    s = raw[:7]  # nimm max. YYYY-MM
     try:
-        if int(p[:4]) < TODAY.year - 1:
-            p = str(TODAY.year) + p[4:]
+        return datetime.strptime(s + "-01", "%Y-%m-%d").date()
     except Exception:
         pass
-    return p
+    try:
+        return datetime.strptime(raw[:10], "%Y-%m-%d").date()
+    except Exception:
+        return None
 
 def _ecb_last(series, extra=None):
     params = {"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
@@ -61,7 +71,7 @@ def _ecb_last(series, extra=None):
         lk   = sorted(obs.keys(), key=lambda x: int(x))[-1]
         val  = float(obs[lk][0])
         dims = data["structure"]["dimensions"]["observation"][0]["values"]
-        raw  = _fix_year(dims[int(lk)]["id"])
+        raw  = dims[int(lk)]["id"]
         return val, raw
     except Exception as e:
         print(f"[WARN] ECB parse {series}: {e}")
@@ -85,7 +95,7 @@ def _ecb_series(series, n=120):
         for k, v in obs.items():
             if v[0] is None:
                 continue
-            raw = _fix_year(dims[int(k)]["id"])
+            raw = dims[int(k)]["id"]
             result.append((raw, float(v[0])))
         result.sort(key=lambda x: x[0])
         return result
@@ -103,7 +113,16 @@ def _fred(series_id, limit=2, sort="desc", units=None):
         return [(o["value"], o["date"]) for o in data["observations"] if o["value"] != "."]
     return []
 
-def _parse_sdmx_candidates(data):
+def _parse_sdmx_candidates(data, min_date=None):
+    """
+    Extrahiert den neuesten gültigen (value, period) aus einer SDMX JSON-Antwort.
+    Filtert:
+      - Werte außerhalb des plausiblen Bereichs (0 < |v| <= 25)
+      - Perioden vor min_date (verhindert uralte Artefakte)
+    Keine _fix_year-Korrektur — API-Werte werden direkt verwendet.
+    """
+    if min_date is None:
+        min_date = _MIN_HICP_DATE
     try:
         sm   = data["dataSets"][0]["series"]
         key  = list(sm.keys())[0]
@@ -116,11 +135,10 @@ def _parse_sdmx_candidates(data):
             v = float(ov[0])
             if not (0.0 < abs(v) <= 25.0):
                 continue
-            raw = _fix_year(dims[int(ok)]["id"])
-            try:
-                pd_ = datetime.strptime(raw[:7] + "-01", "%Y-%m-%d").date()
-            except Exception:
-                pd_ = date(1900, 1, 1)
+            raw = dims[int(ok)]["id"]
+            pd_ = _parse_period(raw)
+            if pd_ is None or pd_ < min_date:
+                continue
             candidates.append((pd_, v, raw[:7]))
         if candidates:
             candidates.sort(reverse=True)
@@ -131,17 +149,10 @@ def _parse_sdmx_candidates(data):
 
 def get_hicp():
     """
-    5-Quellen-Kaskade für Eurozone HICP (jährliche Veränderungsrate):
-    1. ECB HICP Dataset (data.ecb.europa.eu)
-    2. ECB ICP Monatsserie (data-api.ecb.europa.eu)
-    3. Bundesbank SDMX API
-    4. Eurostat SDMX
-    5. FRED CP0000EZ17M086NEST (pc1)
-    startPeriod = 3 Monate zurück — stellt sicher, dass finale Werte
-    auch dann gefunden werden, wenn die API den neuesten Monat erst
-    spät einträgt.
+    5-Quellen-Kaskade für Eurozone HICP (jährliche Veränderungsrate).
+    startPeriod = 3 Monate zurück für Flash + finale Veröffentlichungen.
+    Perioden vor _MIN_HICP_DATE werden herausgefiltert.
     """
-    # 3 Monate zurück statt 1 — deckt Flash + finale Veröffentlichung sicher ab
     start = (TODAY.replace(day=1) - timedelta(days=92)).strftime("%Y-%m")
 
     # 1) ECB HICP Dataset
@@ -191,13 +202,23 @@ def get_hicp():
             print(f"[OK] HICP (Eurostat): {val}% ({period})")
             return val, period
 
-    # 5) FRED CP0000EZ17M086NEST (Eurozone HICP, prozentuale Jahresänderung)
+    # 5) FRED CP0000EZ17M086NEST — pc1 = prozentuale Jahresänderung
+    # Nur Werte aus den letzten 18 Monaten akzeptieren
     obs = _fred("CP0000EZ17M086NEST", limit=4, units="pc1")
     if obs:
-        v, d = round(float(obs[0][0]), 1), obs[0][1]
-        period = d[:7]
-        print(f"[OK] HICP (FRED): {v}% ({period})")
-        return v, period
+        for raw_v, raw_d in obs:
+            try:
+                v = round(float(raw_v), 1)
+                d_parsed = date.fromisoformat(raw_d)
+                if d_parsed < _MIN_HICP_DATE:
+                    continue
+                if not (0.1 <= abs(v) <= 25.0):
+                    continue
+                period = raw_d[:7]
+                print(f"[OK] HICP (FRED): {v}% ({period})")
+                return v, period
+            except Exception:
+                continue
 
     print("[WARN] HICP: alle Quellen erschoepft")
     return None, "N/A"
