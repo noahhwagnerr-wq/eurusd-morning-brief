@@ -22,7 +22,6 @@ except ImportError:
 FRED_API_KEY = os.getenv("FRED_API_KEY", "")
 ECB_BASE     = "https://data-api.ecb.europa.eu/service/data"
 TODAY        = date.today()
-# Frühester akzeptierter Monat für HICP (verhindert uralte Artefakte)
 _MIN_HICP_DATE = date(TODAY.year - 1, 1, 1)
 
 _ECB_DECISIONS = [
@@ -40,7 +39,6 @@ def safe_get(url, params=None, timeout=20, headers=None):
         return None
 
 def _parse_period(raw):
-    """Wandelt SDMX-Perioden-String direkt in date um, ohne Jahr-Korrektur."""
     if not raw or len(raw) < 4:
         return None
     try:
@@ -111,7 +109,7 @@ def _fred(series_id, limit=2, sort="desc", units=None):
 def _parse_sdmx_candidates(data):
     """
     Extrahiert den neuesten gültigen (value, period) aus SDMX JSON.
-    Filtert Werte außerhalb [0.1, 25.0] und Perioden vor _MIN_HICP_DATE heraus.
+    Filtert Werte außerhalb (0, 25] und Perioden vor _MIN_HICP_DATE heraus.
     """
     try:
         sm   = data["dataSets"][0]["series"]
@@ -139,72 +137,62 @@ def _parse_sdmx_candidates(data):
 
 def get_hicp():
     """
-    4-Quellen-Kaskade für Eurozone HICP (jährliche Veränderungsrate).
+    5-Quellen-Kaskade für Eurozone HICP (jährliche Veränderungsrate).
 
-    Alle Quellen verwenden ausschließlich lastNObservations — KEIN startPeriod.
-    Hintergrund:
-      - ECB HICP Dataset (data.ecb.europa.eu/api/data) liefert HTTP 404
-        wenn der Endpoint nicht korrekt adressiert wird.
-      - Eurostat SDMX 2.1 wirft HTTP 400 bei startPeriod mit YYYY-MM-Werten
-        die jünger als ~6 Monate sind.
-      - ECB ICP (data-api.ecb.europa.eu) liefert leeren Body bei startPeriod
-        für sehr aktuelle Monate.
-    Lösung: lastNObservations=4 für alle Quellen + _MIN_HICP_DATE-Filter
-    in _parse_sdmx_candidates verhindert uralte Artefakte.
+    WICHTIG: Das alte ECB ICP-Dataset (ICP/M.U2.N.000000.4.ANR) wurde
+    ab Februar 2026 durch das neue HICP-Dataset abgelöst und enthält
+    keine Daten mehr ab 2026. Primäre Quelle ist daher:
+      HICP/M.U2.N.000000.4D0.ANR  (neues ECB HICP-Dataset ab Feb 2026)
+
+    Alle Quellen: lastNObservations statt startPeriod (Eurostat HTTP-400-Bug
+    bei aktuellen YYYY-MM Perioden).
     """
 
-    # 1) ECB ICP Monatsserie — nur lastNObservations, kein startPeriod
+    # 1) Neues ECB HICP-Dataset (aktiv seit Feb 2026, löst ICP ab)
     d1 = safe_get(
-        f"{ECB_BASE}/ICP/M.U2.N.000000.4.ANR",
+        f"{ECB_BASE}/HICP/M.U2.N.000000.4D0.ANR",
         {"format": "jsondata", "lastNObservations": 4, "detail": "dataonly"}
     )
     if d1:
         val, period = _parse_sdmx_candidates(d1)
         if val is not None:
-            print(f"[OK] HICP (ECB ICP): {val}% ({period})")
+            print(f"[OK] HICP (ECB HICP 4D0): {val}% ({period})")
             return val, period
 
-    # 2) Eurostat SDMX — ohne startPeriod, nur lastNObservations via sinceTimePeriod
-    #    Eurostat-API akzeptiert sinceTimePeriod mit YYYY-MM Format
-    since_ym = (TODAY.replace(day=1) - timedelta(days=92)).strftime("%Y-%m")
+    # 2) Altes ECB ICP-Dataset (Fallback für Lücken)
     d2 = safe_get(
         f"{ECB_BASE}/ICP/M.U2.N.000000.4.ANR",
-        {"format": "jsondata", "lastNObservations": 6, "detail": "dataonly"}
+        {"format": "jsondata", "lastNObservations": 4, "detail": "dataonly"}
     )
-    # Eurostat direkt — ohne jeglichen Datumsfilter
-    d2b = safe_get(
+    if d2:
+        val, period = _parse_sdmx_candidates(d2)
+        if val is not None:
+            print(f"[OK] HICP (ECB ICP legacy): {val}% ({period})")
+            return val, period
+
+    # 3) Eurostat SDMX 2.1 — ohne Datumsfilter
+    d3 = safe_get(
         "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/prc_hicp_manr/M.RCH_A.CP00.EA",
         {"format": "jsondata", "lastNObservations": 4}
-    )
-    if d2b:
-        val, period = _parse_sdmx_candidates(d2b)
-        if val is not None:
-            print(f"[OK] HICP (Eurostat v2): {val}% ({period})")
-            return val, period
-
-    # Eurostat REST v3 (neuere API ohne Datumsfilter-Probleme)
-    d2c = safe_get(
-        "https://ec.europa.eu/eurostat/api/dissemination/sdmx/3.0/data/dataflow/ESTAT/prc_hicp_manr/1.0/M.RCH_A.CP00.EA",
-        {"format": "jsondata", "lastNObservations": 4}
-    )
-    if d2c:
-        val, period = _parse_sdmx_candidates(d2c)
-        if val is not None:
-            print(f"[OK] HICP (Eurostat v3): {val}% ({period})")
-            return val, period
-
-    # 3) Bundesbank SDMX — nur lastNObservations
-    d3 = safe_get(
-        "https://api.bundesbank.de/service/data/BBK_ICP/M.DE.N.000000.4.ANR",
-        {"format": "jsondata", "lastNObservations": 4, "detail": "dataonly"}
     )
     if d3:
         val, period = _parse_sdmx_candidates(d3)
         if val is not None:
+            print(f"[OK] HICP (Eurostat v2): {val}% ({period})")
+            return val, period
+
+    # 4) Bundesbank SDMX
+    d4 = safe_get(
+        "https://api.bundesbank.de/service/data/BBK_ICP/M.DE.N.000000.4.ANR",
+        {"format": "jsondata", "lastNObservations": 4, "detail": "dataonly"}
+    )
+    if d4:
+        val, period = _parse_sdmx_candidates(d4)
+        if val is not None:
             print(f"[OK] HICP (Bundesbank): {val}% ({period})")
             return val, period
 
-    # 4) FRED CP0000EZ17M086NEST (pc1 = prozentuale Jahresänderung)
+    # 5) FRED CP0000EZ17M086NEST (pc1 = prozentuale Jahresänderung)
     obs = _fred("CP0000EZ17M086NEST", limit=4, units="pc1")
     if obs:
         for raw_v, raw_d in obs:
