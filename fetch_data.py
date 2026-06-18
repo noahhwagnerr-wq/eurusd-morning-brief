@@ -70,14 +70,11 @@ def _ecb_last(series, extra=None):
         return None, "N/A"
 
 def _ecb_series(series, n=120):
-    """Gibt Liste von (date_str, float) für die letzten n Beobachtungen zurück.
-    Verwendet startPeriod statt lastNObservations, da YC-Serie den Parameter
-    teilweise ignoriert."""
+    """Gibt Liste von (date_str, float) für die letzten n Beobachtungen zurück."""
     since = (TODAY - timedelta(days=n * 2)).strftime("%Y-%m-%d")
     params = {"format": "jsondata", "startPeriod": since, "detail": "dataonly"}
     data = safe_get(f"{ECB_BASE}/{series}", params)
     if not data:
-        # Fallback: lastNObservations
         params2 = {"format": "jsondata", "lastNObservations": n, "detail": "dataonly"}
         data = safe_get(f"{ECB_BASE}/{series}", params2)
     if not data:
@@ -146,7 +143,6 @@ def get_hicp():
     """
     start = (TODAY.replace(day=1) - timedelta(days=32)).strftime("%Y-%m")
 
-    # 1) ECB HICP Dataset – separater Host, Flash-Estimates enthalten
     d1 = safe_get(
         "https://data.ecb.europa.eu/api/data/HICP/M.U2.N.000000.4.ANR",
         {"format": "jsondata", "startPeriod": start, "detail": "dataonly"}
@@ -157,7 +153,6 @@ def get_hicp():
             print(f"[OK] HICP (ECB HICP Dataset): {val}% ({period})")
             return val, period
 
-    # 2) ECB ICP Monatsserie
     d2 = safe_get(
         f"{ECB_BASE}/ICP/M.U2.N.000000.4.ANR",
         {"format": "jsondata", "startPeriod": start,
@@ -169,7 +164,6 @@ def get_hicp():
             print(f"[OK] HICP (ECB ICP): {val}% ({period})")
             return val, period
 
-    # 3) Bundesbank SDMX
     d3 = safe_get(
         "https://api.bundesbank.de/service/data/BBK_ICP/M.DE.N.000000.4.ANR",
         {"format": "jsondata", "startPeriod": start,
@@ -181,7 +175,6 @@ def get_hicp():
             print(f"[OK] HICP (Bundesbank): {val}% ({period})")
             return val, period
 
-    # 4) Eurostat SDMX
     d4 = safe_get(
         "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/prc_hicp_manr",
         {"format": "JSON", "geo": "EA", "unit": "RCH_A", "coicop": "CP00",
@@ -211,7 +204,6 @@ def get_dfr():
     for dec_d, new_dfr, eff_d in _ECB_DECISIONS:
         eff = date.fromisoformat(eff_d)
         dec = date.fromisoformat(dec_d)
-        # Note nur anzeigen solange Entscheidung bekannt, aber noch nicht in Kraft
         if dec <= TODAY < eff and (val is None or abs(val - new_dfr) > 0.001):
             val, period, note = new_dfr, dec_d, f"in Kraft ab {eff_d}"
     print(f"[OK] DFR: {val}% ({period})")
@@ -253,16 +245,11 @@ def get_us2y():
     return None, "N/A"
 
 def get_spread_history():
-    """14 wöchentliche US-2Y vs. DE-2Y Spreads.
-    US 2Y: FRED DGS2 (täglich, neueste 120 Werte desc → umgekehrt zu asc).
-    DE 2Y: ECB YC Tagesdaten via startPeriod.
-    FIX: sort='desc' + limit=120 holt die NEUESTEN Daten, nicht die ältesten.
-    """
+    """14 wöchentliche US-2Y vs. DE-2Y Spreads."""
     since = (TODAY - timedelta(weeks=18)).strftime("%Y-%m-%d")
 
-    # FIX: sort='desc' holt die neuesten 120 Einträge, dann umkehren für asc-Reihenfolge
     us_raw_desc = _fred("DGS2", limit=120, sort="desc")
-    us_raw = list(reversed(us_raw_desc))  # älteste zuerst
+    us_raw = list(reversed(us_raw_desc))
     us_obs = [(d, float(v)) for v, d in us_raw if d >= since]
 
     de_raw = _ecb_series("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y", n=120)
@@ -362,16 +349,14 @@ def get_retail():
     return None
 
 def get_events():
-    # FIX: _next() filtert nur Termine > TODAY (strikt größer) → vergangene Events verschwinden am Folgetag
-    FOMC = [date(2026,6,17), date(2026,7,29), date(2026,9,16), date(2026,10,28), date(2026,12,9)]
+    FOMC = [date(2026,7,29), date(2026,9,16), date(2026,10,28), date(2026,12,9)]
     ECB  = [date(2026,7,23), date(2026,9,10), date(2026,10,29), date(2026,12,3)]
     NFP  = [date(2026,7,2),  date(2026,8,7),  date(2026,9,4),  date(2026,10,2)]
     CPI  = [date(2026,7,14), date(2026,8,12), date(2026,9,11), date(2026,10,14)]
     PPI  = [date(2026,7,15), date(2026,8,13), date(2026,9,12), date(2026,10,15)]
     def _next(dates):
-        # Vergangene Events (< TODAY) werden nicht mehr angezeigt
-        # Events AM heutigen Tag (== TODAY) bleiben bis Mitternacht sichtbar
-        fut = [d for d in sorted(dates) if d >= TODAY]
+        # Nur zukünftige Termine (strikt > TODAY) — heutige Events fallen sofort raus
+        fut = [d for d in sorted(dates) if d > TODAY]
         return fut[0] if fut else None
     def _entry(label, importance, d):
         if d is None:
