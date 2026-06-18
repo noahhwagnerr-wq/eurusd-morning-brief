@@ -23,8 +23,6 @@ FRED_API_KEY = os.getenv("FRED_API_KEY", "")
 ECB_BASE     = "https://data-api.ecb.europa.eu/service/data"
 TODAY        = date.today()
 
-# Einträge: (Beschlussdatum, neuer DFR, Inkrafttretungsdatum)
-# Note wird nur angezeigt wenn: dec_date <= TODAY < eff_date
 _ECB_DECISIONS = [
     ("2026-06-11", 2.25, "2026-06-17"),
 ]
@@ -70,7 +68,6 @@ def _ecb_last(series, extra=None):
         return None, "N/A"
 
 def _ecb_series(series, n=120):
-    """Gibt Liste von (date_str, float) für die letzten n Beobachtungen zurück."""
     since = (TODAY - timedelta(days=n * 2)).strftime("%Y-%m-%d")
     params = {"format": "jsondata", "startPeriod": since, "detail": "dataonly"}
     data = safe_get(f"{ECB_BASE}/{series}", params)
@@ -107,7 +104,6 @@ def _fred(series_id, limit=2, sort="desc", units=None):
     return []
 
 def _parse_sdmx_candidates(data):
-    """Extrahiert den neuesten gültigen (value, period) aus einer SDMX JSON-Antwort."""
     try:
         sm   = data["dataSets"][0]["series"]
         key  = list(sm.keys())[0]
@@ -135,14 +131,20 @@ def _parse_sdmx_candidates(data):
 
 def get_hicp():
     """
-    4-Quellen-Kaskade für Eurozone HICP (jährliche Veränderungsrate):
-    1. ECB HICP Dataset (data.ecb.europa.eu) – enthält Flash-Estimates
+    5-Quellen-Kaskade für Eurozone HICP (jährliche Veränderungsrate):
+    1. ECB HICP Dataset (data.ecb.europa.eu)
     2. ECB ICP Monatsserie (data-api.ecb.europa.eu)
     3. Bundesbank SDMX API
-    4. Eurostat SDMX als letzter Fallback
+    4. Eurostat SDMX
+    5. FRED CP0000EZ17M086NEST (pc1)
+    startPeriod = 3 Monate zurück — stellt sicher, dass finale Werte
+    auch dann gefunden werden, wenn die API den neuesten Monat erst
+    spät einträgt.
     """
-    start = (TODAY.replace(day=1) - timedelta(days=32)).strftime("%Y-%m")
+    # 3 Monate zurück statt 1 — deckt Flash + finale Veröffentlichung sicher ab
+    start = (TODAY.replace(day=1) - timedelta(days=92)).strftime("%Y-%m")
 
+    # 1) ECB HICP Dataset
     d1 = safe_get(
         "https://data.ecb.europa.eu/api/data/HICP/M.U2.N.000000.4.ANR",
         {"format": "jsondata", "startPeriod": start, "detail": "dataonly"}
@@ -153,10 +155,11 @@ def get_hicp():
             print(f"[OK] HICP (ECB HICP Dataset): {val}% ({period})")
             return val, period
 
+    # 2) ECB ICP Monatsserie
     d2 = safe_get(
         f"{ECB_BASE}/ICP/M.U2.N.000000.4.ANR",
         {"format": "jsondata", "startPeriod": start,
-         "lastNObservations": 3, "detail": "dataonly"}
+         "lastNObservations": 4, "detail": "dataonly"}
     )
     if d2:
         val, period = _parse_sdmx_candidates(d2)
@@ -164,10 +167,11 @@ def get_hicp():
             print(f"[OK] HICP (ECB ICP): {val}% ({period})")
             return val, period
 
+    # 3) Bundesbank SDMX
     d3 = safe_get(
         "https://api.bundesbank.de/service/data/BBK_ICP/M.DE.N.000000.4.ANR",
         {"format": "jsondata", "startPeriod": start,
-         "lastNObservations": 3, "detail": "dataonly"}
+         "lastNObservations": 4, "detail": "dataonly"}
     )
     if d3:
         val, period = _parse_sdmx_candidates(d3)
@@ -175,6 +179,7 @@ def get_hicp():
             print(f"[OK] HICP (Bundesbank): {val}% ({period})")
             return val, period
 
+    # 4) Eurostat SDMX
     d4 = safe_get(
         "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/prc_hicp_manr",
         {"format": "JSON", "geo": "EA", "unit": "RCH_A", "coicop": "CP00",
@@ -185,6 +190,14 @@ def get_hicp():
         if val is not None:
             print(f"[OK] HICP (Eurostat): {val}% ({period})")
             return val, period
+
+    # 5) FRED CP0000EZ17M086NEST (Eurozone HICP, prozentuale Jahresänderung)
+    obs = _fred("CP0000EZ17M086NEST", limit=4, units="pc1")
+    if obs:
+        v, d = round(float(obs[0][0]), 1), obs[0][1]
+        period = d[:7]
+        print(f"[OK] HICP (FRED): {v}% ({period})")
+        return v, period
 
     print("[WARN] HICP: alle Quellen erschoepft")
     return None, "N/A"
@@ -245,7 +258,6 @@ def get_us2y():
     return None, "N/A"
 
 def get_spread_history():
-    """14 wöchentliche US-2Y vs. DE-2Y Spreads."""
     since = (TODAY - timedelta(weeks=18)).strftime("%Y-%m-%d")
 
     us_raw_desc = _fred("DGS2", limit=120, sort="desc")
@@ -355,7 +367,6 @@ def get_events():
     CPI  = [date(2026,7,14), date(2026,8,12), date(2026,9,11), date(2026,10,14)]
     PPI  = [date(2026,7,15), date(2026,8,13), date(2026,9,12), date(2026,10,15)]
     def _next(dates):
-        # Nur zukünftige Termine (strikt > TODAY) — heutige Events fallen sofort raus
         fut = [d for d in sorted(dates) if d > TODAY]
         return fut[0] if fut else None
     def _entry(label, importance, d):
