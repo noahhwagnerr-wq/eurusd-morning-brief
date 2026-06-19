@@ -1,6 +1,6 @@
 {
-  "generated_at": "18.06.2026 09:59 UTC",
-  "generated_ts": "2026-06-18T09:59:19.263970Z",
+  "generated_at": "19.06.2026 10:05 UTC",
+  "generated_ts": "2026-06-19T10:05:41.137335Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-06-16",
+    "effr_date": "2026-06-17",
     "cpi": 4.2,
     "cpi_date": "2026-05"
   },
   "yields": {
-    "us2y": 4.05,
-    "us2y_date": "2026-06-16",
-    "de2y": 2.5154495371,
-    "de2y_date": "2026-06-16"
+    "us2y": 4.2,
+    "us2y_date": "2026-06-17",
+    "de2y": 2.5543756811,
+    "de2y_date": "2026-06-18"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.53,
+    "yield_spread": 1.65,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -46,31 +46,31 @@
       "label": "FOMC",
       "importance": "high",
       "date": "29.07.2026",
-      "days": 41
+      "days": 40
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "02.07.2026",
-      "days": 14
+      "days": 13
     },
     {
       "label": "CPI",
       "importance": "medium",
       "date": "14.07.2026",
-      "days": 26
+      "days": 25
     },
     {
       "label": "PPI",
       "importance": "low",
       "date": "15.07.2026",
-      "days": 27
+      "days": 26
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "23.07.2026",
-      "days": 35
+      "days": 34
     }
   ],
   "spread_history": [
