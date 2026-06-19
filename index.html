@@ -202,7 +202,7 @@ let _chart = null;
 let _data  = null;
 let _eventsData = {};
 let _eventsSha  = null;
-let _openEditLabel = null; // which event row has form open
+let _openEditLabel = null;
 
 const EVENT_CFG = {
   FOMC: { importance:'high',   unit:'%', label:'Fed Leitzins',
@@ -240,6 +240,25 @@ function parseDateVal(str) {
     return y+m+d;
   }
   return str;
+}
+
+// Berechnet Tage bis zum Event-Datum immer live aus dem aktuellen Browserdatum.
+// Akzeptiert DD.MM.YYYY und YYYY-MM-DD.
+function calcDaysFromNow(dateStr) {
+  if (!dateStr) return null;
+  let y, m, d;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    [y, m, d] = dateStr.split('-').map(Number);
+  } else if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateStr)) {
+    [d, m, y] = dateStr.split('.').map(Number);
+  } else {
+    return null;
+  }
+  const now   = new Date();
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const event = Date.UTC(y, m - 1, d);
+  const diff  = Math.round((event - today) / 86400000);
+  return diff >= 0 ? diff : null;
 }
 
 function pp(v,d=2){if(v==null)return'N/A';const n=parseFloat(v);if(isNaN(n))return'N/A';return(n>=0?'+':'')+n.toFixed(d)+'pp';}
@@ -381,7 +400,9 @@ function renderMainGrid(d){
   const sortedEvents = [...events].sort((a,b)=>parseDateVal(a.date)<parseDateVal(b.date)?-1:parseDateVal(a.date)>parseDateVal(b.date)?1:0);
 
   const evItems = sortedEvents.map(ev=>{
-    const soon = ev.days!==null && ev.days<=5;
+    // Immer clientseitig berechnen – niemals ev.days aus data.json verwenden
+    const days = calcDaysFromNow(ev.date);
+    const soon = days !== null && days <= 5;
     const entries = (_eventsData[ev.label]?.entries||[]);
     const match = entries.find(e=>e.date===ev.date||(e.date||'').replace(/\./g,'-')===ev.date);
     const cfg = EVENT_CFG[ev.label]||{unit:''};
@@ -406,8 +427,8 @@ function renderMainGrid(d){
           <div class="event-date">${ev.date}</div>
           ${infoHtml}
         </div>
-        <div class="event-days${soon?' soon':''}">${ev.days!==null?ev.days+'T':'N/A'}</div>
-        <button class="event-edit-btn${isOpen?' active':''}" onclick="toggleEventEdit('${ev.label}')" title="Vorwert & Prognose bearbeiten" aria-label="Bearbeiten">✏️</button>
+        <div class="event-days${soon?' soon':''}">${days!==null?days+'T':'N/A'}</div>
+        <button class="event-edit-btn${isOpen?' active':''}" onclick="toggleEventEdit('${ev.label}')" title="Vorwert &amp; Prognose bearbeiten" aria-label="Bearbeiten">✏️</button>
       </div>
       <div class="event-inline-form${isOpen?' open':''}" id="evform-${ev.label}">
         <div style="font-size:var(--text-xs);color:var(--muted);font-family:var(--font-mono)">${cfg.label||ev.label} · ${cfg.bullDesc||''}</div>
@@ -444,9 +465,11 @@ function renderMainGrid(d){
   const cotBiasClass=sig.cot_bias==='NET-SHORT'?'bc-bear':sig.cot_bias==='NET-LONG'?'bc-bull':'bc-neutral';
   const overall=(sig.overall_bias||'NEUTRAL').toUpperCase();
   const overallColor=overall==='BÄRISCH'?'var(--red)':overall==='BULLISCH'?'var(--green)':'var(--muted)';
+  // FOMC-Tage ebenfalls live berechnen
   const fomc=events.find(e=>e.label==='FOMC');
-  const biasDesc=overall==='BÄRISCH'?`USD-Zins- und Spread-Vorteil dominant.${fomc?.days!=null?' FOMC in '+fomc.days+'T entscheidend.':''} COT ohne klare Gegenposition.`
-    :overall==='BULLISCH'?`EUR-Zinsvorteil wächst.${fomc?.days!=null?' FOMC in '+fomc.days+'T.':''}`
+  const fomcDays = fomc ? calcDaysFromNow(fomc.date) : null;
+  const biasDesc=overall==='BÄRISCH'?`USD-Zins- und Spread-Vorteil dominant.${fomcDays!=null?' FOMC in '+fomcDays+'T entscheidend.':''} COT ohne klare Gegenposition.`
+    :overall==='BULLISCH'?`EUR-Zinsvorteil wächst.${fomcDays!=null?' FOMC in '+fomcDays+'T.':''}`
     :'Signale gemischt. Kein klarer Richtungsimpuls.';
 
   document.getElementById('mainGrid').innerHTML=`
@@ -482,13 +505,11 @@ function renderMainGrid(d){
     </div>`;
 
   renderChart(hist);
-  // Init bias previews for open form
   if(_openEditLabel) updateInlineBias(_openEditLabel);
 }
 
 function toggleEventEdit(label){
   _openEditLabel = (_openEditLabel===label) ? null : label;
-  // Re-render only the events panel content to avoid chart re-init
   renderMainGrid(_data);
 }
 
@@ -498,7 +519,6 @@ function updateInlineBias(label){
   const el = document.getElementById('evbias-'+label);
   if(!el) return;
   const bias = calcBias(label,f,p);
-  const cfg = EVENT_CFG[label]||{};
   if(!bias){el.className='event-bias-preview';el.textContent='⚪ Bias wird berechnet…';}
   else if(bias==='BULLISCH'){el.className='event-bias-preview bull';el.textContent='🟢 BULLISCH EUR/USD';}
   else if(bias==='BÄRISCH'){el.className='event-bias-preview bear';el.textContent='🔴 BÄRISCH EUR/USD';}
@@ -515,7 +535,6 @@ async function saveInlineEntry(label, evDate){
   btn.disabled = true;
   document.getElementById('evstatus-'+label).textContent = 'Speichere…';
 
-  // Upsert: replace existing entry for same label+date or add new
   if(!_eventsData[label]) _eventsData[label]={entries:[]};
   const entries = _eventsData[label].entries;
   const idx = entries.findIndex(e=>e.date===evDate||(e.date||'').replace(/\./g,'-')===evDate);
