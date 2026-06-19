@@ -22,6 +22,8 @@
  *  ─────────────────────────────────────────────────────────────
  *  #11 HICP Flash-Pins entfernt – nur noch live API
  *  #12 Myfxbook ersetzt durch MarketMilk/BabyPips + Oanda Fallback
+ *  #13 Countdown-Tage: Math.round() → UTC-Mitternacht-Differenz
+ *      (verhindert Off-by-one bei Runs nach Mitternacht UTC)
  * =============================================================
  */
 
@@ -129,6 +131,16 @@ function esc(text: string): string {
 
 function toISO(d: Date): string {
   return d.toISOString().slice(0, 10);
+}
+
+/** Gibt die UTC-Mitternacht eines Datums zurück – unabhängig von der Tageszeit. */
+function utcMidnight(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+/** Ganzzahlige Differenz in Tagen zwischen zwei UTC-Mitternacht-Werten. */
+function daysBetween(a: Date, b: Date): number {
+  return Math.trunc((utcMidnight(b).getTime() - utcMidnight(a).getTime()) / 86_400_000);
 }
 
 function parseYM(s: string): Date {
@@ -363,12 +375,18 @@ async function getRetailSentiment(): Promise<RetailData | null> {
 // ─────────────────────────────────────────────────────────────
 
 function getNextMeetings(today: Date): Meetings {
+  const todayMid = utcMidnight(today);
   const next = (dates: string[]): Date | null => {
-    const fut = dates.map(d => new Date(d)).filter(d => d >= today).sort((a, b) => +a - +b);
+    const fut = dates
+      .map(d => new Date(d))
+      .filter(d => utcMidnight(d) >= todayMid)
+      .sort((a, b) => +a - +b);
     return fut[0] ?? null;
   };
-  const fmtD = (d: Date | null) => d ? d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }) : "N/A";
-  const days = (d: Date | null) => d ? Math.round((d.getTime() - today.getTime()) / 86400000) : null;
+  const fmtD = (d: Date | null) =>
+    d ? d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }) : "N/A";
+  // Ganzzahlige Tagesdifferenz: UTC-Mitternacht des Events minus UTC-Mitternacht von heute
+  const days = (d: Date | null) => d !== null ? daysBetween(today, d) : null;
   const nf = next(FOMC_2026), ne = next(ECB_2026), nn = next(NFP_2026), nc = next(CPI_2026), np = next(PPI_2026);
   return {
     fomc_date: fmtD(nf), fomc_days: days(nf),
