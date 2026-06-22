@@ -3,14 +3,16 @@ main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
-# Kein Cron-Trigger – GitHub Actions (update-data.yml) übernimmt das Scheduling.
+[triggers]
+crons = [
+  "0 5 * * *",
+]
 
-# Secrets (wrangler secret put):
-#   GH_PAT   → GitHub PAT mit repo + workflow scope
-
-[[kv_namespaces]]
-binding = "EVENTS_KV"
-id = "becf93da4a83e04724b7cb8397768d3f"
+# Secrets werden NICHT in dieser Datei gespeichert.
+# Einrichten mit:
+#   wrangler secret put TELEGRAM_BOT_TOKEN
+#   wrangler secret put TELEGRAM_CHAT_ID
+#   wrangler secret put FRED_API_KEY
 
 [observability]
 enabled = true
