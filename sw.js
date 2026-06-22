@@ -1,4 +1,4 @@
-const CACHE = 'eurusd-v20260615';
+const CACHE = 'eurusd-v20260622';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.svg', './icon-512.svg'];
 
 self.addEventListener('install', e => {
