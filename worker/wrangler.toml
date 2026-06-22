@@ -3,15 +3,14 @@ main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
-# Kein Cron-Trigger mehr – der Worker reagiert nur noch auf HTTP-Requests.
-# GitHub Actions (update-data.yml) übernimmt das Scheduling.
+# Kein Cron-Trigger – GitHub Actions (update-data.yml) übernimmt das Scheduling.
 
-# Secrets (einrichten mit wrangler secret put):
+# Secrets (wrangler secret put):
 #   GH_PAT   → GitHub PAT mit repo + workflow scope
 
 [[kv_namespaces]]
 binding = "EVENTS_KV"
-id = "EVENTS_KV_ID_PLACEHOLDER"
+id = "becf93da4a83e04724b7cb8397768d3f"
 
 [observability]
 enabled = true
