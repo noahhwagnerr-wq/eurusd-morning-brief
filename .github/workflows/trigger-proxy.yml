@@ -1,0 +1,24 @@
+name: Trigger Proxy
+# Dieser Workflow wird vom Aktualisieren-Button via CORS-freiem Endpunkt aufgerufen.
+# Er startet den Update Live Data Workflow mit dem gespeicherten PAT als Secret.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'Auslöser'
+        required: false
+        default: 'app-button'
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update-Workflow dispatchen
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: token ${{ secrets.GH_PAT }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/noahhwagnerr-wq/eurusd-morning-brief/actions/workflows/update-data.yml/dispatches \
+            -d '{"ref":"main","inputs":{"reason":"App-Button"}}'
