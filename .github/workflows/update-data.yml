@@ -2,11 +2,8 @@ name: Update Live Data
 
 on:
   schedule:
-    # Mo–Fr 05:50 UTC = 07:50 CEST – Morning run
+    # Mo–Fr 05:50 UTC = 07:50 CEST
     - cron: "50 5 * * 1-5"
-    # Montag 16:00 UTC = 18:00 CEST – COT-Nachhol-Run
-    # CFTC veröffentlicht nach US-Feiertagen erst ~15:30 UTC am Folgemontag
-    - cron: "0 16 * * 1"
     # Samstag 08:00 UTC
     - cron: "0 8 * * 6"
   push:
