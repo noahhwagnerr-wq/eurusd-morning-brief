@@ -1,15 +1,17 @@
 /**
  * =============================================================
  *  EUR/USD Morning Brief – Cloudflare Worker (TypeScript)
- *  Version: 4.5
+ *  Version: 4.6
  *
  *  Cron Trigger:  0 5 * * *   → 05:00 UTC = 07:00 CEST
- *  wrangler.toml: [triggers] crons = ["0 5 * * *"]
+ *                 0 16 * * 1  → 16:00 UTC jeden Montag (COT-Nachhol)
+ *  wrangler.toml: [triggers] crons = [...]
  *
  *  Umgebungsvariablen (Cloudflare Secrets):
  *    TELEGRAM_BOT_TOKEN   wrangler secret put TELEGRAM_BOT_TOKEN
  *    TELEGRAM_CHAT_ID     wrangler secret put TELEGRAM_CHAT_ID
  *    FRED_API_KEY         wrangler secret put FRED_API_KEY
+ *    GH_PAT               wrangler secret put GH_PAT
  *
  *  Quellen:
  *    ECB SDMX 2.1    data-api.ecb.europa.eu
@@ -18,12 +20,11 @@
  *    CFTC Disagg.    publicreporting.cftc.gov
  *    MarketMilk      marketmilk.babypips.com
  *
- *  FIX-LOG v4.5
+ *  FIX-LOG v4.6
  *  ─────────────────────────────────────────────────────────────
- *  #11 HICP Flash-Pins entfernt – nur noch live API
- *  #12 Myfxbook ersetzt durch MarketMilk/BabyPips + Oanda Fallback
- *  #13 Countdown-Tage: Math.round() → UTC-Mitternacht-Differenz
- *      (verhindert Off-by-one bei Runs nach Mitternacht UTC)
+ *  #14 POST / → triggert GitHub Actions workflow_dispatch (update-data.yml)
+ *      GH_PAT als Cloudflare Secret hinterlegen
+ *  #15 /events GET/PUT → KV-gespeicherte Event-Daten (unverändert)
  * =============================================================
  */
 
@@ -31,6 +32,8 @@ export interface Env {
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_CHAT_ID: string;
   FRED_API_KEY: string;
+  GH_PAT: string;
+  EVENTS_KV: KVNamespace;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -89,6 +92,11 @@ const OANDA_URL      = "https://www.oanda.com/oanda_fx_sentiment/data/getdata.js
 const EUR_CODES      = ["099741", "99741"];
 const WEEKDAY_DE     = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
+const GH_OWNER    = "noahhwagnerr-wq";
+const GH_REPO     = "eurusd-morning-brief";
+const GH_WORKFLOW = "update-data.yml";
+const GH_REF      = "main";
+
 // Bekannte EZB-Entscheide
 const ECB_KNOWN_DECISIONS = [
   { dec: "2026-06-11", dfr: 2.25, eff: "2026-06-17" },
@@ -102,6 +110,48 @@ const CPI_2026  = ["2026-01-13","2026-02-11","2026-03-11","2026-04-10","2026-05-
 const PPI_2026  = ["2026-01-14","2026-02-12","2026-03-18","2026-04-14","2026-05-13","2026-06-11","2026-07-15","2026-08-13","2026-09-12","2026-10-15","2026-11-12","2026-12-11"];
 
 // ─────────────────────────────────────────────────────────────
+//  GitHub Actions Trigger
+// ─────────────────────────────────────────────────────────────
+
+async function triggerGitHubWorkflow(pat: string): Promise<{ ok: boolean; error?: string }> {
+  const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/${GH_WORKFLOW}/dispatches`;
+  const r = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${pat}`,
+      "Accept": "application/vnd.github+json",
+      "Content-Type": "application/json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": "eurusd-morning-brief-worker/4.6",
+    },
+    body: JSON.stringify({ ref: GH_REF }),
+  });
+  if (r.status === 204) return { ok: true };
+  const text = await r.text();
+  console.error(`[ERR] GitHub dispatch HTTP ${r.status}: ${text}`);
+  return { ok: false, error: `GitHub API ${r.status}: ${text}` };
+}
+
+// ─────────────────────────────────────────────────────────────
+//  CORS-Header
+// ─────────────────────────────────────────────────────────────
+
+function corsHeaders(): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
+}
+
+function jsonResponse(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json", ...corsHeaders() },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
 //  Hilfsfunktionen
 // ─────────────────────────────────────────────────────────────
 
@@ -110,7 +160,7 @@ async function safeGet(url: string, params: Record<string, string> = {}, extraHe
   Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
   try {
     const r = await fetch(u.toString(), {
-      headers: { "User-Agent": "eurusd-morning-brief/4.5", "Accept": "application/json", ...extraHeaders },
+      headers: { "User-Agent": "eurusd-morning-brief/4.6", "Accept": "application/json", ...extraHeaders },
     });
     if (!r.ok) { console.warn(`[WARN] ${url} → HTTP ${r.status}`); return null; }
     return await r.json();
@@ -133,12 +183,10 @@ function toISO(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Gibt die UTC-Mitternacht eines Datums zurück – unabhängig von der Tageszeit. */
 function utcMidnight(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
-/** Ganzzahlige Differenz in Tagen zwischen zwei UTC-Mitternacht-Werten. */
 function daysBetween(a: Date, b: Date): number {
   return Math.trunc((utcMidnight(b).getTime() - utcMidnight(a).getTime()) / 86_400_000);
 }
@@ -385,7 +433,6 @@ function getNextMeetings(today: Date): Meetings {
   };
   const fmtD = (d: Date | null) =>
     d ? d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }) : "N/A";
-  // Ganzzahlige Tagesdifferenz: UTC-Mitternacht des Events minus UTC-Mitternacht von heute
   const days = (d: Date | null) => d !== null ? daysBetween(today, d) : null;
   const nf = next(FOMC_2026), ne = next(ECB_2026), nn = next(NFP_2026), nc = next(CPI_2026), np = next(PPI_2026);
   return {
@@ -576,7 +623,7 @@ async function sendTelegram(token: string, chatId: string, message: string): Pro
 
 async function run(env: Env): Promise<void> {
   const today = new Date();
-  console.log(`[${today.toISOString()}] EUR/USD Morning Brief v4.5 (Worker)`);
+  console.log(`[${today.toISOString()}] EUR/USD Morning Brief v4.6 (Worker)`);
 
   const [ecbDfrResult, [ecbHicp, ecbHicpDate], [fedEffr, fedEffrDate], [usCpi, usCpiDate], [us2y, us2yDate], [de2y, de2yDate], cot, retail] =
     await Promise.all([
@@ -617,13 +664,57 @@ export default {
 
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+
+    // OPTIONS preflight
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders() });
+    }
+
+    // POST / → GitHub Actions workflow_dispatch triggern
+    if (request.method === "POST" && (url.pathname === "/" || url.pathname === "")) {
+      if (!env.GH_PAT) {
+        return jsonResponse({ ok: false, error: "GH_PAT not configured" }, 500);
+      }
+      const result = await triggerGitHubWorkflow(env.GH_PAT);
+      if (result.ok) {
+        console.log("[OK] GitHub Actions workflow_dispatch ausgelöst");
+        return jsonResponse({ ok: true });
+      } else {
+        return jsonResponse({ ok: false, error: result.error }, 502);
+      }
+    }
+
+    // GET /events → KV-Daten lesen
+    if (request.method === "GET" && url.pathname === "/events") {
+      try {
+        const { value, metadata } = await (env.EVENTS_KV as any).getWithMetadata("events", { type: "json" });
+        return jsonResponse({ ok: true, data: value ?? { events: [] }, sha: (metadata as any)?.sha ?? null });
+      } catch (e) {
+        return jsonResponse({ ok: true, data: { events: [] }, sha: null });
+      }
+    }
+
+    // PUT /events → KV-Daten schreiben
+    if (request.method === "PUT" && url.pathname === "/events") {
+      try {
+        const body = await request.json() as any;
+        const sha = Date.now().toString(36);
+        await (env.EVENTS_KV as any).put("events", JSON.stringify(body), { metadata: { sha } });
+        return jsonResponse({ ok: true, sha });
+      } catch (e) {
+        return jsonResponse({ ok: false, error: String(e) }, 500);
+      }
+    }
+
+    // GET /run → Morning Brief manuell senden
     if (url.pathname === "/run") {
       ctx.waitUntil(run(env));
-      return new Response("✅ Morning Brief gestartet", { status: 200 });
+      return new Response("✅ Morning Brief gestartet", { status: 200, headers: corsHeaders() });
     }
+
     return new Response(
-      "EUR/USD Morning Brief Worker v4.5\nGET /run → Brief sofort senden",
-      { status: 200 }
+      "EUR/USD Morning Brief Worker v4.6\nPOST / → GitHub Actions triggern\nGET /run → Brief sofort senden",
+      { status: 200, headers: corsHeaders() }
     );
   },
 };
