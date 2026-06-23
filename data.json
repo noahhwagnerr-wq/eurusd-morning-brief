@@ -1,6 +1,6 @@
 {
-  "generated_at": "22.06.2026 18:50 UTC",
-  "generated_ts": "2026-06-22T18:50:37.364260Z",
+  "generated_at": "23.06.2026 08:47 UTC",
+  "generated_ts": "2026-06-23T08:47:14.561799Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,34 +10,34 @@
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-06-17",
+    "effr_date": "2026-06-19",
     "cpi": 4.2,
     "cpi_date": "2026-05"
   },
   "yields": {
-    "us2y": 4.2,
-    "us2y_date": "2026-06-17",
+    "us2y": 4.19,
+    "us2y_date": "2026-06-18",
     "de2y": 2.5758917711,
     "de2y_date": "2026-06-19"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.62,
+    "yield_spread": 1.61,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
-    "cot_bias": "NET-SHORT",
+    "cot_bias": "NEUTRAL",
     "retail_bias": "N/A",
     "overall_bias": "BÄRISCH"
   },
   "cot": {
-    "date": "2026-06-09",
-    "net": -17388,
-    "delta_net": -29415,
+    "date": "2026-06-16",
+    "net": -8926,
+    "delta_net": 8462,
     "long_pct": 10.5,
-    "short_pct": 12.5,
-    "net_pct": -2.0,
-    "oi": 871507,
-    "bias": "NET-SHORT",
+    "short_pct": 11.5,
+    "net_pct": -1.0,
+    "oi": 894671,
+    "bias": "NEUTRAL",
     "source": "Disaggregated/Leveraged Money"
   },
   "retail": null,
@@ -46,31 +46,31 @@
       "label": "FOMC",
       "importance": "high",
       "date": "29.07.2026",
-      "days": 37
+      "days": 36
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "02.07.2026",
-      "days": 10
+      "days": 9
     },
     {
       "label": "CPI",
       "importance": "medium",
       "date": "14.07.2026",
-      "days": 22
+      "days": 21
     },
     {
       "label": "PPI",
       "importance": "low",
       "date": "15.07.2026",
-      "days": 23
+      "days": 22
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "23.07.2026",
-      "days": 31
+      "days": 30
     }
   ],
   "spread_history": [
