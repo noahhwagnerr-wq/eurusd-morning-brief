@@ -108,6 +108,7 @@ interface Signals {
 // ─────────────────────────────────────────────────────────────
 
 const ECB_BASE       = "https://data-api.ecb.europa.eu/service/data";
+const BUBA_BASE      = "https://api.bundesbank.de/service/data";
 const CFTC_URL       = "https://publicreporting.cftc.gov/resource/gpe5-46if.json";
 const MARKETMILK_URL = "https://marketmilk.babypips.com/api/sentiment.json";
 const OANDA_URL      = "https://www.oanda.com/oanda_fx_sentiment/data/getdata.json";
@@ -272,9 +273,9 @@ function parseYM(s: string): Date {
   return new Date(0);
 }
 
-async function ecbLastObs(seriesPath: string, extra: Record<string, string> = {}): Promise<[number | null, string]> {
+async function ecbLastObs(seriesPath: string, extra: Record<string, string> = {}, base = ECB_BASE): Promise<[number | null, string]> {
   const params: Record<string, string> = { format: "jsondata", lastNObservations: "1", detail: "dataonly", ...extra };
-  const data = await safeGet(`${ECB_BASE}/${seriesPath}`, params) as any;
+  const data = await safeGet(`${base}/${seriesPath}`, params) as any;
   if (!data) return [null, "N/A"];
   try {
     const sm    = data.dataSets[0].series;
@@ -363,6 +364,10 @@ async function getEcbHicp(): Promise<[number | null, string]> {
 }
 
 async function getDe2y(): Promise<[number | null, string]> {
+  // Bundesbank YC: DE-spezifisch, direkter als ECB-Gesamteuropa-Kurve
+  const [bVal, bPer] = await ecbLastObs("BBK_YC/B.DE.EUR.4F.G_N_A.SV_C_YM.SR_2Y", {}, BUBA_BASE);
+  if (bVal !== null) { console.log(`[OK] DE2Y (Bundesbank): ${bVal}% (${bPer})`); return [bVal, bPer]; }
+  // Fallback: ECB Euroraum AAA-Renditekurve
   return await ecbLastObs("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y");
 }
 
