@@ -21,6 +21,7 @@ except ImportError:
 
 FRED_API_KEY = os.getenv("FRED_API_KEY", "")
 ECB_BASE     = "https://data-api.ecb.europa.eu/service/data"
+BUBA_BASE    = "https://api.bundesbank.de/service/data"
 TODAY        = date.today()
 _MIN_HICP_DATE = date(TODAY.year - 1, 1, 1)
 
@@ -50,11 +51,11 @@ def _parse_period(raw):
     except Exception:
         return None
 
-def _ecb_last(series, extra=None):
+def _ecb_last(series, extra=None, base=None):
     params = {"format": "jsondata", "lastNObservations": 1, "detail": "dataonly"}
     if extra:
         params.update(extra)
-    data = safe_get(f"{ECB_BASE}/{series}", params)
+    data = safe_get(f"{base or ECB_BASE}/{series}", params)
     if not data:
         return None, "N/A"
     try:
@@ -233,8 +234,14 @@ def get_dfr():
     return val, period, note
 
 def get_de2y():
+    # Bundesbank YC: DE-spezifische Rendite, direkter als ECB-Gesamteuropa-Kurve
+    val, period = _ecb_last("BBK_YC/B.DE.EUR.4F.G_N_A.SV_C_YM.SR_2Y", base=BUBA_BASE)
+    if val is not None:
+        print(f"[OK] DE2Y (Bundesbank): {val}% ({period})")
+        return val, period
+    # Fallback: ECB Euroraum AAA-Renditekurve
     val, period = _ecb_last("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y")
-    print(f"[OK] DE2Y: {val}% ({period})")
+    print(f"[OK] DE2Y (ECB YC Fallback): {val}% ({period})")
     return val, period
 
 def get_effr():
