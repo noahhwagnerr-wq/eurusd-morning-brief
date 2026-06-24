@@ -378,7 +378,7 @@ function renderHeader(d){
 
 function renderKPI(d){
   const ecb=d.ecb||{},fed=d.fed||{};
-  const dfrPrev=2.00, dfrCur=ecb.dfr??null;
+  const dfrPrev=2.50, dfrCur=ecb.dfr??null;
   const dfrNote=ecb.dfr_note?`ab ${ecb.dfr_date}`:`Stand ${ecb.dfr_date||'–'}`;
   const dfrDelta=dfrCur!==null?(dfrCur>dfrPrev?`▲ von ${dfrPrev.toFixed(2)}%`:dfrCur<dfrPrev?`▼ von ${dfrPrev.toFixed(2)}%`:'— unverändert'):'—';
   const hicpVal=ecb.hicp!=null?'~'+parseFloat(ecb.hicp).toFixed(2)+'%':'N/A';
