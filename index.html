@@ -423,7 +423,7 @@ function renderMainGrid(d){
       <div class="cot-item"><div class="cot-item-label">Net-Position</div><div class="cot-item-value negative">${cot.net>=0?'+':''}${num(cot.net)}</div></div>
       <div class="cot-item"><div class="cot-item-label">Δ Vorwoche</div><div class="cot-item-value negative">${cot.delta_net>=0?'▲':'▼'} ${num(Math.abs(cot.delta_net))}</div></div>
       <div class="cot-item"><div class="cot-item-label">Open Interest</div><div class="cot-item-value">${num(cot.oi)}</div></div>
-      <div class="cot-item"><div class="cot-item-label">Net-OI %</div><div class="cot-item-value ${cot.net_pct<0?'negative':''}">"${cot.net_pct>=0?'+':''}${parseFloat(cot.net_pct).toFixed(1)}%</div></div>
+      <div class="cot-item"><div class="cot-item-label">Net-OI %</div><div class="cot-item-value ${cot.net_pct<0?'negative':''}">${cot.net_pct>=0?'+':''}${parseFloat(cot.net_pct).toFixed(1)}%</div></div>
     </div>
     <div style="margin-top:var(--space-4)">
       <div style="font-size:var(--text-xs);color:var(--muted);margin-bottom:var(--space-2)">Long vs. Short (% OI)</div>
@@ -478,7 +478,7 @@ function renderMainGrid(d){
           <div class="event-date">${ev.date}</div>
           ${infoHtml}
         </div>
-        <div class="event-days${soon?' soon':''}">"${days!==null?days+'T':'N/A'}</div>
+        <div class="event-days${soon?' soon':''}">${days!==null?days+'T':'N/A'}</div>
         <button class="event-edit-btn${isOpen?' active':''}" onclick="toggleEventEdit('${ev.label}')" title="Vorwert &amp; Prognose bearbeiten" aria-label="Bearbeiten">✏️</button>
       </div>
       <div class="event-inline-form${isOpen?' open':''}" id="evform-${ev.label}">
