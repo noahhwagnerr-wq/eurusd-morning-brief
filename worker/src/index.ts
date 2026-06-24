@@ -1,7 +1,7 @@
 /**
  * =============================================================
  *  EUR/USD Morning Brief – Cloudflare Worker (TypeScript)
- *  Version: 4.5
+ *  Version: 4.6
  *
  *  Cron Trigger:  0 5 * * *   → 05:00 UTC = 07:00 CEST
  *  wrangler.toml: [triggers] crons = ["0 5 * * *"]
@@ -10,20 +10,20 @@
  *    TELEGRAM_BOT_TOKEN   wrangler secret put TELEGRAM_BOT_TOKEN
  *    TELEGRAM_CHAT_ID     wrangler secret put TELEGRAM_CHAT_ID
  *    FRED_API_KEY         wrangler secret put FRED_API_KEY
+ *    GH_PAT               wrangler secret put GH_PAT
+ *                         (repo scope: workflow + contents write auf gh-pages)
  *
- *  Quellen:
- *    ECB SDMX 2.1    data-api.ecb.europa.eu
- *    Eurostat JSON   ec.europa.eu/eurostat
- *    FRED API        api.stlouisfed.org
- *    CFTC Disagg.    publicreporting.cftc.gov
- *    MarketMilk      marketmilk.babypips.com
+ *  HTTP-Endpunkte:
+ *    POST /       → dispatch update-data.yml (aktualisiert data.json)
+ *    GET  /events → events.json von gh-pages lesen
+ *    PUT  /events → events.json auf gh-pages schreiben
+ *    GET  /run    → Morning Brief sofort senden (Telegram)
  *
- *  FIX-LOG v4.5
+ *  FIX-LOG v4.6
  *  ─────────────────────────────────────────────────────────────
- *  #11 HICP Flash-Pins entfernt – nur noch live API
- *  #12 Myfxbook ersetzt durch MarketMilk/BabyPips + Oanda Fallback
- *  #13 Countdown-Tage: Math.round() → UTC-Mitternacht-Differenz
- *      (verhindert Off-by-one bei Runs nach Mitternacht UTC)
+ *  #14 CORS-Header auf allen Antworten (Browser-Zugriff von gh-pages)
+ *  #15 POST / dispatcht update-data.yml via GitHub API (GH_PAT)
+ *  #16 GET/PUT /events liest/schreibt events.json auf gh-pages
  * =============================================================
  */
 
@@ -31,6 +31,31 @@ export interface Env {
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_CHAT_ID: string;
   FRED_API_KEY: string;
+  GH_PAT?: string;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  CORS
+// ─────────────────────────────────────────────────────────────
+
+const CORS: Record<string, string> = {
+  "Access-Control-Allow-Origin":  "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+function jsonResp(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", ...CORS },
+  });
+}
+
+function textResp(body: string, status = 200): Response {
+  return new Response(body, {
+    status,
+    headers: { "Content-Type": "text/plain", ...CORS },
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -89,12 +114,13 @@ const OANDA_URL      = "https://www.oanda.com/oanda_fx_sentiment/data/getdata.js
 const EUR_CODES      = ["099741", "99741"];
 const WEEKDAY_DE     = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
-// Bekannte EZB-Entscheide
+const GH_REPO        = "noahhwagnerr-wq/eurusd-morning-brief";
+const GH_API         = "https://api.github.com";
+
 const ECB_KNOWN_DECISIONS = [
   { dec: "2026-06-11", dfr: 2.25, eff: "2026-06-17" },
 ];
 
-// Event-Kalender 2026
 const FOMC_2026 = ["2026-01-29","2026-03-18","2026-04-29","2026-06-17","2026-07-29","2026-09-16","2026-10-28","2026-12-09"];
 const ECB_2026  = ["2026-01-30","2026-03-19","2026-04-30","2026-06-11","2026-07-23","2026-09-10","2026-10-29","2026-12-03"];
 const NFP_2026  = ["2026-02-11","2026-03-06","2026-04-03","2026-05-08","2026-06-05","2026-07-02","2026-08-07","2026-09-04","2026-10-02","2026-11-06","2026-12-04"];
@@ -102,7 +128,106 @@ const CPI_2026  = ["2026-01-13","2026-02-11","2026-03-11","2026-04-10","2026-05-
 const PPI_2026  = ["2026-01-14","2026-02-12","2026-03-18","2026-04-14","2026-05-13","2026-06-11","2026-07-15","2026-08-13","2026-09-12","2026-10-15","2026-11-12","2026-12-11"];
 
 // ─────────────────────────────────────────────────────────────
-//  Hilfsfunktionen
+//  GitHub-Hilfsfunktionen
+// ─────────────────────────────────────────────────────────────
+
+function ghHeaders(pat: string): Record<string, string> {
+  return {
+    "Authorization": `token ${pat}`,
+    "Accept":        "application/vnd.github+json",
+    "Content-Type":  "application/json",
+    "User-Agent":    "eurusd-morning-brief-worker/4.6",
+  };
+}
+
+function b64Encode(str: string): string {
+  const bytes = new TextEncoder().encode(str);
+  let binary  = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary);
+}
+
+function b64Decode(b64: string): string {
+  const binary = atob(b64.replace(/\n/g, ""));
+  const bytes  = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  HTTP-Handler: POST / → update-data.yml dispatchen
+// ─────────────────────────────────────────────────────────────
+
+async function handleDispatch(pat: string): Promise<Response> {
+  const url = `${GH_API}/repos/${GH_REPO}/actions/workflows/update-data.yml/dispatches`;
+  const r = await fetch(url, {
+    method:  "POST",
+    headers: ghHeaders(pat),
+    body:    JSON.stringify({ ref: "main", inputs: { reason: "App-Button" } }),
+  });
+
+  if (r.status === 204) return jsonResp({ ok: true });
+
+  const body = await r.text().catch(() => "");
+  const status = r.status === 422 ? 422 : 500;
+  return jsonResp({ ok: false, error: `GitHub ${r.status}: ${body}` }, status);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  HTTP-Handler: GET /events
+// ─────────────────────────────────────────────────────────────
+
+async function handleEventsGet(pat: string): Promise<Response> {
+  const url = `${GH_API}/repos/${GH_REPO}/contents/events.json?ref=gh-pages`;
+  const r = await fetch(url, { headers: ghHeaders(pat) });
+
+  if (!r.ok) {
+    const errText = await r.text().catch(() => "");
+    console.warn(`[WARN] events GET: GitHub ${r.status} ${errText}`);
+    return jsonResp({ ok: false, error: `GitHub ${r.status}` });
+  }
+
+  const meta   = await r.json() as { sha: string; content: string };
+  const parsed = JSON.parse(b64Decode(meta.content));
+  return jsonResp({ ok: true, sha: meta.sha, data: parsed });
+}
+
+// ─────────────────────────────────────────────────────────────
+//  HTTP-Handler: PUT /events
+// ─────────────────────────────────────────────────────────────
+
+async function handleEventsPut(pat: string, request: Request): Promise<Response> {
+  const body = await request.json() as { events: unknown[]; sha?: string };
+
+  const payload = {
+    events:       body.events,
+    last_updated: new Date().toISOString(),
+  };
+
+  const url = `${GH_API}/repos/${GH_REPO}/contents/events.json`;
+  const r = await fetch(url, {
+    method:  "PUT",
+    headers: ghHeaders(pat),
+    body: JSON.stringify({
+      message: `events: update via app ${new Date().toISOString().slice(0, 10)}`,
+      content: b64Encode(JSON.stringify(payload, null, 2)),
+      sha:     body.sha,
+      branch:  "gh-pages",
+    }),
+  });
+
+  if (!r.ok) {
+    const errText = await r.text().catch(() => "");
+    console.warn(`[WARN] events PUT: GitHub ${r.status} ${errText}`);
+    return jsonResp({ ok: false, error: `GitHub ${r.status}: ${errText}` }, 500);
+  }
+
+  const res = await r.json() as { content?: { sha: string } };
+  return jsonResp({ ok: true, sha: res.content?.sha });
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Hilfsfunktionen (Morning Brief)
 // ─────────────────────────────────────────────────────────────
 
 async function safeGet(url: string, params: Record<string, string> = {}, extraHeaders: Record<string, string> = {}): Promise<unknown> {
@@ -110,7 +235,7 @@ async function safeGet(url: string, params: Record<string, string> = {}, extraHe
   Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
   try {
     const r = await fetch(u.toString(), {
-      headers: { "User-Agent": "eurusd-morning-brief/4.5", "Accept": "application/json", ...extraHeaders },
+      headers: { "User-Agent": "eurusd-morning-brief/4.6", "Accept": "application/json", ...extraHeaders },
     });
     if (!r.ok) { console.warn(`[WARN] ${url} → HTTP ${r.status}`); return null; }
     return await r.json();
@@ -133,12 +258,10 @@ function toISO(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Gibt die UTC-Mitternacht eines Datums zurück – unabhängig von der Tageszeit. */
 function utcMidnight(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
-/** Ganzzahlige Differenz in Tagen zwischen zwei UTC-Mitternacht-Werten. */
 function daysBetween(a: Date, b: Date): number {
   return Math.trunc((utcMidnight(b).getTime() - utcMidnight(a).getTime()) / 86_400_000);
 }
@@ -185,7 +308,7 @@ async function fredObs(seriesId: string, limit = 2, sort = "desc", apiKey: strin
 }
 
 // ─────────────────────────────────────────────────────────────
-//  Datenabruf
+//  Datenabruf (Morning Brief)
 // ─────────────────────────────────────────────────────────────
 
 async function getEcbDfr(today: Date): Promise<{ val: number | null; period: string; hinweis: string | null }> {
@@ -408,11 +531,11 @@ function computeSignals(ecbDfr: number | null, fedEffr: number | null, us2y: num
   } else { s.rate_diff = null; s.rate_bias = "N/A"; s.rate_icon = "⚪"; }
   if (us2y !== null && de2y !== null) {
     const sp = Math.round((us2y - de2y) * 100) / 100;
-    s.yield_spread = sp; s.yield_bias = sp > 0 ? "USD\u2011Vorteil" : "EUR\u2011Vorteil"; s.yield_icon = sp > 0 ? "🔴" : "🟢";
+    s.yield_spread = sp; s.yield_bias = sp > 0 ? "USD‑Vorteil" : "EUR‑Vorteil"; s.yield_icon = sp > 0 ? "🔴" : "🟢";
   } else { s.yield_spread = null; s.yield_bias = "N/A"; s.yield_icon = "⚪"; }
   if (cot) {
     const np = cot.net_pct;
-    s.cot_bias = np > 5 ? "NET\u2011LONG" : np < -5 ? "NET\u2011SHORT" : "NEUTRAL";
+    s.cot_bias = np > 5 ? "NET‑LONG" : np < -5 ? "NET‑SHORT" : "NEUTRAL";
     s.cot_icon = np > 5 ? "🟢" : np < -5 ? "🔴" : "⚪";
   } else { s.cot_bias = "N/A"; s.cot_icon = "⚪"; }
   return s as Signals;
@@ -570,12 +693,12 @@ async function sendTelegram(token: string, chatId: string, message: string): Pro
 }
 
 // ─────────────────────────────────────────────────────────────
-//  Handler
+//  Morning Brief ausführen
 // ─────────────────────────────────────────────────────────────
 
 async function run(env: Env): Promise<void> {
   const today = new Date();
-  console.log(`[${today.toISOString()}] EUR/USD Morning Brief v4.5 (Worker)`);
+  console.log(`[${today.toISOString()}] EUR/USD Morning Brief v4.6 (Worker)`);
 
   const [ecbDfrResult, [ecbHicp, ecbHicpDate], [fedEffr, fedEffrDate], [usCpi, usCpiDate], [us2y, us2yDate], [de2y, de2yDate], cot, retail] =
     await Promise.all([
@@ -615,14 +738,44 @@ export default {
   },
 
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url);
-    if (url.pathname === "/run") {
-      ctx.waitUntil(run(env));
-      return new Response("✅ Morning Brief gestartet", { status: 200 });
+    const url    = new URL(request.url);
+    const method = request.method.toUpperCase();
+
+    // CORS preflight
+    if (method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: CORS });
     }
-    return new Response(
-      "EUR/USD Morning Brief Worker v4.5\nGET /run → Brief sofort senden",
-      { status: 200 }
-    );
+
+    // GET /run → Morning Brief sofort senden
+    if (method === "GET" && url.pathname === "/run") {
+      ctx.waitUntil(run(env));
+      return textResp("✅ Morning Brief gestartet");
+    }
+
+    // POST / → update-data.yml dispatchen (aktualisiert data.json auf gh-pages)
+    if (method === "POST" && (url.pathname === "/" || url.pathname === "")) {
+      if (!env.GH_PAT) {
+        return jsonResp({ ok: false, error: "GH_PAT nicht konfiguriert" }, 422);
+      }
+      return handleDispatch(env.GH_PAT);
+    }
+
+    // GET /events → events.json von gh-pages lesen
+    if (method === "GET" && url.pathname === "/events") {
+      if (!env.GH_PAT) {
+        return jsonResp({ ok: false, error: "GH_PAT nicht konfiguriert" }, 422);
+      }
+      return handleEventsGet(env.GH_PAT);
+    }
+
+    // PUT /events → events.json auf gh-pages schreiben
+    if (method === "PUT" && url.pathname === "/events") {
+      if (!env.GH_PAT) {
+        return jsonResp({ ok: false, error: "GH_PAT nicht konfiguriert" }, 422);
+      }
+      return handleEventsPut(env.GH_PAT, request);
+    }
+
+    return textResp("EUR/USD Morning Brief Worker v4.6\nPOST / → data.json aktualisieren\nGET /run → Brief sofort senden\nGET /events · PUT /events → Event-Daten");
   },
 };
