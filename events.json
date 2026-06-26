@@ -140,6 +140,15 @@
       "note": ""
     },
     {
+      "label": "NFP",
+      "date": "02.07.2026",
+      "previous": "172",
+      "forecast": "114",
+      "note": "",
+      "bias": "BULLISCH",
+      "actual": false
+    },
+    {
       "id": "cpi-2026-07-14",
       "label": "CPI",
       "importance": "medium",
@@ -220,5 +229,5 @@
       "note": ""
     }
   ],
-  "last_updated": "2026-06-18T08:10:12.109Z"
+  "last_updated": "2026-06-26T14:37:43.404Z"
 }
