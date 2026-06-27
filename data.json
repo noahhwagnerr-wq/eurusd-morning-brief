@@ -1,6 +1,6 @@
 {
-  "generated_at": "26.06.2026 14:38 UTC",
-  "generated_ts": "2026-06-26T14:38:18.859903Z",
+  "generated_at": "27.06.2026 07:33 UTC",
+  "generated_ts": "2026-06-27T07:33:44.950153Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,34 +10,34 @@
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-06-24",
+    "effr_date": "2026-06-25",
     "cpi": 4.2,
     "cpi_date": "2026-05"
   },
   "yields": {
-    "us2y": 4.11,
-    "us2y_date": "2026-06-24",
+    "us2y": 4.09,
+    "us2y_date": "2026-06-25",
     "de2y": 2.4756991249,
     "de2y_date": "2026-06-25"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.63,
+    "yield_spread": 1.61,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
-    "cot_bias": "NEUTRAL",
+    "cot_bias": "NET-SHORT",
     "retail_bias": "N/A",
     "overall_bias": "BÄRISCH"
   },
   "cot": {
-    "date": "2026-06-16",
-    "net": -8926,
-    "delta_net": 8462,
-    "long_pct": 10.5,
-    "short_pct": 11.5,
-    "net_pct": -1.0,
-    "oi": 894671,
-    "bias": "NEUTRAL",
+    "date": "2026-06-23",
+    "net": -15410,
+    "delta_net": -6484,
+    "long_pct": 13.8,
+    "short_pct": 15.7,
+    "net_pct": -2.0,
+    "oi": 785477,
+    "bias": "NET-SHORT",
     "source": "Disaggregated/Leveraged Money"
   },
   "retail": null,
@@ -46,31 +46,31 @@
       "label": "FOMC",
       "importance": "high",
       "date": "29.07.2026",
-      "days": 33
+      "days": 32
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "02.07.2026",
-      "days": 6
+      "days": 5
     },
     {
       "label": "CPI",
       "importance": "medium",
       "date": "14.07.2026",
-      "days": 18
+      "days": 17
     },
     {
       "label": "PPI",
       "importance": "low",
       "date": "15.07.2026",
-      "days": 19
+      "days": 18
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "23.07.2026",
-      "days": 27
+      "days": 26
     }
   ],
   "spread_history": [
