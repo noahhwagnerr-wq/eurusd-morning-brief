@@ -1,22 +1,22 @@
 {
-  "generated_at": "30.06.2026 08:46 UTC",
-  "generated_ts": "2026-06-30T08:46:30.851487Z",
+  "generated_at": "30.06.2026 20:54 UTC",
+  "generated_ts": "2026-06-30T20:54:43.849600Z",
   "ecb": {
     "dfr": 2.25,
-    "dfr_date": "2026-06-17",
+    "dfr_date": "2026-06-30",
     "dfr_note": null,
     "hicp": 3.2,
     "hicp_date": "2026-05"
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-06-26",
+    "effr_date": "2026-06-29",
     "cpi": 4.2,
     "cpi_date": "2026-05"
   },
   "yields": {
-    "us2y": 4.07,
-    "us2y_date": "2026-06-26",
+    "us2y": 4.1,
+    "us2y_date": "2026-06-29",
     "de2y": null,
     "de2y_date": "N/A"
   },
