@@ -1,6 +1,6 @@
 {
-  "generated_at": "29.06.2026 10:12 UTC",
-  "generated_ts": "2026-06-29T10:12:49.305177Z",
+  "generated_at": "30.06.2026 08:46 UTC",
+  "generated_ts": "2026-06-30T08:46:30.851487Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,21 +10,21 @@
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-06-25",
+    "effr_date": "2026-06-26",
     "cpi": 4.2,
     "cpi_date": "2026-05"
   },
   "yields": {
-    "us2y": 4.09,
-    "us2y_date": "2026-06-25",
-    "de2y": 2.4528794927,
-    "de2y_date": "2026-06-26"
+    "us2y": 4.07,
+    "us2y_date": "2026-06-26",
+    "de2y": null,
+    "de2y_date": "N/A"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.64,
+    "yield_spread": null,
     "rate_bias": "BÄRISCH",
-    "yield_bias": "USD-Vorteil",
+    "yield_bias": "N/A",
     "cot_bias": "NET-SHORT",
     "retail_bias": "N/A",
     "overall_bias": "BÄRISCH"
@@ -46,89 +46,32 @@
       "label": "FOMC",
       "importance": "high",
       "date": "29.07.2026",
-      "days": 30
+      "days": 29
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "02.07.2026",
-      "days": 3
+      "days": 2
     },
     {
       "label": "CPI",
       "importance": "medium",
       "date": "14.07.2026",
-      "days": 15
+      "days": 14
     },
     {
       "label": "PPI",
       "importance": "low",
       "date": "15.07.2026",
-      "days": 16
+      "days": 15
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "23.07.2026",
-      "days": 24
+      "days": 23
     }
   ],
-  "spread_history": [
-    {
-      "date": "23.03",
-      "spread": 1.31
-    },
-    {
-      "date": "30.03",
-      "spread": 1.22
-    },
-    {
-      "date": "06.04",
-      "spread": 1.18
-    },
-    {
-      "date": "13.04",
-      "spread": 1.19
-    },
-    {
-      "date": "20.04",
-      "spread": 1.3
-    },
-    {
-      "date": "27.04",
-      "spread": 1.25
-    },
-    {
-      "date": "04.05",
-      "spread": 1.31
-    },
-    {
-      "date": "11.05",
-      "spread": 1.36
-    },
-    {
-      "date": "18.05",
-      "spread": 1.43
-    },
-    {
-      "date": "26.05",
-      "spread": 1.48
-    },
-    {
-      "date": "01.06",
-      "spread": 1.47
-    },
-    {
-      "date": "08.06",
-      "spread": 1.53
-    },
-    {
-      "date": "15.06",
-      "spread": 1.55
-    },
-    {
-      "date": "22.06",
-      "spread": 1.69
-    }
-  ]
+  "spread_history": []
 }
