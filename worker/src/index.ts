@@ -363,12 +363,32 @@ async function getEcbHicp(): Promise<[number | null, string]> {
   return [null, "N/A"];
 }
 
-async function getDe2y(): Promise<[number | null, string]> {
+async function getPreviousDe2y(pat: string): Promise<[number | null, string]> {
+  const url = `${GH_API}/repos/${GH_REPO}/contents/data.json?ref=gh-pages`;
+  try {
+    const r = await fetch(url, { headers: ghHeaders(pat) });
+    if (!r.ok) return [null, "N/A"];
+    const meta = await r.json() as { content: string };
+    const prev = JSON.parse(b64Decode(meta.content));
+    const val = prev?.yields?.de2y;
+    const period = prev?.yields?.de2y_date;
+    if (typeof val === "number" && period) return [val, period];
+  } catch (e) { console.warn(`[WARN] DE2Y Vorwert: ${e}`); }
+  return [null, "N/A"];
+}
+
+async function getDe2y(pat: string): Promise<[number | null, string]> {
   // Bundesbank YC: DE-spezifisch, direkter als ECB-Gesamteuropa-Kurve
   const [bVal, bPer] = await ecbLastObs("BBK_YC/B.DE.EUR.4F.G_N_A.SV_C_YM.SR_2Y", {}, BUBA_BASE);
   if (bVal !== null) { console.log(`[OK] DE2Y (Bundesbank): ${bVal}% (${bPer})`); return [bVal, bPer]; }
   // Fallback: ECB Euroraum AAA-Renditekurve
-  return await ecbLastObs("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y");
+  const [eVal, ePer] = await ecbLastObs("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y");
+  if (eVal !== null) { console.log(`[OK] DE2Y (ECB YC Fallback): ${eVal}% (${ePer})`); return [eVal, ePer]; }
+  // Übergangs-Fallback: letzter veröffentlichter Wert (Tageskurve noch nicht publiziert)
+  const [pVal, pPer] = await getPreviousDe2y(pat);
+  if (pVal !== null) { console.log(`[WARN] DE2Y: beide Live-Quellen leer, verwende letzten Stand ${pVal}% (${pPer})`); return [pVal, pPer]; }
+  console.warn("[WARN] DE2Y: alle Quellen erschoepft");
+  return [null, "N/A"];
 }
 
 async function getFedEffr(apiKey: string): Promise<[number | null, string]> {
@@ -712,7 +732,7 @@ async function run(env: Env): Promise<void> {
       getFedEffr(env.FRED_API_KEY),
       getUsCpi(env.FRED_API_KEY),
       getUs2y(env.FRED_API_KEY),
-      getDe2y(),
+      getDe2y(env.GH_PAT ?? ""),
       getCotEur(),
       getRetailSentiment(),
     ]);
