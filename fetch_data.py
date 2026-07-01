@@ -233,6 +233,24 @@ def get_dfr():
     print(f"[OK] DFR: {val}% ({period})")
     return val, period, note
 
+def _load_previous_de2y():
+    """
+    Liest den zuletzt veröffentlichten DE2Y-Wert aus dem bestehenden data.json
+    (liegt im Workdir, da der Workflow zuvor gh-pages auscheckt). Dient als
+    Übergangs-Fallback, wenn Bundesbank und ECB die Tageskurve noch nicht
+    veröffentlicht haben (z.B. bei sehr frühen Morgen-Runs).
+    """
+    try:
+        with open("data.json", encoding="utf-8") as f:
+            prev = json.load(f)
+        val = prev.get("yields", {}).get("de2y")
+        period = prev.get("yields", {}).get("de2y_date")
+        if val is not None and period:
+            return float(val), period
+    except Exception:
+        pass
+    return None, "N/A"
+
 def get_de2y():
     # Bundesbank YC: DE-spezifische Rendite, direkter als ECB-Gesamteuropa-Kurve
     val, period = _ecb_last("BBK_YC/B.DE.EUR.4F.G_N_A.SV_C_YM.SR_2Y", base=BUBA_BASE)
@@ -241,8 +259,16 @@ def get_de2y():
         return val, period
     # Fallback: ECB Euroraum AAA-Renditekurve
     val, period = _ecb_last("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y")
-    print(f"[OK] DE2Y (ECB YC Fallback): {val}% ({period})")
-    return val, period
+    if val is not None:
+        print(f"[OK] DE2Y (ECB YC Fallback): {val}% ({period})")
+        return val, period
+    # Übergangs-Fallback: letzter veröffentlichter Wert (Tageskurve noch nicht publiziert)
+    val, period = _load_previous_de2y()
+    if val is not None:
+        print(f"[WARN] DE2Y: beide Live-Quellen leer, verwende letzten Stand {val}% ({period})")
+        return val, period
+    print("[WARN] DE2Y: alle Quellen erschoepft")
+    return None, "N/A"
 
 def get_effr():
     obs = _fred("DFF", limit=1)
