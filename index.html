@@ -378,16 +378,16 @@ function renderHeader(d){
 
 function renderKPI(d){
   const ecb=d.ecb||{},fed=d.fed||{};
-  const dfrPrev=2.50, dfrCur=ecb.dfr??null;
-  const dfrNote=ecb.dfr_note?`ab ${ecb.dfr_date}`:`Stand ${ecb.dfr_date||'–'}`;
-  const dfrDelta=dfrCur!==null?(dfrCur>dfrPrev?`▲ von ${dfrPrev.toFixed(2)}%`:dfrCur<dfrPrev?`▼ von ${dfrPrev.toFixed(2)}%`:'— unverändert'):'—';
+  const dfrPrev=typeof ecb.dfr_prev==='number'?ecb.dfr_prev:null, dfrCur=ecb.dfr??null;
+  const dfrNote=`Stand ${ecb.dfr_date||'–'}`;
+  const dfrDelta=(dfrCur!==null&&dfrPrev!==null)?(dfrCur>dfrPrev?`▲ von ${dfrPrev.toFixed(2)}%`:dfrCur<dfrPrev?`▼ von ${dfrPrev.toFixed(2)}%`:'— unverändert'):'—';
   const hicpVal=ecb.hicp!=null?'~'+parseFloat(ecb.hicp).toFixed(2)+'%':'N/A';
   const hicpDate=(ecb.hicp_date||'').replace(/^(\d{4})-(\d{2})$/,(_,y,m)=>{const ms=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];return ms[parseInt(m)-1]+' '+y;})||'–';
   const effrCur=fed.effr??null;
   const cpiVal=fed.cpi!=null?parseFloat(fed.cpi).toFixed(1)+'%':'N/A';
   const cpiDate=(fed.cpi_date||'').replace(/^(\d{4})-(\d{2})$/,(_,y,m)=>{const ms=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];return'BLS '+ms[parseInt(m)-1]+' '+y;})||'–';
   document.getElementById('kpiRow').innerHTML=`
-    <div class="kpi"><div class="kpi-label">🇪🇺 EZB Leitzins</div><div class="kpi-value">${dfrCur!==null?parseFloat(dfrCur).toFixed(2)+'%':'N/A'}</div><div class="kpi-sub">${dfrNote}</div><span class="kpi-delta ${dfrCur!==null&&dfrCur>dfrPrev?'up':dfrCur!==null&&dfrCur<dfrPrev?'down':'flat'}">${dfrDelta}</span></div>
+    <div class="kpi"><div class="kpi-label">🇪🇺 EZB Leitzins</div><div class="kpi-value">${dfrCur!==null?parseFloat(dfrCur).toFixed(2)+'%':'N/A'}</div><div class="kpi-sub">${dfrNote}</div><span class="kpi-delta ${dfrCur!==null&&dfrPrev!==null&&dfrCur>dfrPrev?'up':dfrCur!==null&&dfrPrev!==null&&dfrCur<dfrPrev?'down':'flat'}">${dfrDelta}</span></div>
     <div class="kpi"><div class="kpi-label">🇪🇺 HVPI</div><div class="kpi-value" style="color:var(--yellow)">${hicpVal}</div><div class="kpi-sub">${hicpDate}</div><span class="kpi-delta flat">Eurostat</span></div>
     <div class="kpi"><div class="kpi-label">🇺🇸 Fed EFFR</div><div class="kpi-value">${effrCur!==null?parseFloat(effrCur).toFixed(2)+'%':'N/A'}</div><div class="kpi-sub">Stand ${fed.effr_date||'–'}</div><span class="kpi-delta flat">— unverändert</span></div>
     <div class="kpi"><div class="kpi-label">🇺🇸 CPI USA</div><div class="kpi-value" style="color:var(--yellow)">${cpiVal}</div><div class="kpi-sub">${cpiDate}</div><span class="kpi-delta flat">FRED pc1</span></div>`;
