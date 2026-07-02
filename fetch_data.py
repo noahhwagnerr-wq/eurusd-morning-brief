@@ -432,8 +432,14 @@ def _fred_release_calendar():
 def get_events():
     # Fed/EZB publizieren ihre Sitzungskalender nur als HTML/ICS (keine
     # Daten-API) – offizieller Sitzungskalender 2026, jährlich zu pflegen.
-    FOMC = [date(2026,7,29), date(2026,9,16), date(2026,10,28), date(2026,12,9)]
+    # Ganzjahresliste: auch vergangene Sitzungen, da das Protokoll drei
+    # Wochen nach der Sitzung erscheint und daraus abgeleitet wird.
+    FOMC = [date(2026,1,29), date(2026,3,18), date(2026,4,29), date(2026,6,17),
+            date(2026,7,29), date(2026,9,16), date(2026,10,28), date(2026,12,9)]
     ECB  = [date(2026,7,23), date(2026,9,10), date(2026,10,29), date(2026,12,3)]
+    # FOMC-Protokoll: laut Fed-Kommunikationspolitik fix drei Wochen nach
+    # jeder Sitzung – deterministisch abgeleitet, kein eigener Kalender.
+    FOMC_MIN = [d + timedelta(days=21) for d in FOMC]
     # BLS-Termine kommen live aus dem FRED-Release-Kalender; der offizielle
     # BLS-Jahresplan dient nur als Ausfall-Fallback.
     NFP  = [date(2026,7,2),  date(2026,8,7),  date(2026,9,4),  date(2026,10,2)]
@@ -458,6 +464,7 @@ def get_events():
                 "date": d.strftime("%d.%m.%Y"), "days": (d - TODAY).days}
     return [
         _entry("FOMC", "high",   _next(FOMC)),
+        _entry("FOMC-Prot.", "medium", _next(FOMC_MIN)),
         _entry("NFP",  "medium", _live("NFP", "Employment Situation", NFP)),
         _entry("CPI",  "medium", _live("CPI", "Consumer Price Index", CPI)),
         _entry("PPI",  "low",    _live("PPI", "Producer Price Index", PPI)),
