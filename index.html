@@ -437,7 +437,7 @@ function renderMainGrid(d){
       </div>
     </div>
     <div style="margin-top:var(--space-3);padding-top:var(--space-3);border-top:1px solid var(--divider);font-size:var(--text-xs);color:var(--faint);font-family:var(--font-mono)">${cot.date} · ${cot.source}</div>
-    ${cot.bias==='NEUTRAL'&&(Math.abs(cot.net)>7500||Math.abs(cot.net_pct)>4)?`<div style="margin-top:var(--space-2);padding:var(--space-2) var(--space-3);background:color-mix(in oklch,var(--yellow) 8%,transparent);border:1px solid color-mix(in oklch,var(--yellow) 25%,transparent);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:var(--text-xs);color:var(--yellow)">⚠ Nahe ${cot.net<0?'NET-SHORT':'NET-LONG'}-Schwelle (${Math.abs(cot.net).toLocaleString('de-DE')} / ±10.000 Kontrakte)</div>`:''}
+    ${cot.bias==='NEUTRAL'&&(Math.abs(cot.net)>7500||Math.abs(cot.net_pct)>4)?`<div style="margin-top:var(--space-2);padding:var(--space-2) var(--space-3);background:color-mix(in oklch,var(--yellow) 8%,transparent);border:1px solid color-mix(in oklch,var(--yellow) 25%,transparent);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:var(--text-xs);color:var(--yellow)">⚠ Nahe ${cot.net<0?'BÄRISCH':'BULLISCH'}-Schwelle (${Math.abs(cot.net).toLocaleString('de-DE')} / ±10.000 Kontrakte)</div>`:''}
     `
     :`<div style="color:var(--muted);font-size:var(--text-xs);font-family:var(--font-mono)">N/A – CFTC-Daten nicht verfügbar</div>`;
 
@@ -514,23 +514,24 @@ function renderMainGrid(d){
   const rateBiasClass=sig.rate_bias==='BÄRISCH'?'bc-bear':sig.rate_bias==='BULLISCH'?'bc-bull':'bc-neutral';
   const yieldBiasClass=sig.yield_bias==='USD-Vorteil'?'bc-bear':sig.yield_bias==='EUR-Vorteil'?'bc-bull':'bc-neutral';
   const cotBiasClass=sig.cot_bias==='NET-SHORT'?'bc-bear':sig.cot_bias==='NET-LONG'?'bc-bull':'bc-neutral';
+  const dir=b=>b==='USD-Vorteil'||b==='NET-SHORT'?'BÄRISCH':b==='EUR-Vorteil'||b==='NET-LONG'?'BULLISCH':(b||'N/A');
   const overall=(sig.overall_bias||'NEUTRAL').toUpperCase();
   const overallColor=overall==='BÄRISCH'?'var(--red)':overall==='BULLISCH'?'var(--green)':'var(--muted)';
   const fomc=events.find(e=>e.label==='FOMC');
   const fomcDays = fomc ? calcDaysFromNow(fomc.date) : null;
-  const usdF=[],eurF=[];
-  if(sig.rate_bias==='BÄRISCH')usdF.push('Zinsdifferenz');else if(sig.rate_bias==='BULLISCH')eurF.push('Zinsdifferenz');
-  if(sig.yield_bias==='USD-Vorteil')usdF.push('2Y-Spread');else if(sig.yield_bias==='EUR-Vorteil')eurF.push('2Y-Spread');
+  const bearF=[],bullF=[];
+  if(sig.rate_bias==='BÄRISCH')bearF.push('Zinsdifferenz');else if(sig.rate_bias==='BULLISCH')bullF.push('Zinsdifferenz');
+  if(sig.yield_bias==='USD-Vorteil')bearF.push('2Y-Spread');else if(sig.yield_bias==='EUR-Vorteil')bullF.push('2Y-Spread');
   const segs=[];
-  if(usdF.length)segs.push('USD-Vorteil bei '+usdF.join(' und '));
-  if(eurF.length)segs.push('EUR-Vorteil bei '+eurF.join(' und '));
+  if(bearF.length)segs.push(bearF.join(' und ')+' bärisch');
+  if(bullF.length)segs.push(bullF.join(' und ')+' bullisch');
   if(sig.cot_bias==='NET-SHORT'||sig.cot_bias==='NET-LONG'){
-    const cotDir=sig.cot_bias==='NET-SHORT'?'BÄRISCH':'BULLISCH';
-    segs.push(overall===cotDir?`COT bestätigt mit ${sig.cot_bias}`:overall==='NEUTRAL'?`COT ${sig.cot_bias}`:`COT hält mit ${sig.cot_bias} dagegen`);
+    const cotDir=dir(sig.cot_bias);
+    segs.push(overall===cotDir?`COT bestätigt ${cotDir.toLowerCase()}`:overall==='NEUTRAL'?`COT ${cotDir.toLowerCase()}`:`COT hält ${cotDir.toLowerCase()} dagegen`);
   }else if(sig.cot_bias==='NEUTRAL')segs.push('COT neutral');
   if(fomcDays!=null)segs.push(fomcDays===0?'FOMC heute':'FOMC in '+fomcDays+'T entscheidend');
   const biasDesc=segs.length?segs.join('. ')+'.':'Keine Signaldaten verfügbar.';
-  const advBadge=sig.rate_diff==null?'<span class="panel-badge flat">⚪ N/A</span>':sig.rate_diff>0?'<span class="panel-badge down">🔴 USD</span>':'<span class="panel-badge up">🟢 EUR</span>';
+  const advBadge=sig.rate_diff==null?'<span class="panel-badge flat">⚪ N/A</span>':sig.rate_diff>0?'<span class="panel-badge down">🔴 BÄRISCH</span>':'<span class="panel-badge up">🟢 BULLISCH</span>';
 
   document.getElementById('mainGrid').innerHTML=`
     <div class="panel">
@@ -538,7 +539,7 @@ function renderMainGrid(d){
       <div class="panel-body">${rateTable}</div>
     </div>
     <div class="panel">
-      <div class="panel-header"><div class="panel-title">📋 COT · CME EUR 6E</div><span class="panel-badge flat">${cotIcon} ${cot?cot.bias:'N/A'}</span></div>
+      <div class="panel-header"><div class="panel-title">📋 COT · CME EUR 6E</div><span class="panel-badge flat">${cotIcon} ${cot?dir(cot.bias):'N/A'}</span></div>
       <div class="panel-body">${cotPanel}</div>
     </div>
     <div class="panel spread-panel">
@@ -554,8 +555,8 @@ function renderMainGrid(d){
       <div class="panel-body">
         <div class="bias-row">
           <div class="bias-card"><div class="bias-card-label">Zinsdiff.</div><div class="bias-card-val ${rateBiasClass}">${sig.rate_bias==='BÄRISCH'?'🔴':sig.rate_bias==='BULLISCH'?'🟢':'⚪'} ${sig.rate_bias||'N/A'}</div></div>
-          <div class="bias-card"><div class="bias-card-label">2Y-Spread</div><div class="bias-card-val ${yieldBiasClass}">${sig.yield_bias==='USD-Vorteil'?'🔴':sig.yield_bias==='EUR-Vorteil'?'🟢':'⚪'} ${sig.yield_bias||'N/A'}</div></div>
-          <div class="bias-card"><div class="bias-card-label">COT</div><div class="bias-card-val ${cotBiasClass}">${sig.cot_bias==='NET-SHORT'?'🔴':sig.cot_bias==='NET-LONG'?'🟢':'⚪'} ${sig.cot_bias||'N/A'}</div></div>
+          <div class="bias-card"><div class="bias-card-label">2Y-Spread</div><div class="bias-card-val ${yieldBiasClass}">${sig.yield_bias==='USD-Vorteil'?'🔴':sig.yield_bias==='EUR-Vorteil'?'🟢':'⚪'} ${dir(sig.yield_bias)}</div></div>
+          <div class="bias-card"><div class="bias-card-label">COT</div><div class="bias-card-val ${cotBiasClass}">${sig.cot_bias==='NET-SHORT'?'🔴':sig.cot_bias==='NET-LONG'?'🟢':'⚪'} ${dir(sig.cot_bias)}</div></div>
         </div>
         <div style="margin-top:var(--space-4);padding:var(--space-3);background:color-mix(in oklch,${overallColor} 8%,transparent);border:1px solid color-mix(in oklch,${overallColor} 20%,transparent);border-radius:var(--radius-md)">
           <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:${overallColor};font-weight:700;margin-bottom:4px">GESAMT: ${overall==='BÄRISCH'?'🔴':overall==='BULLISCH'?'🟢':'⚪'} ${overall} EUR/USD</div>
