@@ -518,13 +518,23 @@ function renderMainGrid(d){
   const overallColor=overall==='BÄRISCH'?'var(--red)':overall==='BULLISCH'?'var(--green)':'var(--muted)';
   const fomc=events.find(e=>e.label==='FOMC');
   const fomcDays = fomc ? calcDaysFromNow(fomc.date) : null;
-  const biasDesc=overall==='BÄRISCH'?`USD-Zins- und Spread-Vorteil dominant.${fomcDays!=null?' FOMC in '+fomcDays+'T entscheidend.':''} COT ohne klare Gegenposition.`
-    :overall==='BULLISCH'?`EUR-Zinsvorteil wächst.${fomcDays!=null?' FOMC in '+fomcDays+'T.':''}`
-    :'Signale gemischt. Kein klarer Richtungsimpuls.';
+  const usdF=[],eurF=[];
+  if(sig.rate_bias==='BÄRISCH')usdF.push('Zinsdifferenz');else if(sig.rate_bias==='BULLISCH')eurF.push('Zinsdifferenz');
+  if(sig.yield_bias==='USD-Vorteil')usdF.push('2Y-Spread');else if(sig.yield_bias==='EUR-Vorteil')eurF.push('2Y-Spread');
+  const segs=[];
+  if(usdF.length)segs.push('USD-Vorteil bei '+usdF.join(' und '));
+  if(eurF.length)segs.push('EUR-Vorteil bei '+eurF.join(' und '));
+  if(sig.cot_bias==='NET-SHORT'||sig.cot_bias==='NET-LONG'){
+    const cotDir=sig.cot_bias==='NET-SHORT'?'BÄRISCH':'BULLISCH';
+    segs.push(overall===cotDir?`COT bestätigt mit ${sig.cot_bias}`:overall==='NEUTRAL'?`COT ${sig.cot_bias}`:`COT hält mit ${sig.cot_bias} dagegen`);
+  }else if(sig.cot_bias==='NEUTRAL')segs.push('COT neutral');
+  if(fomcDays!=null)segs.push(fomcDays===0?'FOMC heute':'FOMC in '+fomcDays+'T entscheidend');
+  const biasDesc=segs.length?segs.join('. ')+'.':'Keine Signaldaten verfügbar.';
+  const advBadge=sig.rate_diff==null?'<span class="panel-badge flat">⚪ N/A</span>':sig.rate_diff>0?'<span class="panel-badge down">🔴 USD</span>':'<span class="panel-badge up">🟢 EUR</span>';
 
   document.getElementById('mainGrid').innerHTML=`
     <div class="panel">
-      <div class="panel-header"><div class="panel-title">📈 Zinsdifferenz &amp; Spreads</div><span class="panel-badge down">🔴 USD</span></div>
+      <div class="panel-header"><div class="panel-title">📈 Zinsdifferenz &amp; Spreads</div>${advBadge}</div>
       <div class="panel-body">${rateTable}</div>
     </div>
     <div class="panel">
