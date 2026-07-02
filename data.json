@@ -1,6 +1,6 @@
 {
-  "generated_at": "02.07.2026 08:33 UTC",
-  "generated_ts": "2026-07-02T08:33:35.827406Z",
+  "generated_at": "02.07.2026 11:47 UTC",
+  "generated_ts": "2026-07-02T11:47:41.433247Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -17,12 +17,12 @@
   "yields": {
     "us2y": 4.14,
     "us2y_date": "2026-06-30",
-    "de2y": 2.4760833371,
-    "de2y_date": "2026-06-30"
+    "de2y": 2.4738910102,
+    "de2y_date": "2026-07-01"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.66,
+    "yield_spread": 1.67,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -47,6 +47,12 @@
       "importance": "high",
       "date": "29.07.2026",
       "days": 27
+    },
+    {
+      "label": "FOMC-Prot.",
+      "importance": "medium",
+      "date": "08.07.2026",
+      "days": 6
     },
     {
       "label": "NFP",
