@@ -25,10 +25,6 @@ BUBA_BASE    = "https://api.bundesbank.de/service/data"
 TODAY        = date.today()
 _MIN_HICP_DATE = date(TODAY.year - 1, 1, 1)
 
-_ECB_DECISIONS = [
-    ("2026-06-11", 2.25, "2026-06-17"),
-]
-
 def safe_get(url, params=None, timeout=20, headers=None):
     try:
         r = requests.get(url, params=params, timeout=timeout,
@@ -214,24 +210,25 @@ def get_hicp():
     return None, "N/A"
 
 def get_dfr():
-    val, period = None, "N/A"
+    """
+    DFR live von der ECB (FM-Dataset). Ermittelt aus der Historie zusätzlich
+    den vorherigen Zinssatz (für das Delta-Badge im Frontend).
+    """
     for key in ("FM/B.U2.EUR.4F.KR.DFR.LEV", "FM/D.U2.EUR.4F.KR.DFR.LEV"):
-        v, p = _ecb_last(key, {"endPeriod": TODAY.strftime("%Y-%m-%d"), "lastNObservations": 1})
-        if v is not None:
-            val, period = v, p
-            break
-    if val is None:
-        obs = _fred("ECBDFR", limit=1)
-        if obs:
-            val, period = float(obs[0][0]), obs[0][1]
-    note = None
-    for dec_d, new_dfr, eff_d in _ECB_DECISIONS:
-        eff = date.fromisoformat(eff_d)
-        dec = date.fromisoformat(dec_d)
-        if dec <= TODAY < eff and (val is None or abs(val - new_dfr) > 0.001):
-            val, period, note = new_dfr, dec_d, f"in Kraft ab {eff_d}"
-    print(f"[OK] DFR: {val}% ({period})")
-    return val, period, note
+        series = _ecb_series(key, n=400)
+        if series:
+            period, val = series[-1]
+            prev = next((v for _, v in reversed(series) if abs(v - val) > 0.001), None)
+            print(f"[OK] DFR: {val}% ({period}), zuvor: {prev}%")
+            return val, period, prev
+    obs = _fred("ECBDFR", limit=400)
+    if obs:
+        val, period = float(obs[0][0]), obs[0][1]
+        prev = next((float(v) for v, _ in obs if abs(float(v) - val) > 0.001), None)
+        print(f"[OK] DFR (FRED): {val}% ({period}), zuvor: {prev}%")
+        return val, period, prev
+    print("[WARN] DFR: alle Quellen erschoepft")
+    return None, "N/A", None
 
 def _load_previous_de2y():
     """
@@ -403,16 +400,57 @@ def get_retail():
             print(f"[WARN] Retail: {e}")
     return None
 
+def _fred_release_calendar():
+    """
+    Künftige Veröffentlichungstermine aus dem FRED-Release-Kalender
+    (spiegelt den offiziellen BLS-Zeitplan). Liefert {release_name: date}
+    mit dem jeweils nächsten Termin ab heute.
+    """
+    p = {"api_key": FRED_API_KEY, "file_type": "json",
+         "include_release_dates_with_no_data": "true",
+         "realtime_start": TODAY.strftime("%Y-%m-%d"),
+         "realtime_end": "9999-12-31",
+         "sort_order": "asc", "limit": 1000}
+    data = safe_get("https://api.stlouisfed.org/fred/releases/dates", p)
+    cal = {}
+    for row in (data or {}).get("release_dates", []):
+        try:
+            d = date.fromisoformat(str(row.get("date")))
+        except (ValueError, TypeError):
+            continue
+        if d < TODAY:
+            continue
+        name = row.get("release_name", "")
+        if name and (name not in cal or d < cal[name]):
+            cal[name] = d
+    if cal:
+        print(f"[OK] FRED-Release-Kalender: {len(cal)} Releases mit künftigen Terminen")
+    else:
+        print("[WARN] FRED-Release-Kalender: keine Termine erhalten")
+    return cal
+
 def get_events():
+    # Fed/EZB publizieren ihre Sitzungskalender nur als HTML/ICS (keine
+    # Daten-API) – offizieller Sitzungskalender 2026, jährlich zu pflegen.
     FOMC = [date(2026,7,29), date(2026,9,16), date(2026,10,28), date(2026,12,9)]
     ECB  = [date(2026,7,23), date(2026,9,10), date(2026,10,29), date(2026,12,3)]
+    # BLS-Termine kommen live aus dem FRED-Release-Kalender; der offizielle
+    # BLS-Jahresplan dient nur als Ausfall-Fallback.
     NFP  = [date(2026,7,2),  date(2026,8,7),  date(2026,9,4),  date(2026,10,2)]
     CPI  = [date(2026,7,14), date(2026,8,12), date(2026,9,11), date(2026,10,14)]
     PPI  = [date(2026,7,15), date(2026,8,13), date(2026,9,12), date(2026,10,15)]
+    cal = _fred_release_calendar()
     def _next(dates):
         # >= statt >: Event bleibt am Tag selbst sichtbar (days=0 → "HEUTE")
         fut = [d for d in sorted(dates) if d >= TODAY]
         return fut[0] if fut else None
+    def _live(label, release_name, fallback):
+        d = cal.get(release_name)
+        if d is not None:
+            print(f"[OK] {label}-Termin (FRED-Kalender): {d}")
+            return d
+        print(f"[WARN] {label}-Termin: nicht im FRED-Kalender, nutze BLS-Jahresplan")
+        return _next(fallback)
     def _entry(label, importance, d):
         if d is None:
             return {"label": label, "importance": importance, "date": "N/A", "days": None}
@@ -420,9 +458,9 @@ def get_events():
                 "date": d.strftime("%d.%m.%Y"), "days": (d - TODAY).days}
     return [
         _entry("FOMC", "high",   _next(FOMC)),
-        _entry("NFP",  "medium", _next(NFP)),
-        _entry("CPI",  "medium", _next(CPI)),
-        _entry("PPI",  "low",    _next(PPI)),
+        _entry("NFP",  "medium", _live("NFP", "Employment Situation", NFP)),
+        _entry("CPI",  "medium", _live("CPI", "Consumer Price Index", CPI)),
+        _entry("PPI",  "low",    _live("PPI", "Producer Price Index", PPI)),
         _entry("EZB",  "low",    _next(ECB)),
     ]
 
@@ -430,7 +468,7 @@ def run():
     now = datetime.utcnow()
     print(f"[{now.isoformat()}Z] fetch_data.py startet...")
 
-    dfr,  dfr_date,  dfr_note  = get_dfr()
+    dfr,  dfr_date,  dfr_prev  = get_dfr()
     hicp, hicp_date             = get_hicp()
     effr, effr_date             = get_effr()
     cpi,  cpi_date              = get_us_cpi()
@@ -463,7 +501,7 @@ def run():
     out = {
         "generated_at": now.strftime("%d.%m.%Y %H:%M UTC"),
         "generated_ts": now.isoformat() + "Z",
-        "ecb": {"dfr": dfr, "dfr_date": (dfr_date or "N/A")[:10], "dfr_note": dfr_note,
+        "ecb": {"dfr": dfr, "dfr_date": (dfr_date or "N/A")[:10], "dfr_prev": dfr_prev,
                 "hicp": hicp, "hicp_date": (hicp_date or "N/A")[:7]},
         "fed": {"effr": effr, "effr_date": (effr_date or "N/A")[:10],
                 "cpi": cpi, "cpi_date": (str(cpi_date) or "N/A")[:7]},

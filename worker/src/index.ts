@@ -118,12 +118,12 @@ const WEEKDAY_DE     = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 const GH_REPO        = "noahhwagnerr-wq/eurusd-morning-brief";
 const GH_API         = "https://api.github.com";
 
-const ECB_KNOWN_DECISIONS = [
-  { dec: "2026-06-11", dfr: 2.25, eff: "2026-06-17" },
-];
-
+// Fed/EZB publizieren ihre Sitzungskalender nur als HTML/ICS (keine Daten-API)
+// – offizieller Sitzungskalender 2026, jährlich zu pflegen.
 const FOMC_2026 = ["2026-01-29","2026-03-18","2026-04-29","2026-06-17","2026-07-29","2026-09-16","2026-10-28","2026-12-09"];
 const ECB_2026  = ["2026-01-30","2026-03-19","2026-04-30","2026-06-11","2026-07-23","2026-09-10","2026-10-29","2026-12-03"];
+// BLS-Termine kommen live aus dem FRED-Release-Kalender; der offizielle
+// BLS-Jahresplan dient nur als Ausfall-Fallback.
 const NFP_2026  = ["2026-02-11","2026-03-06","2026-04-03","2026-05-08","2026-06-05","2026-07-02","2026-08-07","2026-09-04","2026-10-02","2026-11-06","2026-12-04"];
 const CPI_2026  = ["2026-01-13","2026-02-11","2026-03-11","2026-04-10","2026-05-12","2026-06-10","2026-07-14","2026-08-12","2026-09-11","2026-10-14","2026-11-10","2026-12-10"];
 const PPI_2026  = ["2026-01-14","2026-02-12","2026-03-18","2026-04-14","2026-05-13","2026-06-11","2026-07-15","2026-08-13","2026-09-12","2026-10-15","2026-11-12","2026-12-11"];
@@ -313,28 +313,22 @@ async function fredObs(seriesId: string, limit = 2, sort = "desc", apiKey: strin
 // ─────────────────────────────────────────────────────────────
 
 async function getEcbDfr(today: Date): Promise<{ val: number | null; period: string; hinweis: string | null }> {
-  let val: number | null = null;
-  let period = "N/A";
   for (const key of ["FM/B.U2.EUR.4F.KR.DFR.LEV", "FM/D.U2.EUR.4F.KR.DFR.LEV"]) {
     const [v, p] = await ecbLastObs(key, { endPeriod: toISO(today), lastNObservations: "1" });
-    if (v !== null) { val = v; period = p; break; }
+    if (v !== null) return { val: v, period: p, hinweis: null };
   }
-  let hinweis: string | null = null;
-  for (const d of ECB_KNOWN_DECISIONS) {
-    const eff = new Date(d.eff); const dec = new Date(d.dec);
-    if (dec <= today && today < eff && (val === null || Math.abs(val - d.dfr) > 0.001)) {
-      val = d.dfr; period = d.dec; hinweis = `in Kraft ab ${d.eff}`;
-    }
-  }
-  return { val, period, hinweis };
+  return { val: null, period: "N/A", hinweis: null };
 }
 
 async function getEcbHicp(): Promise<[number | null, string]> {
   const eurostatBase = "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data";
-  for (const params of [
+  const since = new Date();
+  since.setUTCMonth(since.getUTCMonth() - 13);
+  const paramSets: Record<string, string>[] = [
     { format: "JSON", geo: "EA", unit: "RCH_A", coicop: "CP00" },
-    { format: "JSON", geo: "EA", unit: "RCH_A", coicop: "CP00", startPeriod: "2025-06" },
-  ]) {
+    { format: "JSON", geo: "EA", unit: "RCH_A", coicop: "CP00", startPeriod: since.toISOString().slice(0, 7) },
+  ];
+  for (const params of paramSets) {
     const data = await safeGet(`${eurostatBase}/prc_hicp_manr`, params) as any;
     if (data) {
       try {
@@ -522,7 +516,28 @@ async function getRetailSentiment(): Promise<RetailData | null> {
 //  Event-Kalender
 // ─────────────────────────────────────────────────────────────
 
-function getNextMeetings(today: Date): Meetings {
+async function fredReleaseCalendar(apiKey: string, today: Date): Promise<Record<string, Date>> {
+  // Künftige Veröffentlichungstermine aus dem FRED-Release-Kalender
+  // (spiegelt den offiziellen BLS-Zeitplan), nächster Termin je Release.
+  const data = await safeGet("https://api.stlouisfed.org/fred/releases/dates", {
+    api_key: apiKey, file_type: "json",
+    include_release_dates_with_no_data: "true",
+    realtime_start: toISO(today), realtime_end: "9999-12-31",
+    sort_order: "asc", limit: "1000",
+  }) as any;
+  const todayMid = utcMidnight(today);
+  const cal: Record<string, Date> = {};
+  for (const row of (data?.release_dates ?? []) as any[]) {
+    const d = new Date(String(row.date ?? ""));
+    if (isNaN(+d) || utcMidnight(d) < todayMid) continue;
+    const name = String(row.release_name ?? "");
+    if (name && (!(name in cal) || d < cal[name])) cal[name] = d;
+  }
+  console.log(`[${Object.keys(cal).length > 0 ? "OK" : "WARN"}] FRED-Release-Kalender: ${Object.keys(cal).length} Releases`);
+  return cal;
+}
+
+async function getNextMeetings(today: Date, apiKey: string): Promise<Meetings> {
   const todayMid = utcMidnight(today);
   const next = (dates: string[]): Date | null => {
     const fut = dates
@@ -534,7 +549,12 @@ function getNextMeetings(today: Date): Meetings {
   const fmtD = (d: Date | null) =>
     d ? d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }) : "N/A";
   const days = (d: Date | null) => d !== null ? daysBetween(today, d) : null;
-  const nf = next(FOMC_2026), ne = next(ECB_2026), nn = next(NFP_2026), nc = next(CPI_2026), np = next(PPI_2026);
+  const cal = await fredReleaseCalendar(apiKey, today);
+  const live = (name: string, fallback: string[]): Date | null => cal[name] ?? next(fallback);
+  const nf = next(FOMC_2026), ne = next(ECB_2026);
+  const nn = live("Employment Situation", NFP_2026);
+  const nc = live("Consumer Price Index", CPI_2026);
+  const np = live("Producer Price Index", PPI_2026);
   return {
     fomc_date: fmtD(nf), fomc_days: days(nf),
     ecb_date:  fmtD(ne), ecb_days:  days(ne),
@@ -738,7 +758,7 @@ async function run(env: Env): Promise<void> {
     ]);
 
   const { val: ecbDfr, period: ecbDfrDate, hinweis: ecbDfrHinweis } = ecbDfrResult;
-  const meetings = getNextMeetings(today);
+  const meetings = await getNextMeetings(today, env.FRED_API_KEY);
   const signals  = computeSignals(ecbDfr, fedEffr, us2y, de2y, cot);
 
   const message = buildMessage(
