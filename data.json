@@ -1,10 +1,10 @@
 {
-  "generated_at": "02.07.2026 08:21 UTC",
-  "generated_ts": "2026-07-02T08:21:48.234985Z",
+  "generated_at": "02.07.2026 08:26 UTC",
+  "generated_ts": "2026-07-02T08:26:40.364870Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
-    "dfr_note": null,
+    "dfr_prev": 2.0,
     "hicp": 2.8,
     "hicp_date": "2026-06"
   },
@@ -51,8 +51,8 @@
     {
       "label": "NFP",
       "importance": "medium",
-      "date": "07.08.2026",
-      "days": 36
+      "date": "02.07.2026",
+      "days": 0
     },
     {
       "label": "CPI",
