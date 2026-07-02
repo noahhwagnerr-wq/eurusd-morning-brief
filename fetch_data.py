@@ -410,7 +410,8 @@ def get_events():
     CPI  = [date(2026,7,14), date(2026,8,12), date(2026,9,11), date(2026,10,14)]
     PPI  = [date(2026,7,15), date(2026,8,13), date(2026,9,12), date(2026,10,15)]
     def _next(dates):
-        fut = [d for d in sorted(dates) if d > TODAY]
+        # >= statt >: Event bleibt am Tag selbst sichtbar (days=0 → "HEUTE")
+        fut = [d for d in sorted(dates) if d >= TODAY]
         return fut[0] if fut else None
     def _entry(label, importance, d):
         if d is None:
