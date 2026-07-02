@@ -86,6 +86,7 @@ interface RetailData {
 
 interface Meetings {
   fomc_date: string; fomc_days: number | null;
+  fomc_min_date: string; fomc_min_days: number | null;
   ecb_date: string;  ecb_days: number | null;
   nfp_date: string;  nfp_days: number | null;
   cpi_date: string;  cpi_days: number | null;
@@ -551,12 +552,20 @@ async function getNextMeetings(today: Date, apiKey: string): Promise<Meetings> {
   const days = (d: Date | null) => d !== null ? daysBetween(today, d) : null;
   const cal = await fredReleaseCalendar(apiKey, today);
   const live = (name: string, fallback: string[]): Date | null => cal[name] ?? next(fallback);
-  const nf = next(FOMC_2026), ne = next(ECB_2026);
+  // FOMC-Protokoll: laut Fed-Kommunikationspolitik fix drei Wochen nach
+  // jeder Sitzung – deterministisch abgeleitet, kein eigener Kalender.
+  const FOMC_MINUTES = FOMC_2026.map(d => {
+    const m = new Date(d);
+    m.setUTCDate(m.getUTCDate() + 21);
+    return toISO(m);
+  });
+  const nf = next(FOMC_2026), nfm = next(FOMC_MINUTES), ne = next(ECB_2026);
   const nn = live("Employment Situation", NFP_2026);
   const nc = live("Consumer Price Index", CPI_2026);
   const np = live("Producer Price Index", PPI_2026);
   return {
     fomc_date: fmtD(nf), fomc_days: days(nf),
+    fomc_min_date: fmtD(nfm), fomc_min_days: days(nfm),
     ecb_date:  fmtD(ne), ecb_days:  days(ne),
     nfp_date:  fmtD(nn), nfp_days:  days(nn),
     cpi_date:  fmtD(nc), cpi_days:  days(nc),
@@ -702,6 +711,7 @@ function buildMessage(
     "🗓 *Nächste High\\-Impact Events*",
     "",
     eventLine("FOMC", meetings.fomc_days, meetings.fomc_date),
+    eventLine("FOMC-Prot.", meetings.fomc_min_days, meetings.fomc_min_date),
     eventLine("EZB",  meetings.ecb_days,  meetings.ecb_date),
     eventLine("NFP",  meetings.nfp_days,  meetings.nfp_date),
     eventLine("CPI",  meetings.cpi_days,  meetings.cpi_date),
