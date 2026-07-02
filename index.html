@@ -478,7 +478,7 @@ function renderMainGrid(d){
           <div class="event-date">${ev.date}</div>
           ${infoHtml}
         </div>
-        <div class="event-days${soon?' soon':''}">${days!==null?days+'T':'N/A'}</div>
+        <div class="event-days${soon?' soon':''}">${days===0?'HEUTE':days!==null?days+'T':'N/A'}</div>
         <button class="event-edit-btn${isOpen?' active':''}" onclick="toggleEventEdit('${ev.label}')" title="Vorwert &amp; Prognose bearbeiten" aria-label="Bearbeiten">✏️</button>
       </div>
       <div class="event-inline-form${isOpen?' open':''}" id="evform-${ev.label}">
