@@ -227,6 +227,17 @@
       "forecast": "",
       "unit": "%",
       "note": ""
+    },
+    {
+      "id": "fed-anhoerung-2026-07-14",
+      "label": "Fed-Anhörung",
+      "importance": "high",
+      "date": "14.07.2026",
+      "previous": "",
+      "forecast": "",
+      "unit": "",
+      "note": "Fed Chairman Warsh Testifies",
+      "custom": true
     }
   ],
   "last_updated": "2026-06-26T14:37:43.404Z"

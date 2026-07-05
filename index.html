@@ -449,7 +449,11 @@ function renderMainGrid(d){
     </div>
     <div class="chart-wrap"><canvas id="spreadChart"></canvas></div>`;
 
-  const sortedEvents = [...events].sort((a,b)=>parseDateVal(a.date)<parseDateVal(b.date)?-1:parseDateVal(a.date)>parseDateVal(b.date)?1:0);
+  const customEvents = Object.values(_eventsData).flatMap(v=>v.entries||[])
+    .filter(e=>e.custom===true)
+    .map(e=>({label:e.label,importance:e.importance||'medium',date:/^\d{4}-\d{2}-\d{2}$/.test(e.date||'')?e.date.split('-').reverse().join('.'):e.date}))
+    .filter(e=>calcDaysFromNow(e.date)!==null);
+  const sortedEvents = [...events,...customEvents].sort((a,b)=>parseDateVal(a.date)<parseDateVal(b.date)?-1:parseDateVal(a.date)>parseDateVal(b.date)?1:0);
 
   const evItems = sortedEvents.map(ev=>{
     const days = calcDaysFromNow(ev.date);
@@ -463,10 +467,13 @@ function renderMainGrid(d){
       const bias = calcBias(ev.label, match.forecast, match.previous);
       const biasColor = bias==='BULLISCH'?'var(--green)':bias==='BÄRISCH'?'var(--red)':'var(--muted)';
       const biasEmoji = bias==='BULLISCH'?'🟢':bias==='BÄRISCH'?'🔴':'⚪';
-      infoHtml = `<div style="display:flex;gap:var(--space-2);flex-wrap:wrap;margin-top:2px;align-items:center">
-        <span style="font-family:var(--font-mono);font-size:0.65rem;color:var(--muted)">Prog: <b style="color:var(--text)">${match.forecast||'?'}</b> | Vor: <b style="color:var(--text)">${match.previous||'?'}</b> ${cfg.unit}</span>
+      const progHtml = (match.forecast||match.previous)?`<span style="font-family:var(--font-mono);font-size:0.65rem;color:var(--muted)">Prog: <b style="color:var(--text)">${match.forecast||'?'}</b> | Vor: <b style="color:var(--text)">${match.previous||'?'}</b> ${cfg.unit}</span>`:'';
+      const noteHtml = match.note?`<span style="font-size:0.65rem;color:var(--muted)">${match.note}</span>`:'';
+      infoHtml = (progHtml||noteHtml||bias)?`<div style="display:flex;gap:var(--space-2);flex-wrap:wrap;margin-top:2px;align-items:center">
+        ${progHtml}
         ${bias?`<span style="font-family:var(--font-mono);font-size:0.65rem;font-weight:700;color:${biasColor}">${biasEmoji} ${bias}</span>`:''}
-      </div>`;
+        ${noteHtml}
+      </div>`:'';
     }
 
     const isOpen = _openEditLabel === ev.label;
@@ -599,7 +606,7 @@ async function saveInlineEntry(label, evDate){
   if(!_eventsData[label]) _eventsData[label]={entries:[]};
   const entries = _eventsData[label].entries;
   const idx = entries.findIndex(e=>e.date===evDate||(e.date||'').replace(/\./g,'-')===evDate);
-  const entry = {label, date:evDate, previous:prev, forecast:fore, note, bias, actual:false};
+  const entry = {...(idx>=0?entries[idx]:{}), label, date:evDate, previous:prev, forecast:fore, note, bias, actual:false};
   if(idx>=0) entries[idx]=entry; else entries.push(entry);
 
   const allEvents = Object.values(_eventsData).flatMap(v=>v.entries||[]);
