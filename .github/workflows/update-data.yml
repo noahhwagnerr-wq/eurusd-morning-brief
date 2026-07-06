@@ -57,6 +57,8 @@ jobs:
       - name: Daten holen
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python fetch_data.py
           echo "--- data.json (erste 40 Zeilen) ---"

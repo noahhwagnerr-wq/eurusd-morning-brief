@@ -88,6 +88,7 @@ interface Meetings {
   fomc_date: string; fomc_days: number | null;
   fomc_min_date: string; fomc_min_days: number | null;
   ecb_date: string;  ecb_days: number | null;
+  ecb_prot_date: string; ecb_prot_days: number | null;
   nfp_date: string;  nfp_days: number | null;
   cpi_date: string;  cpi_days: number | null;
   ppi_date: string;  ppi_days: number | null;
@@ -552,14 +553,16 @@ async function getNextMeetings(today: Date, apiKey: string): Promise<Meetings> {
   const days = (d: Date | null) => d !== null ? daysBetween(today, d) : null;
   const cal = await fredReleaseCalendar(apiKey, today);
   const live = (name: string, fallback: string[]): Date | null => cal[name] ?? next(fallback);
-  // FOMC-Protokoll: laut Fed-Kommunikationspolitik fix drei Wochen nach
-  // jeder Sitzung – deterministisch abgeleitet, kein eigener Kalender.
-  const FOMC_MINUTES = FOMC_2026.map(d => {
+  // Protokolle: deterministisch abgeleitet, kein eigener Kalender.
+  // FOMC-Protokoll fix 3 Wochen, EZB-Accounts fix 4 Wochen nach Sitzung.
+  const plusDays = (dates: string[], n: number) => dates.map(d => {
     const m = new Date(d);
-    m.setUTCDate(m.getUTCDate() + 21);
+    m.setUTCDate(m.getUTCDate() + n);
     return toISO(m);
   });
-  const nf = next(FOMC_2026), nfm = next(FOMC_MINUTES), ne = next(ECB_2026);
+  const FOMC_MINUTES = plusDays(FOMC_2026, 21);
+  const ECB_ACCOUNTS = plusDays(ECB_2026, 28);
+  const nf = next(FOMC_2026), nfm = next(FOMC_MINUTES), ne = next(ECB_2026), nep = next(ECB_ACCOUNTS);
   const nn = live("Employment Situation", NFP_2026);
   const nc = live("Consumer Price Index", CPI_2026);
   const np = live("Producer Price Index", PPI_2026);
@@ -567,6 +570,7 @@ async function getNextMeetings(today: Date, apiKey: string): Promise<Meetings> {
     fomc_date: fmtD(nf), fomc_days: days(nf),
     fomc_min_date: fmtD(nfm), fomc_min_days: days(nfm),
     ecb_date:  fmtD(ne), ecb_days:  days(ne),
+    ecb_prot_date: fmtD(nep), ecb_prot_days: days(nep),
     nfp_date:  fmtD(nn), nfp_days:  days(nn),
     cpi_date:  fmtD(nc), cpi_days:  days(nc),
     ppi_date:  fmtD(np), ppi_days:  days(np),
@@ -713,6 +717,7 @@ function buildMessage(
     eventLine("FOMC", meetings.fomc_days, meetings.fomc_date),
     eventLine("FOMC-Prot.", meetings.fomc_min_days, meetings.fomc_min_date),
     eventLine("EZB",  meetings.ecb_days,  meetings.ecb_date),
+    eventLine("EZB-Prot.", meetings.ecb_prot_days, meetings.ecb_prot_date),
     eventLine("NFP",  meetings.nfp_days,  meetings.nfp_date),
     eventLine("CPI",  meetings.cpi_days,  meetings.cpi_date),
     eventLine("PPI",  meetings.ppi_days,  meetings.ppi_date),
