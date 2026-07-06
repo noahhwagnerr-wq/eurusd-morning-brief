@@ -1,6 +1,6 @@
 {
-  "generated_at": "06.07.2026 20:43 UTC",
-  "generated_ts": "2026-07-06T20:43:02.802844Z",
+  "generated_at": "06.07.2026 20:58 UTC",
+  "generated_ts": "2026-07-06T20:58:23.203326Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -29,6 +29,12 @@
     "retail_bias": "N/A",
     "overall_bias": "BÄRISCH"
   },
+  "fx": {
+    "rate": 1.1415,
+    "date": "2026-07-06",
+    "prev": 1.1448,
+    "chg_pct": -0.29
+  },
   "cot": {
     "date": "2026-06-30",
     "net": -32644,
@@ -38,7 +44,69 @@
     "net_pct": -4.1,
     "oi": 790076,
     "bias": "NET-SHORT",
-    "source": "Disaggregated/Leveraged Money"
+    "source": "Disaggregated/Leveraged Money",
+    "history": [
+      {
+        "date": "24.03",
+        "net": -13538
+      },
+      {
+        "date": "31.03",
+        "net": 3947
+      },
+      {
+        "date": "07.04",
+        "net": 882
+      },
+      {
+        "date": "14.04",
+        "net": 25382
+      },
+      {
+        "date": "21.04",
+        "net": 20317
+      },
+      {
+        "date": "28.04",
+        "net": 11594
+      },
+      {
+        "date": "05.05",
+        "net": 11846
+      },
+      {
+        "date": "12.05",
+        "net": 18003
+      },
+      {
+        "date": "19.05",
+        "net": 16317
+      },
+      {
+        "date": "26.05",
+        "net": 7296
+      },
+      {
+        "date": "02.06",
+        "net": 12027
+      },
+      {
+        "date": "09.06",
+        "net": -17388
+      },
+      {
+        "date": "16.06",
+        "net": -8926
+      },
+      {
+        "date": "23.06",
+        "net": -15410
+      },
+      {
+        "date": "30.06",
+        "net": -32644
+      }
+    ]
   },
   "retail": null,
   "events": [
@@ -77,8 +145,31 @@
       "importance": "low",
       "date": "23.07.2026",
       "days": 17
+    },
+    {
+      "label": "EZB-Prot.",
+      "importance": "low",
+      "date": "09.07.2026",
+      "days": 3
     }
   ],
+  "actuals": {
+    "NFP": {
+      "value": 57,
+      "unit": "K",
+      "date": "2026-06"
+    },
+    "CPI": {
+      "value": 4.2,
+      "unit": "%",
+      "date": "2026-05"
+    },
+    "PPI": {
+      "value": 6.4,
+      "unit": "%",
+      "date": "2026-05"
+    }
+  },
   "spread_history": [
     {
       "date": "30.03",
