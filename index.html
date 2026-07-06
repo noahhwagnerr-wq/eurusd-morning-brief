@@ -377,7 +377,13 @@ function renderHeader(d){
 }
 
 function renderKPI(d){
-  const ecb=d.ecb||{},fed=d.fed||{};
+  const ecb=d.ecb||{},fed=d.fed||{},fx=d.fx||null;
+  let staleHtml='';
+  if(d.generated_ts){
+    const ageH=(Date.now()-new Date(d.generated_ts).getTime())/36e5;
+    if(ageH>36) staleHtml=`<div style="grid-column:1/-1;padding:var(--space-2) var(--space-3);background:color-mix(in oklch,var(--yellow) 10%,transparent);border:1px solid color-mix(in oklch,var(--yellow) 30%,transparent);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:var(--text-xs);color:var(--yellow)">⚠ Daten evtl. veraltet – Stand ${d.generated_at||'?'} (${Math.round(ageH)}h alt). „Aktualisieren" tippen.</div>`;
+  }
+  const fxHtml=(fx&&fx.rate!=null)?`<div class="kpi" style="grid-column:1/-1"><div class="kpi-label">💱 EUR/USD</div><div class="kpi-value">${parseFloat(fx.rate).toFixed(4)}</div><div class="kpi-sub">EZB-Referenzkurs ${fx.date||'–'}</div><span class="kpi-delta ${fx.chg_pct>0?'up':fx.chg_pct<0?'down':'flat'}">${fx.chg_pct!=null?(fx.chg_pct>0?'▲ +':fx.chg_pct<0?'▼ ':'— ')+parseFloat(fx.chg_pct).toFixed(2)+'%':'—'}</span></div>`:'';
   const dfrPrev=typeof ecb.dfr_prev==='number'?ecb.dfr_prev:null, dfrCur=ecb.dfr??null;
   const dfrNote=`Stand ${ecb.dfr_date||'–'}`;
   const dfrDelta=(dfrCur!==null&&dfrPrev!==null)?(dfrCur>dfrPrev?`▲ von ${dfrPrev.toFixed(2)}%`:dfrCur<dfrPrev?`▼ von ${dfrPrev.toFixed(2)}%`:'— unverändert'):'—';
@@ -387,6 +393,7 @@ function renderKPI(d){
   const cpiVal=fed.cpi!=null?parseFloat(fed.cpi).toFixed(1)+'%':'N/A';
   const cpiDate=(fed.cpi_date||'').replace(/^(\d{4})-(\d{2})$/,(_,y,m)=>{const ms=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];return'BLS '+ms[parseInt(m)-1]+' '+y;})||'–';
   document.getElementById('kpiRow').innerHTML=`
+    ${staleHtml}${fxHtml}
     <div class="kpi"><div class="kpi-label">🇪🇺 EZB Leitzins</div><div class="kpi-value">${dfrCur!==null?parseFloat(dfrCur).toFixed(2)+'%':'N/A'}</div><div class="kpi-sub">${dfrNote}</div><span class="kpi-delta ${dfrCur!==null&&dfrPrev!==null&&dfrCur>dfrPrev?'up':dfrCur!==null&&dfrPrev!==null&&dfrCur<dfrPrev?'down':'flat'}">${dfrDelta}</span></div>
     <div class="kpi"><div class="kpi-label">🇪🇺 HVPI</div><div class="kpi-value" style="color:var(--yellow)">${hicpVal}</div><div class="kpi-sub">${hicpDate}</div><span class="kpi-delta flat">Eurostat</span></div>
     <div class="kpi"><div class="kpi-label">🇺🇸 Fed EFFR</div><div class="kpi-value">${effrCur!==null?parseFloat(effrCur).toFixed(2)+'%':'N/A'}</div><div class="kpi-sub">Stand ${fed.effr_date||'–'}</div><span class="kpi-delta flat">— unverändert</span></div>
@@ -436,6 +443,10 @@ function renderMainGrid(d){
         <span style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--red);width:3em">${parseFloat(cot.short_pct).toFixed(1)}%</span>
       </div>
     </div>
+    ${(cot.history&&cot.history.length>1)?`<div style="margin-top:var(--space-4)">
+      <div style="font-size:var(--text-xs);color:var(--muted);margin-bottom:var(--space-2)">Net-Position · ${cot.history.length} Wochen</div>
+      <div style="height:110px"><canvas id="cotChart"></canvas></div>
+    </div>`:''}
     <div style="margin-top:var(--space-3);padding-top:var(--space-3);border-top:1px solid var(--divider);font-size:var(--text-xs);color:var(--faint);font-family:var(--font-mono)">${cot.date} · ${cot.source}</div>
     ${cot.bias==='NEUTRAL'&&(Math.abs(cot.net)>7500||Math.abs(cot.net_pct)>4)?`<div style="margin-top:var(--space-2);padding:var(--space-2) var(--space-3);background:color-mix(in oklch,var(--yellow) 8%,transparent);border:1px solid color-mix(in oklch,var(--yellow) 25%,transparent);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:var(--text-xs);color:var(--yellow)">⚠ Nahe ${cot.net<0?'BÄRISCH':'BULLISCH'}-Schwelle (${Math.abs(cot.net).toLocaleString('de-DE')} / ±10.000 Kontrakte)</div>`:''}
     `
@@ -538,6 +549,10 @@ function renderMainGrid(d){
   }else if(sig.cot_bias==='NEUTRAL')segs.push('COT neutral');
   if(fomcDays!=null)segs.push(fomcDays===0?'FOMC heute':'FOMC in '+fomcDays+'T entscheidend');
   const biasDesc=segs.length?segs.join('. ')+'.':'Keine Signaldaten verfügbar.';
+  const act=d.actuals||{};
+  const monthDE=s=>(s||'').replace(/^(\d{4})-(\d{2})$/,(_,y,m)=>['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][parseInt(m)-1]+' '+y.slice(2));
+  const actParts=['NFP','CPI','PPI'].filter(k=>act[k]&&act[k].value!=null).map(k=>`${k} ${monthDE(act[k].date)}: <b style="color:var(--text)">${k==='NFP'&&act[k].value>0?'+':''}${act[k].value}${act[k].unit}</b>`);
+  const actHtml=actParts.length?`<div style="padding:var(--space-2) var(--space-4);border-top:1px solid var(--divider);font-family:var(--font-mono);font-size:0.65rem;color:var(--muted)">Letzte Ist-Werte: ${actParts.join(' · ')}</div>`:'';
   const advBadge=sig.rate_diff==null?'<span class="panel-badge flat">⚪ N/A</span>':sig.rate_diff>0?'<span class="panel-badge down">🔴 BÄRISCH</span>':'<span class="panel-badge up">🟢 BULLISCH</span>';
 
   document.getElementById('mainGrid').innerHTML=`
@@ -556,6 +571,7 @@ function renderMainGrid(d){
     <div class="panel">
       <div class="panel-header"><div class="panel-title">🗓 High-Impact Events</div></div>
       <div class="events-list">${evItems}</div>
+      ${actHtml}
     </div>
     <div class="panel">
       <div class="panel-header"><div class="panel-title">🎯 Gesamt-Bias EUR/USD</div></div>
@@ -564,6 +580,7 @@ function renderMainGrid(d){
           <div class="bias-card"><div class="bias-card-label">Zinsdiff.</div><div class="bias-card-val ${rateBiasClass}">${sig.rate_bias==='BÄRISCH'?'🔴':sig.rate_bias==='BULLISCH'?'🟢':'⚪'} ${sig.rate_bias||'N/A'}</div></div>
           <div class="bias-card"><div class="bias-card-label">2Y-Spread</div><div class="bias-card-val ${yieldBiasClass}">${sig.yield_bias==='USD-Vorteil'?'🔴':sig.yield_bias==='EUR-Vorteil'?'🟢':'⚪'} ${dir(sig.yield_bias)}</div></div>
           <div class="bias-card"><div class="bias-card-label">COT</div><div class="bias-card-val ${cotBiasClass}">${sig.cot_bias==='NET-SHORT'?'🔴':sig.cot_bias==='NET-LONG'?'🟢':'⚪'} ${dir(sig.cot_bias)}</div></div>
+          ${d.retail?`<div class="bias-card" style="grid-column:1/-1"><div class="bias-card-label">Retail (Contrarian · ${d.retail.source||'–'})</div><div class="bias-card-val ${d.retail.bias.includes('BULLISCH')?'bc-bull':d.retail.bias.includes('BÄRISCH')?'bc-bear':'bc-neutral'}">${d.retail.bias.includes('BULLISCH')?'🟢':d.retail.bias.includes('BÄRISCH')?'🔴':'⚪'} ${d.retail.bias} <span style="font-weight:400;color:var(--muted)">(Long ${d.retail.long_pct}% / Short ${d.retail.short_pct}%)</span></div></div>`:''}
         </div>
         <div style="margin-top:var(--space-4);padding:var(--space-3);background:color-mix(in oklch,${overallColor} 8%,transparent);border:1px solid color-mix(in oklch,${overallColor} 20%,transparent);border-radius:var(--radius-md)">
           <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:${overallColor};font-weight:700;margin-bottom:4px">GESAMT: ${overall==='BÄRISCH'?'🔴':overall==='BULLISCH'?'🟢':'⚪'} ${overall} EUR/USD</div>
@@ -573,7 +590,29 @@ function renderMainGrid(d){
     </div>`;
 
   renderChart(hist);
+  renderCotChart(cot&&cot.history?cot.history:[]);
   if(_openEditLabel) updateInlineBias(_openEditLabel);
+}
+
+let _cotChart=null;
+function renderCotChart(hist){
+  const ctx=document.getElementById('cotChart');
+  if(!ctx)return;
+  if(_cotChart){_cotChart.destroy();_cotChart=null;}
+  if(!hist.length)return;
+  const labels=hist.map(p=>p.date),vals=hist.map(p=>p.net);
+  _cotChart=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{data:vals,backgroundColor:vals.map(v=>v<0?'rgba(224,92,106,0.6)':'rgba(96,178,124,0.6)'),borderRadius:2}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#131619',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#808892',bodyColor:'#e2e4e8',callbacks:{label:c=>(c.raw>=0?'+':'')+c.raw.toLocaleString('de-DE')+' Kontrakte'}}},
+      scales:{
+        x:{ticks:{color:'#808892',font:{family:'JetBrains Mono',size:8},maxTicksLimit:5},grid:{display:false}},
+        y:{ticks:{color:'#808892',font:{family:'JetBrains Mono',size:8},callback:v=>(v/1000).toFixed(0)+'k'},grid:{color:'rgba(255,255,255,0.05)'}}
+      }
+    }
+  });
 }
 
 function toggleEventEdit(label){
