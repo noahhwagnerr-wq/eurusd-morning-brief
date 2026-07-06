@@ -267,6 +267,19 @@ def get_de2y():
     print("[WARN] DE2Y: alle Quellen erschoepft")
     return None, "N/A"
 
+def get_fx():
+    """EUR/USD: offizieller EZB-Referenzkurs (täglich ~16:00 CET)."""
+    series = _ecb_series("EXR/D.USD.EUR.SP00.A", n=10)
+    if not series:
+        print("[WARN] FX: EZB-Referenzkurs nicht verfügbar")
+        return None
+    d, rate = series[-1]
+    prev = series[-2][1] if len(series) >= 2 else None
+    chg = round((rate - prev) / prev * 100, 2) if prev else None
+    print(f"[OK] EUR/USD (EZB-Referenzkurs): {rate} ({d}), Δ {chg}%")
+    return {"rate": round(rate, 4), "date": d,
+            "prev": round(prev, 4) if prev else None, "chg_pct": chg}
+
 def get_effr():
     obs = _fred("DFF", limit=1)
     if obs:
@@ -337,7 +350,7 @@ def get_cot():
         data = safe_get(_CFTC, {
             "$where": f"cftc_contract_market_code='{code}'",
             "$order": "report_date_as_yyyy_mm_dd DESC",
-            "$limit": 2,
+            "$limit": 15,
         })
         if data and len(data) > 0:
             cur, prv = data[0], data[1] if len(data) > 1 else {}
@@ -376,11 +389,31 @@ def get_cot():
             else:
                 bias = "NEUTRAL"
             raw_d = str(cur.get("report_date_as_yyyy_mm_dd") or "N/A")[:10]
-            print(f"[OK] COT: net={net:+,.0f}, npct={npct:+.1f}%, bias={bias}")
+            # Netto-Historie (gleiche Feldpriorität wie die gewählte Quelle)
+            if src == "Disaggregated/Leveraged Money":
+                lkey, skey = "lev_money_positions_long", "lev_money_positions_short"
+            else:
+                lkey, skey = "asset_mgr_positions_long", "asset_mgr_positions_short"
+            history = []
+            for rec in reversed(data):
+                l, s = _f(rec, lkey), _f(rec, skey)
+                if l == 0 and s == 0:
+                    continue
+                rd = str(rec.get("report_date_as_yyyy_mm_dd") or "")[:10]
+                if len(rd) == 10:
+                    history.append({"date": f"{rd[8:10]}.{rd[5:7]}", "net": int(l - s)})
+            print(f"[OK] COT: net={net:+,.0f}, npct={npct:+.1f}%, bias={bias}, Historie={len(history)} Wochen")
             return {"date": raw_d, "net": int(net), "delta_net": int(dnet),
                     "long_pct": lpct, "short_pct": spct, "net_pct": npct,
-                    "oi": int(oi), "bias": bias, "source": src}
+                    "oi": int(oi), "bias": bias, "source": src,
+                    "history": history}
     return None
+
+def _retail_bias(lp, sp):
+    return ("CONTRARIAN BULLISCH" if sp >= 60 else
+            "CONTRARIAN BÄRISCH"  if lp >= 60 else
+            "LEICHT BULLISCH"      if sp >= 55 else
+            "LEICHT BÄRISCH"       if lp >= 55 else "NEUTRAL")
 
 def get_retail():
     hdrs = {"User-Agent": "Mozilla/5.0 (compatible; EURUSDBot/5.0)", "Accept": "application/json"}
@@ -391,13 +424,27 @@ def get_retail():
             lp = float(data.get("long_percentage", data.get("longPercentage", 0)))
             sp = float(data.get("short_percentage", data.get("shortPercentage", 0)))
             if lp + sp > 0:
-                bias = ("CONTRARIAN BULLISCH" if sp >= 60 else
-                        "CONTRARIAN BÄRISCH"  if lp >= 60 else
-                        "LEICHT BULLISCH"      if sp >= 55 else
-                        "LEICHT BÄRISCH"       if lp >= 55 else "NEUTRAL")
-                return {"long_pct": lp, "short_pct": sp, "bias": bias, "source": "MarketMilk"}
+                print(f"[OK] Retail (MarketMilk): Long={lp}% Short={sp}%")
+                return {"long_pct": lp, "short_pct": sp, "bias": _retail_bias(lp, sp), "source": "MarketMilk"}
         except Exception as e:
-            print(f"[WARN] Retail: {e}")
+            print(f"[WARN] Retail MarketMilk: {e}")
+    # Fallback: Oanda Orderbook (wie im Worker)
+    data = safe_get("https://www.oanda.com/oanda_fx_sentiment/data/getdata.json",
+                    {"instrument": "EUR_USD"}, timeout=15, headers=hdrs)
+    if data:
+        try:
+            items = data.get("data") or data.get("orderBook") or []
+            longv  = sum(float(i.get("longCountPercent") or 0) for i in items)
+            shortv = sum(float(i.get("shortCountPercent") or 0) for i in items)
+            total = longv + shortv
+            if total > 0:
+                lp = round(longv / total * 100, 1)
+                sp = round(shortv / total * 100, 1)
+                print(f"[OK] Retail (Oanda): Long={lp}% Short={sp}%")
+                return {"long_pct": lp, "short_pct": sp, "bias": _retail_bias(lp, sp), "source": "Oanda Orderbook"}
+        except Exception as e:
+            print(f"[WARN] Retail Oanda: {e}")
+    print("[WARN] Retail: alle Quellen nicht erreichbar")
     return None
 
 def _fred_release_calendar():
@@ -436,10 +483,13 @@ def get_events():
     # Wochen nach der Sitzung erscheint und daraus abgeleitet wird.
     FOMC = [date(2026,1,29), date(2026,3,18), date(2026,4,29), date(2026,6,17),
             date(2026,7,29), date(2026,9,16), date(2026,10,28), date(2026,12,9)]
-    ECB  = [date(2026,7,23), date(2026,9,10), date(2026,10,29), date(2026,12,3)]
-    # FOMC-Protokoll: laut Fed-Kommunikationspolitik fix drei Wochen nach
-    # jeder Sitzung – deterministisch abgeleitet, kein eigener Kalender.
+    ECB  = [date(2026,1,30), date(2026,3,19), date(2026,4,30), date(2026,6,11),
+            date(2026,7,23), date(2026,9,10), date(2026,10,29), date(2026,12,3)]
+    # Protokolle: deterministisch abgeleitet, kein eigener Kalender.
+    # FOMC-Protokoll: laut Fed-Kommunikationspolitik fix 3 Wochen nach Sitzung.
+    # EZB-Accounts: laut EZB-Kommunikationspolitik fix 4 Wochen nach Sitzung.
     FOMC_MIN = [d + timedelta(days=21) for d in FOMC]
+    ECB_PROT = [d + timedelta(days=28) for d in ECB]
     # BLS-Termine kommen live aus dem FRED-Release-Kalender; der offizielle
     # BLS-Jahresplan dient nur als Ausfall-Fallback.
     NFP  = [date(2026,7,2),  date(2026,8,7),  date(2026,9,4),  date(2026,10,2)]
@@ -469,7 +519,54 @@ def get_events():
         _entry("CPI",  "medium", _live("CPI", "Consumer Price Index", CPI)),
         _entry("PPI",  "low",    _live("PPI", "Producer Price Index", PPI)),
         _entry("EZB",  "low",    _next(ECB)),
+        _entry("EZB-Prot.", "low", _next(ECB_PROT)),
     ]
+
+def get_actuals():
+    """Jüngste Ist-Werte der US-Releases (Abgleich mit Prognosen in der App)."""
+    out = {}
+    obs = _fred("PAYEMS", limit=1, units="chg")
+    if obs:
+        out["NFP"] = {"value": round(float(obs[0][0])), "unit": "K", "date": obs[0][1][:7]}
+    obs = _fred("CPIAUCSL", limit=1, units="pc1")
+    if obs:
+        out["CPI"] = {"value": round(float(obs[0][0]), 1), "unit": "%", "date": obs[0][1][:7]}
+    obs = _fred("PPIFIS", limit=1, units="pc1")
+    if obs:
+        out["PPI"] = {"value": round(float(obs[0][0]), 1), "unit": "%", "date": obs[0][1][:7]}
+    summary = ", ".join(f"{k}={v['value']}{v['unit']}" for k, v in out.items())
+    print(f"[OK] Ist-Werte: {summary or 'keine'}")
+    return out
+
+def notify_bias_change(old, new):
+    """
+    Telegram-Alarm, wenn Gesamt-Bias oder ein Teilsignal gegenüber dem
+    letzten Lauf kippt. Sendet nur bei Änderung; ohne Telegram-Secrets
+    (TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID) stiller No-Op.
+    """
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    chat  = os.getenv("TELEGRAM_CHAT_ID", "")
+    labels = [("overall_bias", "Gesamt"), ("rate_bias", "Zinsdiff."),
+              ("yield_bias", "2Y-Spread"), ("cot_bias", "COT")]
+    changes = []
+    for key, lbl in labels:
+        o, n = (old or {}).get(key), (new or {}).get(key)
+        if o and n and o not in ("N/A",) and n not in ("N/A",) and o != n:
+            changes.append(f"{lbl}: {o} → {n}")
+    if not changes:
+        return
+    print(f"[OK] Bias-Wechsel erkannt: {'; '.join(changes)}")
+    if not token or not chat:
+        print("[WARN] Bias-Alarm: Telegram-Secrets fehlen, kein Versand")
+        return
+    msg = "⚠️ EUR/USD Bias-Wechsel\n" + "\n".join(changes)
+    try:
+        r = requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                          json={"chat_id": chat, "text": msg}, timeout=15)
+        r.raise_for_status()
+        print("[OK] Telegram Bias-Alarm gesendet")
+    except Exception as e:
+        print(f"[WARN] Telegram Bias-Alarm: {e}")
 
 def run():
     now = datetime.utcnow()
@@ -481,10 +578,20 @@ def run():
     cpi,  cpi_date              = get_us_cpi()
     us2y, us2y_date             = get_us2y()
     de2y, de2y_date             = get_de2y()
+    fx                          = get_fx()
     cot                         = get_cot()
     retail                      = get_retail()
     events                      = get_events()
+    actuals                     = get_actuals()
     spread_history              = get_spread_history()
+
+    # Vorherige Signale sichern (für Bias-Wechsel-Alarm), bevor überschrieben wird
+    prev_signals = {}
+    try:
+        with open("data.json", encoding="utf-8") as f:
+            prev_signals = json.load(f).get("signals", {})
+    except Exception:
+        pass
 
     rate_diff    = round(effr - dfr, 2)  if (effr and dfr)  else None
     yield_spread = round(us2y - de2y, 2) if (us2y and de2y) else None
@@ -519,9 +626,11 @@ def run():
                     "yield_bias": _bias(yield_spread, "USD-Vorteil", "EUR-Vorteil"),
                     "cot_bias": cot_bias, "retail_bias": retail_bias,
                     "overall_bias": overall_bias},
-        "cot": cot, "retail": retail, "events": events,
-        "spread_history": spread_history,
+        "fx": fx, "cot": cot, "retail": retail, "events": events,
+        "actuals": actuals, "spread_history": spread_history,
     }
+
+    notify_bias_change(prev_signals, out["signals"])
 
     path = "data.json"
     with open(path, "w", encoding="utf-8") as f:
