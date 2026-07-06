@@ -1,6 +1,6 @@
 {
-  "generated_at": "06.07.2026 15:55 UTC",
-  "generated_ts": "2026-07-06T15:55:57.706908Z",
+  "generated_at": "06.07.2026 20:43 UTC",
+  "generated_ts": "2026-07-06T20:43:02.802844Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-07-01",
+    "effr_date": "2026-07-03",
     "cpi": 4.2,
     "cpi_date": "2026-05"
   },
   "yields": {
-    "us2y": 4.17,
-    "us2y_date": "2026-07-01",
+    "us2y": 4.14,
+    "us2y_date": "2026-07-02",
     "de2y": 2.4707016791,
     "de2y_date": "2026-07-03"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.7,
+    "yield_spread": 1.67,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -30,13 +30,13 @@
     "overall_bias": "BÄRISCH"
   },
   "cot": {
-    "date": "2026-06-23",
-    "net": -15410,
-    "delta_net": -6484,
-    "long_pct": 13.8,
-    "short_pct": 15.7,
-    "net_pct": -2.0,
-    "oi": 785477,
+    "date": "2026-06-30",
+    "net": -32644,
+    "delta_net": -17234,
+    "long_pct": 12.9,
+    "short_pct": 17.1,
+    "net_pct": -4.1,
+    "oi": 790076,
     "bias": "NET-SHORT",
     "source": "Disaggregated/Leveraged Money"
   },
