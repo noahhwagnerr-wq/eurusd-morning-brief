@@ -476,25 +476,29 @@ def _fred_release_calendar():
         print("[WARN] FRED-Release-Kalender: keine Termine erhalten")
     return cal
 
+# Fed/EZB publizieren ihre Sitzungskalender nur als HTML/ICS (keine
+# Daten-API) – offizieller Sitzungskalender 2026, jährlich zu pflegen.
+# Ganzjahresliste: auch vergangene Sitzungen, da Protokolle und
+# Release-Ergebnisse daraus abgeleitet werden.
+FOMC_MEETINGS = [date(2026,1,29), date(2026,3,18), date(2026,4,29), date(2026,6,17),
+                 date(2026,7,29), date(2026,9,16), date(2026,10,28), date(2026,12,9)]
+ECB_MEETINGS  = [date(2026,1,30), date(2026,3,19), date(2026,4,30), date(2026,6,11),
+                 date(2026,7,23), date(2026,9,10), date(2026,10,29), date(2026,12,3)]
+# Protokolle: deterministisch abgeleitet, kein eigener Kalender.
+# FOMC-Protokoll: laut Fed-Kommunikationspolitik fix 3 Wochen nach Sitzung.
+# EZB-Accounts: laut EZB-Kommunikationspolitik fix 4 Wochen nach Sitzung.
+FOMC_MIN_DATES = [d + timedelta(days=21) for d in FOMC_MEETINGS]
+ECB_PROT_DATES = [d + timedelta(days=28) for d in ECB_MEETINGS]
+# BLS-Termine kommen live aus dem FRED-Release-Kalender; der offizielle
+# BLS-Jahresplan dient nur als Ausfall-Fallback.
+NFP_DATES = [date(2026,7,2),  date(2026,8,7),  date(2026,9,4),  date(2026,10,2)]
+CPI_DATES = [date(2026,7,14), date(2026,8,12), date(2026,9,11), date(2026,10,14)]
+PPI_DATES = [date(2026,7,15), date(2026,8,13), date(2026,9,12), date(2026,10,15)]
+
 def get_events():
-    # Fed/EZB publizieren ihre Sitzungskalender nur als HTML/ICS (keine
-    # Daten-API) – offizieller Sitzungskalender 2026, jährlich zu pflegen.
-    # Ganzjahresliste: auch vergangene Sitzungen, da das Protokoll drei
-    # Wochen nach der Sitzung erscheint und daraus abgeleitet wird.
-    FOMC = [date(2026,1,29), date(2026,3,18), date(2026,4,29), date(2026,6,17),
-            date(2026,7,29), date(2026,9,16), date(2026,10,28), date(2026,12,9)]
-    ECB  = [date(2026,1,30), date(2026,3,19), date(2026,4,30), date(2026,6,11),
-            date(2026,7,23), date(2026,9,10), date(2026,10,29), date(2026,12,3)]
-    # Protokolle: deterministisch abgeleitet, kein eigener Kalender.
-    # FOMC-Protokoll: laut Fed-Kommunikationspolitik fix 3 Wochen nach Sitzung.
-    # EZB-Accounts: laut EZB-Kommunikationspolitik fix 4 Wochen nach Sitzung.
-    FOMC_MIN = [d + timedelta(days=21) for d in FOMC]
-    ECB_PROT = [d + timedelta(days=28) for d in ECB]
-    # BLS-Termine kommen live aus dem FRED-Release-Kalender; der offizielle
-    # BLS-Jahresplan dient nur als Ausfall-Fallback.
-    NFP  = [date(2026,7,2),  date(2026,8,7),  date(2026,9,4),  date(2026,10,2)]
-    CPI  = [date(2026,7,14), date(2026,8,12), date(2026,9,11), date(2026,10,14)]
-    PPI  = [date(2026,7,15), date(2026,8,13), date(2026,9,12), date(2026,10,15)]
+    FOMC, ECB = FOMC_MEETINGS, ECB_MEETINGS
+    FOMC_MIN, ECB_PROT = FOMC_MIN_DATES, ECB_PROT_DATES
+    NFP, CPI, PPI = NFP_DATES, CPI_DATES, PPI_DATES
     cal = _fred_release_calendar()
     def _next(dates):
         # >= statt >: Event bleibt am Tag selbst sichtbar (days=0 → "HEUTE")
@@ -537,6 +541,151 @@ def get_actuals():
     summary = ", ".join(f"{k}={v['value']}{v['unit']}" for k, v in out.items())
     print(f"[OK] Ist-Werte: {summary or 'keine'}")
     return out
+
+def _load_user_events():
+    """events.json aus dem Workdir (gh-pages-Checkout) – Nutzer-Prognosen."""
+    try:
+        with open("events.json", encoding="utf-8") as f:
+            return json.load(f).get("events", [])
+    except Exception:
+        return []
+
+def _recent_past(dates, week_ago):
+    past = [d for d in sorted(dates) if week_ago <= d < TODAY or d == TODAY]
+    return past[-1] if past else None
+
+_NUM_RELEASES = {
+    # invertierte Richtung: schwächer/niedriger als Referenz = USD-negativ = BULLISCH EUR/USD
+    "NFP": {"sid": "PAYEMS",   "units": "chg", "unit": "K", "dec": 0},
+    "CPI": {"sid": "CPIAUCSL", "units": "pc1", "unit": "%", "dec": 1},
+    "PPI": {"sid": "PPIFIS",   "units": "pc1", "unit": "%", "dec": 1},
+}
+
+def get_release_results():
+    """
+    Ergebnisse der Veröffentlichungen der letzten 7 Tage mit EUR/USD-Signal.
+
+    Quantitative US-Releases (NFP/CPI/PPI): Ist-Wert aus FRED, Referenz ist
+    die Nutzer-Prognose aus events.json (sonst der Vormonat). Schwächer als
+    Referenz = USD-negativ = BULLISCH.
+
+    Qualitative Berichte (FOMC-/EZB-Protokoll) haben keine Zahl – dort dient
+    die Marktreaktion der 2J-Rendite am Veröffentlichungstag als Proxy:
+    Rendite rauf = hawkish. Hawkishe Fed = BÄRISCH EUR/USD, hawkishe EZB =
+    BULLISCH EUR/USD. |Δ| < 0.03pp gilt als NEUTRAL.
+    """
+    week_ago = TODAY - timedelta(days=7)
+    user_events = _load_user_events()
+    results = []
+
+    def _user_forecast(label, d):
+        for e in user_events:
+            if e.get("label") != label:
+                continue
+            ed = str(e.get("date", ""))
+            if ed in (d.strftime("%d.%m.%Y"), d.isoformat()):
+                try:
+                    return float(str(e.get("forecast", "")).replace(",", "."))
+                except (ValueError, TypeError):
+                    return None
+        return None
+
+    def _prev_month(d):
+        return (d.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
+
+    date_lists = {"NFP": NFP_DATES, "CPI": CPI_DATES, "PPI": PPI_DATES}
+    for label, cfg in _NUM_RELEASES.items():
+        rel = _recent_past(date_lists[label], week_ago)
+        if rel is None:
+            continue
+        obs = _fred(cfg["sid"], limit=2, units=cfg["units"])
+        # Nur werten, wenn FRED schon den Berichtsmonat (= Vormonat des
+        # Release-Datums) liefert – sonst ist der Ist-Wert noch nicht da.
+        if len(obs) < 2 or obs[0][1][:7] != _prev_month(rel):
+            print(f"[WARN] Ergebnis {label}: Ist-Wert noch nicht in FRED")
+            continue
+        actual = round(float(obs[0][0]), cfg["dec"])
+        prev   = round(float(obs[1][0]), cfg["dec"])
+        fore   = _user_forecast(label, rel)
+        ref, ref_label = (fore, "Prog") if fore is not None else (prev, "Vormonat")
+        signal = ("NEUTRAL" if actual == ref else
+                  "BULLISCH" if actual < ref else "BÄRISCH")
+        fmt = (lambda v: f"{v:+.0f}") if cfg["unit"] == "K" else (lambda v: f"{v:.1f}")
+        results.append({"label": label, "date": rel.strftime("%d.%m."),
+                        "detail": f"Ist {fmt(actual)}{cfg['unit']} vs {ref_label} {fmt(ref)}{cfg['unit']}",
+                        "signal": signal})
+        print(f"[OK] Ergebnis {label}: {actual}{cfg['unit']} vs {ref_label} {ref} → {signal}")
+
+    def _reaction(label, rel, delta, hawkish_signal, dovish_signal, market):
+        if abs(delta) < 0.03:
+            signal = "NEUTRAL"
+        elif delta > 0:
+            signal = hawkish_signal
+        else:
+            signal = dovish_signal
+        results.append({"label": label, "date": rel.strftime("%d.%m."),
+                        "detail": f"{market} {delta:+.2f}pp",
+                        "signal": signal})
+        print(f"[OK] Ergebnis {label}: {market} Δ {delta:+.2f}pp → {signal}")
+
+    # FOMC-Protokoll: Reaktion der US-2Y-Rendite (hawkish Fed = BÄRISCH EUR/USD)
+    rel = _recent_past(FOMC_MIN_DATES, week_ago)
+    if rel is not None:
+        obs = _fred("DGS2", limit=2)
+        if len(obs) >= 2 and obs[0][1] >= rel.isoformat():
+            _reaction("FOMC-Prot.", rel, float(obs[0][0]) - float(obs[1][0]),
+                      "BÄRISCH", "BULLISCH", "US-2Y")
+        else:
+            print("[WARN] Ergebnis FOMC-Prot.: Marktreaktion noch nicht verfügbar")
+
+    # EZB-Protokoll: Reaktion der Euro-2Y-Kurve (hawkish EZB = BULLISCH EUR/USD)
+    rel = _recent_past(ECB_PROT_DATES, week_ago)
+    if rel is not None:
+        series = _ecb_series("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y", n=8)
+        if len(series) >= 2 and series[-1][0] >= rel.isoformat():
+            _reaction("EZB-Prot.", rel, series[-1][1] - series[-2][1],
+                      "BULLISCH", "BÄRISCH", "EUR-2Y")
+        else:
+            print("[WARN] Ergebnis EZB-Prot.: Marktreaktion noch nicht verfügbar")
+
+    # Zinsentscheide: Änderung des Zielsatzes selbst
+    def _last_change_asc(seq):
+        """seq: aufsteigend (datum, wert) → (change_date, cur, prev) oder None."""
+        for i in range(len(seq) - 1, 0, -1):
+            if abs(seq[i][1] - seq[i-1][1]) > 0.001:
+                return seq[i][0], seq[i][1], seq[i-1][1]
+        return None
+
+    def _rate_decision(label, rel, seq, hike_signal, cut_signal, rate_name):
+        if not seq:
+            return
+        chg = _last_change_asc(seq)
+        if chg is not None and chg[0] >= rel.isoformat():
+            _, cur, prev = chg
+            signal = hike_signal if cur > prev else cut_signal
+            detail = f"{rate_name} {cur:.2f}% (zuvor {prev:.2f}%)"
+        else:
+            signal = "NEUTRAL"
+            detail = f"{rate_name} {seq[-1][1]:.2f}% (unverändert)"
+        results.append({"label": label, "date": rel.strftime("%d.%m."),
+                        "detail": detail, "signal": signal})
+        print(f"[OK] Ergebnis {label}: {detail} → {signal}")
+
+    # Fed-Erhöhung = USD-positiv = BÄRISCH EUR/USD
+    rel = _recent_past(FOMC_MEETINGS, week_ago)
+    if rel is not None:
+        obs = _fred("DFEDTARU", limit=15)
+        seq = [(dt, float(v)) for v, dt in reversed(obs)]
+        _rate_decision("FOMC", rel, seq, "BÄRISCH", "BULLISCH", "Zielband")
+
+    # EZB-Erhöhung = EUR-positiv = BULLISCH EUR/USD
+    rel = _recent_past(ECB_MEETINGS, week_ago)
+    if rel is not None:
+        seq = (_ecb_series("FM/B.U2.EUR.4F.KR.DFR.LEV", n=200)
+               or _ecb_series("FM/D.U2.EUR.4F.KR.DFR.LEV", n=200))
+        _rate_decision("EZB", rel, seq, "BULLISCH", "BÄRISCH", "DFR")
+
+    return results
 
 def notify_bias_change(old, new):
     """
@@ -583,6 +732,7 @@ def run():
     retail                      = get_retail()
     events                      = get_events()
     actuals                     = get_actuals()
+    release_results             = get_release_results()
     spread_history              = get_spread_history()
 
     # Vorherige Signale sichern (für Bias-Wechsel-Alarm), bevor überschrieben wird
@@ -627,7 +777,8 @@ def run():
                     "cot_bias": cot_bias, "retail_bias": retail_bias,
                     "overall_bias": overall_bias},
         "fx": fx, "cot": cot, "retail": retail, "events": events,
-        "actuals": actuals, "spread_history": spread_history,
+        "actuals": actuals, "release_results": release_results,
+        "spread_history": spread_history,
     }
 
     notify_bias_change(prev_signals, out["signals"])
