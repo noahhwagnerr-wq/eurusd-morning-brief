@@ -1,6 +1,6 @@
 {
-  "generated_at": "08.07.2026 18:31 UTC",
-  "generated_ts": "2026-07-08T18:31:58.371182Z",
+  "generated_at": "08.07.2026 18:37 UTC",
+  "generated_ts": "2026-07-08T18:37:17.260553Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -176,6 +176,12 @@
       "date": "02.07.",
       "detail": "Ist +57K vs Prog +145K",
       "signal": "BULLISCH"
+    },
+    {
+      "label": "FOMC-Prot.",
+      "date": "08.07.",
+      "detail": "US-2Y-Schluss ausstehend (~22:15 MESZ)",
+      "signal": "AUSSTEHEND"
     }
   ],
   "spread_history": [
