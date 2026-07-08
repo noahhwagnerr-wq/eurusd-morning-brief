@@ -557,8 +557,8 @@ function renderMainGrid(d){
   const resHtml=relResults.length?`<div style="padding:var(--space-3) var(--space-4);border-top:1px solid var(--divider)">
     <div style="font-size:var(--text-xs);color:var(--muted);margin-bottom:var(--space-2);text-transform:uppercase;letter-spacing:0.07em">Ergebnisse · letzte 7 Tage</div>
     ${relResults.map(r=>{
-      const col=r.signal==='BULLISCH'?'var(--green)':r.signal==='BÄRISCH'?'var(--red)':'var(--muted)';
-      const ico=r.signal==='BULLISCH'?'🟢':r.signal==='BÄRISCH'?'🔴':'⚪';
+      const col=r.signal==='BULLISCH'?'var(--green)':r.signal==='BÄRISCH'?'var(--red)':r.signal==='AUSSTEHEND'?'var(--faint)':'var(--muted)';
+      const ico=r.signal==='BULLISCH'?'🟢':r.signal==='BÄRISCH'?'🔴':r.signal==='AUSSTEHEND'?'⏳':'⚪';
       return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-2);font-family:var(--font-mono);font-size:0.68rem;padding:3px 0;flex-wrap:wrap">
         <span style="color:var(--text);font-weight:700">${r.label} <span style="color:var(--faint);font-weight:400">${r.date}</span></span>
         <span style="color:var(--muted)">${r.detail}</span>
