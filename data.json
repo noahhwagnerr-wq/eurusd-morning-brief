@@ -1,6 +1,6 @@
 {
-  "generated_at": "08.07.2026 18:18 UTC",
-  "generated_ts": "2026-07-08T18:18:45.842550Z",
+  "generated_at": "08.07.2026 18:29 UTC",
+  "generated_ts": "2026-07-08T18:29:02.705038Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -170,6 +170,14 @@
       "date": "2026-05"
     }
   },
+  "release_results": [
+    {
+      "label": "NFP",
+      "date": "02.07.",
+      "detail": "Ist +57K vs Prog +145K",
+      "signal": "BULLISCH"
+    }
+  ],
   "spread_history": [
     {
       "date": "06.04",
