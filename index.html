@@ -553,6 +553,19 @@ function renderMainGrid(d){
   const monthDE=s=>(s||'').replace(/^(\d{4})-(\d{2})$/,(_,y,m)=>['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][parseInt(m)-1]+' '+y.slice(2));
   const actParts=['NFP','CPI','PPI'].filter(k=>act[k]&&act[k].value!=null).map(k=>`${k} ${monthDE(act[k].date)}: <b style="color:var(--text)">${k==='NFP'&&act[k].value>0?'+':''}${act[k].value}${act[k].unit}</b>`);
   const actHtml=actParts.length?`<div style="padding:var(--space-2) var(--space-4);border-top:1px solid var(--divider);font-family:var(--font-mono);font-size:0.65rem;color:var(--muted)">Letzte Ist-Werte: ${actParts.join(' · ')}</div>`:'';
+  const relResults=d.release_results||[];
+  const resHtml=relResults.length?`<div style="padding:var(--space-3) var(--space-4);border-top:1px solid var(--divider)">
+    <div style="font-size:var(--text-xs);color:var(--muted);margin-bottom:var(--space-2);text-transform:uppercase;letter-spacing:0.07em">Ergebnisse · letzte 7 Tage</div>
+    ${relResults.map(r=>{
+      const col=r.signal==='BULLISCH'?'var(--green)':r.signal==='BÄRISCH'?'var(--red)':'var(--muted)';
+      const ico=r.signal==='BULLISCH'?'🟢':r.signal==='BÄRISCH'?'🔴':'⚪';
+      return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-2);font-family:var(--font-mono);font-size:0.68rem;padding:3px 0;flex-wrap:wrap">
+        <span style="color:var(--text);font-weight:700">${r.label} <span style="color:var(--faint);font-weight:400">${r.date}</span></span>
+        <span style="color:var(--muted)">${r.detail}</span>
+        <span style="font-weight:700;color:${col}">${ico} ${r.signal}</span>
+      </div>`;
+    }).join('')}
+  </div>`:actHtml;
   const advBadge=sig.rate_diff==null?'<span class="panel-badge flat">⚪ N/A</span>':sig.rate_diff>0?'<span class="panel-badge down">🔴 BÄRISCH</span>':'<span class="panel-badge up">🟢 BULLISCH</span>';
 
   document.getElementById('mainGrid').innerHTML=`
@@ -571,7 +584,7 @@ function renderMainGrid(d){
     <div class="panel">
       <div class="panel-header"><div class="panel-title">🗓 High-Impact Events</div></div>
       <div class="events-list">${evItems}</div>
-      ${actHtml}
+      ${resHtml}
     </div>
     <div class="panel">
       <div class="panel-header"><div class="panel-title">🎯 Gesamt-Bias EUR/USD</div></div>
