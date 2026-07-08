@@ -600,9 +600,11 @@ def get_release_results():
             continue
         obs = _fred(cfg["sid"], limit=2, units=cfg["units"])
         # Nur werten, wenn FRED schon den Berichtsmonat (= Vormonat des
-        # Release-Datums) liefert – sonst ist der Ist-Wert noch nicht da.
+        # Release-Datums) liefert – sonst als AUSSTEHEND markieren.
         if len(obs) < 2 or obs[0][1][:7] != _prev_month(rel):
             print(f"[WARN] Ergebnis {label}: Ist-Wert noch nicht in FRED")
+            results.append({"label": label, "date": rel.strftime("%d.%m."),
+                            "detail": "Ist-Wert ausstehend", "signal": "AUSSTEHEND"})
             continue
         actual = round(float(obs[0][0]), cfg["dec"])
         prev   = round(float(obs[1][0]), cfg["dec"])
@@ -637,6 +639,9 @@ def get_release_results():
                       "BÄRISCH", "BULLISCH", "US-2Y")
         else:
             print("[WARN] Ergebnis FOMC-Prot.: Marktreaktion noch nicht verfügbar")
+            results.append({"label": "FOMC-Prot.", "date": rel.strftime("%d.%m."),
+                            "detail": "US-2Y-Schluss ausstehend (~22:15 MESZ)",
+                            "signal": "AUSSTEHEND"})
 
     # EZB-Protokoll: Reaktion der Euro-2Y-Kurve (hawkish EZB = BULLISCH EUR/USD)
     rel = _recent_past(ECB_PROT_DATES, week_ago)
@@ -647,6 +652,9 @@ def get_release_results():
                       "BULLISCH", "BÄRISCH", "EUR-2Y")
         else:
             print("[WARN] Ergebnis EZB-Prot.: Marktreaktion noch nicht verfügbar")
+            results.append({"label": "EZB-Prot.", "date": rel.strftime("%d.%m."),
+                            "detail": "EUR-2Y-Schluss ausstehend",
+                            "signal": "AUSSTEHEND"})
 
     # Zinsentscheide: Änderung des Zielsatzes selbst
     def _last_change_asc(seq):
