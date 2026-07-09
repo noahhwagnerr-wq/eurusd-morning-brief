@@ -1,6 +1,6 @@
 {
-  "generated_at": "09.07.2026 09:26 UTC",
-  "generated_ts": "2026-07-09T09:26:32.281871Z",
+  "generated_at": "09.07.2026 10:36 UTC",
+  "generated_ts": "2026-07-09T10:36:40.883688Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -17,12 +17,12 @@
   "yields": {
     "us2y": 4.19,
     "us2y_date": "2026-07-07",
-    "de2y": 2.5291403048,
-    "de2y_date": "2026-07-07"
+    "de2y": 2.6192816299,
+    "de2y_date": "2026-07-08"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.66,
+    "yield_spread": 1.57,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
