@@ -577,6 +577,12 @@ def _nfp_result(rel, fore):
     Jede Komponente zählt +1 (USD-stark) oder -1 (USD-schwach).
     Score >= +2 → BÄRISCH EUR/USD, <= -2 → BULLISCH, sonst NEUTRAL
     (gemischter Report – kein belastbares Signal).
+
+    Dominanz-Regel: Die Komponenten-Wertung gilt nur, wenn die Headline
+    nahe der Referenz liegt. Bei deutlicher Verfehlung/Übertreffung
+    (Abweichung >= 50% der Referenz, mindestens 75K) ist die
+    Überraschung selbst das Ereignis und bestimmt das Signal direkt.
+
     Liefert None, solange FRED den Berichtsmonat noch nicht hat.
     """
     month = _report_month(rel)
@@ -612,7 +618,12 @@ def _nfp_result(rel, fore):
             score -= 1
         parts.append(f"Privat {p:+.0f}K" + (f"/Staat {g:+.0f}K" if g is not None else ""))
 
-    signal = "BÄRISCH" if score >= 2 else "BULLISCH" if score <= -2 else "NEUTRAL"
+    deviation = headline - ref
+    if abs(deviation) >= max(75, 0.5 * abs(ref)):
+        signal = "BULLISCH" if deviation < 0 else "BÄRISCH"
+        parts.append("Headline dominiert")
+    else:
+        signal = "BÄRISCH" if score >= 2 else "BULLISCH" if score <= -2 else "NEUTRAL"
     return {"label": "NFP", "date": rel.strftime("%d.%m."),
             "detail": " · ".join(parts), "signal": signal}
 
