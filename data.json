@@ -1,6 +1,6 @@
 {
-  "generated_at": "09.07.2026 17:02 UTC",
-  "generated_ts": "2026-07-09T17:02:50.015270Z",
+  "generated_at": "09.07.2026 17:17 UTC",
+  "generated_ts": "2026-07-09T17:17:14.330895Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -133,30 +133,6 @@
       "importance": "high",
       "date": "14.07.2026",
       "days": 5
-    },
-    {
-      "label": "CPI m/m",
-      "importance": "high",
-      "date": "14.07.2026",
-      "days": 5
-    },
-    {
-      "label": "CPI y/y",
-      "importance": "medium",
-      "date": "14.07.2026",
-      "days": 5
-    },
-    {
-      "label": "Core CPI y/y",
-      "importance": "low",
-      "date": "14.07.2026",
-      "days": 5
-    },
-    {
-      "label": "Core PPI m/m",
-      "importance": "medium",
-      "date": "15.07.2026",
-      "days": 6
     },
     {
       "label": "PPI m/m",
