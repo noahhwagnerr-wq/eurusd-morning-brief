@@ -1,6 +1,6 @@
 {
-  "generated_at": "08.07.2026 20:21 UTC",
-  "generated_ts": "2026-07-08T20:21:49.605522Z",
+  "generated_at": "09.07.2026 07:03 UTC",
+  "generated_ts": "2026-07-09T07:03:18.861763Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "29.07.2026",
-      "days": 21
+      "days": 20
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
-      "date": "08.07.2026",
-      "days": 0
+      "date": "19.08.2026",
+      "days": 41
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "07.08.2026",
-      "days": 30
+      "days": 29
     },
     {
       "label": "CPI",
       "importance": "medium",
       "date": "14.07.2026",
-      "days": 6
+      "days": 5
     },
     {
       "label": "PPI",
       "importance": "low",
       "date": "15.07.2026",
-      "days": 7
+      "days": 6
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "23.07.2026",
-      "days": 15
+      "days": 14
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "09.07.2026",
-      "days": 1
+      "days": 0
     }
   ],
   "actuals": {
@@ -174,13 +174,19 @@
     {
       "label": "NFP",
       "date": "02.07.",
-      "detail": "Ist +57K vs Prog +145K",
-      "signal": "BULLISCH"
+      "detail": "NFP +57K vs Prog +145K · ALQ 4.2%▼ · Löhne +0.3%▲ · Privat +49K/Staat +8K",
+      "signal": "BÄRISCH"
     },
     {
       "label": "FOMC-Prot.",
       "date": "08.07.",
       "detail": "US-2Y-Schluss ausstehend (~22:15 MESZ)",
+      "signal": "AUSSTEHEND"
+    },
+    {
+      "label": "EZB-Prot.",
+      "date": "09.07.",
+      "detail": "EUR-2Y-Schluss ausstehend",
       "signal": "AUSSTEHEND"
     }
   ],
