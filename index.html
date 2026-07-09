@@ -472,6 +472,7 @@ function renderMainGrid(d){
     const entries = (_eventsData[ev.label]?.entries||[]);
     const match = entries.find(e=>e.date===ev.date||(e.date||'').replace(/\./g,'-')===ev.date);
     const cfg = EVENT_CFG[ev.label]||{unit:''};
+    const numeric = !!EVENT_CFG[ev.label];
 
     let infoHtml = '';
     if(match){
@@ -497,11 +498,11 @@ function renderMainGrid(d){
           ${infoHtml}
         </div>
         <div class="event-days${soon?' soon':''}">${days===0?'HEUTE':days!==null?days+'T':'N/A'}</div>
-        <button class="event-edit-btn${isOpen?' active':''}" onclick="toggleEventEdit('${ev.label}')" title="Vorwert &amp; Prognose bearbeiten" aria-label="Bearbeiten">✏️</button>
+        <button class="event-edit-btn${isOpen?' active':''}" onclick="toggleEventEdit('${ev.label}')" title="${numeric?'Vorwert &amp; Prognose bearbeiten':'Notiz bearbeiten'}" aria-label="Bearbeiten">✏️</button>
       </div>
       <div class="event-inline-form${isOpen?' open':''}" id="evform-${ev.label}">
-        <div style="font-size:var(--text-xs);color:var(--muted);font-family:var(--font-mono)">${cfg.label||ev.label} · ${cfg.bullDesc||''}</div>
-        <div class="event-form-row">
+        <div style="font-size:var(--text-xs);color:var(--muted);font-family:var(--font-mono)">${cfg.label||ev.label}${cfg.bullDesc?' · '+cfg.bullDesc:' · Bericht ohne Zahlenwert – Signal kommt aus der Marktreaktion'}</div>
+        ${numeric?`<div class="event-form-row">
           <div class="form-group">
             <label class="form-label">Vorwert (${cfg.unit})</label>
             <input class="form-input" id="ev-prev-${ev.label}" type="text" placeholder="z.B. 4.50" value="${match?.previous||''}" oninput="updateInlineBias('${ev.label}')">
@@ -517,7 +518,13 @@ function renderMainGrid(d){
         </div>
         <div class="event-form-actions">
           <div class="event-bias-preview" id="evbias-${ev.label}">⚪ Bias wird berechnet…</div>
-        </div>
+        </div>`
+        :`<div class="event-form-row">
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Notiz</label>
+            <input class="form-input" id="ev-note-${ev.label}" type="text" placeholder="z.B. dovish erwartet…" value="${match?.note||''}">
+          </div>
+        </div>`}
         <div class="event-form-actions">
           <button class="event-save-btn" id="evsave-${ev.label}" onclick="saveInlineEntry('${ev.label}','${ev.date}')">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -649,7 +656,7 @@ async function saveInlineEntry(label, evDate){
   const prev  = document.getElementById('ev-prev-'+label)?.value.trim()||'';
   const fore  = document.getElementById('ev-fore-'+label)?.value.trim()||'';
   const note  = document.getElementById('ev-note-'+label)?.value.trim()||'';
-  if(!fore){ document.getElementById('evstatus-'+label).textContent='⚠️ Prognose nötig'; return; }
+  if(EVENT_CFG[label] && !fore){ document.getElementById('evstatus-'+label).textContent='⚠️ Prognose nötig'; return; }
   const bias = calcBias(label, fore, prev);
   const btn  = document.getElementById('evsave-'+label);
   btn.disabled = true;
