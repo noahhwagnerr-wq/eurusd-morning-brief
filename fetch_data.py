@@ -522,13 +522,10 @@ def get_events():
         _entry("FOMC", "high",   _next(FOMC)),
         _entry("FOMC-Prot.", "medium", _next(FOMC_MIN)),
         _entry("NFP",  "medium", _live("NFP", "Employment Situation", NFP)),
-        # CPI-/PPI-Release enthält mehrere Kennzahlen – jede als eigenes Event
-        _entry("Core CPI m/m", "high",   cpi_d),
-        _entry("CPI m/m",      "high",   cpi_d),
-        _entry("CPI y/y",      "medium", cpi_d),
-        _entry("Core CPI y/y", "low",    cpi_d),
-        _entry("Core PPI m/m", "medium", ppi_d),
-        _entry("PPI m/m",      "low",    ppi_d),
+        # Je Release nur die marktbewegendste Kennzahl:
+        # CPI → Kernrate m/m (Fed-relevant), PPI → Headline m/m (Standard-Konsens)
+        _entry("Core CPI m/m", "high", cpi_d),
+        _entry("PPI m/m",      "low",  ppi_d),
         _entry("EZB",  "low",    _next(ECB)),
         _entry("EZB-Prot.", "low", _next(ECB_PROT)),
     ]
@@ -562,14 +559,10 @@ def _recent_past(dates, week_ago):
     return past[-1] if past else None
 
 _NUM_RELEASES = {
-    # US-Inflationskennzahlen je Release (BLS via FRED). Richtung invertiert:
-    # niedriger als Referenz = USD-negativ = BULLISCH EUR/USD.
-    # m/m = pch (Monatsrate), y/y = pc1 (Jahresrate); Core = ohne Nahrung/Energie.
+    # Je Release nur die marktbewegendste Kennzahl (BLS via FRED).
+    # Richtung invertiert: niedriger als Referenz = USD-negativ = BULLISCH EUR/USD.
+    # m/m = pch (Monatsrate); Core = ohne Nahrung/Energie.
     "Core CPI m/m": {"sid": "CPILFESL", "units": "pch", "unit": "%", "dec": 1, "cal": "CPI"},
-    "CPI m/m":      {"sid": "CPIAUCSL", "units": "pch", "unit": "%", "dec": 1, "cal": "CPI"},
-    "CPI y/y":      {"sid": "CPIAUCSL", "units": "pc1", "unit": "%", "dec": 1, "cal": "CPI"},
-    "Core CPI y/y": {"sid": "CPILFESL", "units": "pc1", "unit": "%", "dec": 1, "cal": "CPI"},
-    "Core PPI m/m": {"sid": "PPIFES",   "units": "pch", "unit": "%", "dec": 1, "cal": "PPI"},
     "PPI m/m":      {"sid": "PPIFIS",   "units": "pch", "unit": "%", "dec": 1, "cal": "PPI"},
 }
 
