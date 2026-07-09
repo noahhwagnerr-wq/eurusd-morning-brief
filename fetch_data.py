@@ -556,10 +556,65 @@ def _recent_past(dates, week_ago):
 
 _NUM_RELEASES = {
     # invertierte Richtung: schwächer/niedriger als Referenz = USD-negativ = BULLISCH EUR/USD
-    "NFP": {"sid": "PAYEMS",   "units": "chg", "unit": "K", "dec": 0},
     "CPI": {"sid": "CPIAUCSL", "units": "pc1", "unit": "%", "dec": 1},
     "PPI": {"sid": "PPIFIS",   "units": "pc1", "unit": "%", "dec": 1},
 }
+
+def _report_month(rel):
+    """Berichtsmonat eines Releases = Vormonat des Veröffentlichungsdatums."""
+    return (rel.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
+
+def _nfp_result(rel, fore):
+    """
+    NFP-Interpretation über vier Komponenten statt nur der Headline
+    (der Markt-Spike auf die Headline hält oft nur Sekunden):
+      1. Headline vs Referenz (Nutzer-Prognose, sonst Vormonat)
+      2. Arbeitslosenquote vs Vormonat (fallend = USD-stark)
+      3. Stundenlöhne MoM vs Vormonat (steigend = USD-stark)
+      4. Zusammensetzung: Privatsektor trägt den Zuwachs (= nachhaltig,
+         USD-stark); schrumpfender Privatsektor = USD-schwach, auch bei
+         starker Headline (staatsgetriebene Stellen werden oft revidiert).
+    Jede Komponente zählt +1 (USD-stark) oder -1 (USD-schwach).
+    Score >= +2 → BÄRISCH EUR/USD, <= -2 → BULLISCH, sonst NEUTRAL
+    (gemischter Report – kein belastbares Signal).
+    Liefert None, solange FRED den Berichtsmonat noch nicht hat.
+    """
+    month = _report_month(rel)
+    payems = _fred("PAYEMS", limit=2, units="chg")
+    if len(payems) < 2 or payems[0][1][:7] != month:
+        return None
+    headline = round(float(payems[0][0]))
+    prev_headline = round(float(payems[1][0]))
+    ref, ref_label = (fore, "Prog") if fore is not None else (prev_headline, "Vormonat")
+    score = 1 if headline > ref else -1 if headline < ref else 0
+    parts = [f"NFP {headline:+.0f}K vs {ref_label} {ref:+.0f}K"]
+
+    unrate = _fred("UNRATE", limit=2)
+    if len(unrate) >= 2 and unrate[0][1][:7] == month:
+        u_now, u_prev = float(unrate[0][0]), float(unrate[1][0])
+        score += 1 if u_now < u_prev else -1 if u_now > u_prev else 0
+        parts.append(f"ALQ {u_now:.1f}%{'▼' if u_now < u_prev else '▲' if u_now > u_prev else '='}")
+
+    ahe = _fred("CES0500000003", limit=2, units="pch")
+    if len(ahe) >= 2 and ahe[0][1][:7] == month:
+        w_now, w_prev = float(ahe[0][0]), float(ahe[1][0])
+        score += 1 if w_now > w_prev else -1 if w_now < w_prev else 0
+        parts.append(f"Löhne {w_now:+.1f}%{'▲' if w_now > w_prev else '▼' if w_now < w_prev else '='}")
+
+    priv = _fred("USPRIV", limit=1, units="chg")
+    gov  = _fred("USGOVT", limit=1, units="chg")
+    if priv and priv[0][1][:7] == month:
+        p = round(float(priv[0][0]))
+        g = round(float(gov[0][0])) if gov and gov[0][1][:7] == month else None
+        if p > 0 and (g is None or p >= g):
+            score += 1
+        elif p < 0:
+            score -= 1
+        parts.append(f"Privat {p:+.0f}K" + (f"/Staat {g:+.0f}K" if g is not None else ""))
+
+    signal = "BÄRISCH" if score >= 2 else "BULLISCH" if score <= -2 else "NEUTRAL"
+    return {"label": "NFP", "date": rel.strftime("%d.%m."),
+            "detail": " · ".join(parts), "signal": signal}
 
 def get_release_results():
     """
@@ -590,10 +645,19 @@ def get_release_results():
                     return None
         return None
 
-    def _prev_month(d):
-        return (d.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
+    # NFP: 4-Komponenten-Interpretation (Headline, ALQ, Löhne, Privatsektor)
+    rel = _recent_past(NFP_DATES, week_ago)
+    if rel is not None:
+        r = _nfp_result(rel, _user_forecast("NFP", rel))
+        if r is None:
+            print("[WARN] Ergebnis NFP: Ist-Wert noch nicht in FRED")
+            results.append({"label": "NFP", "date": rel.strftime("%d.%m."),
+                            "detail": "Ist-Wert ausstehend", "signal": "AUSSTEHEND"})
+        else:
+            results.append(r)
+            print(f"[OK] Ergebnis NFP: {r['detail']} → {r['signal']}")
 
-    date_lists = {"NFP": NFP_DATES, "CPI": CPI_DATES, "PPI": PPI_DATES}
+    date_lists = {"CPI": CPI_DATES, "PPI": PPI_DATES}
     for label, cfg in _NUM_RELEASES.items():
         rel = _recent_past(date_lists[label], week_ago)
         if rel is None:
@@ -601,7 +665,7 @@ def get_release_results():
         obs = _fred(cfg["sid"], limit=2, units=cfg["units"])
         # Nur werten, wenn FRED schon den Berichtsmonat (= Vormonat des
         # Release-Datums) liefert – sonst als AUSSTEHEND markieren.
-        if len(obs) < 2 or obs[0][1][:7] != _prev_month(rel):
+        if len(obs) < 2 or obs[0][1][:7] != _report_month(rel):
             print(f"[WARN] Ergebnis {label}: Ist-Wert noch nicht in FRED")
             results.append({"label": label, "date": rel.strftime("%d.%m."),
                             "detail": "Ist-Wert ausstehend", "signal": "AUSSTEHEND"})
