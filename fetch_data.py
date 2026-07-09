@@ -516,12 +516,19 @@ def get_events():
             return {"label": label, "importance": importance, "date": "N/A", "days": None}
         return {"label": label, "importance": importance,
                 "date": d.strftime("%d.%m.%Y"), "days": (d - TODAY).days}
+    cpi_d = _live("CPI", "Consumer Price Index", CPI)
+    ppi_d = _live("PPI", "Producer Price Index", PPI)
     return [
         _entry("FOMC", "high",   _next(FOMC)),
         _entry("FOMC-Prot.", "medium", _next(FOMC_MIN)),
         _entry("NFP",  "medium", _live("NFP", "Employment Situation", NFP)),
-        _entry("CPI",  "medium", _live("CPI", "Consumer Price Index", CPI)),
-        _entry("PPI",  "low",    _live("PPI", "Producer Price Index", PPI)),
+        # CPI-/PPI-Release enthält mehrere Kennzahlen – jede als eigenes Event
+        _entry("Core CPI m/m", "high",   cpi_d),
+        _entry("CPI m/m",      "high",   cpi_d),
+        _entry("CPI y/y",      "medium", cpi_d),
+        _entry("Core CPI y/y", "low",    cpi_d),
+        _entry("Core PPI m/m", "medium", ppi_d),
+        _entry("PPI m/m",      "low",    ppi_d),
         _entry("EZB",  "low",    _next(ECB)),
         _entry("EZB-Prot.", "low", _next(ECB_PROT)),
     ]
@@ -555,9 +562,15 @@ def _recent_past(dates, week_ago):
     return past[-1] if past else None
 
 _NUM_RELEASES = {
-    # invertierte Richtung: schwächer/niedriger als Referenz = USD-negativ = BULLISCH EUR/USD
-    "CPI": {"sid": "CPIAUCSL", "units": "pc1", "unit": "%", "dec": 1},
-    "PPI": {"sid": "PPIFIS",   "units": "pc1", "unit": "%", "dec": 1},
+    # US-Inflationskennzahlen je Release (BLS via FRED). Richtung invertiert:
+    # niedriger als Referenz = USD-negativ = BULLISCH EUR/USD.
+    # m/m = pch (Monatsrate), y/y = pc1 (Jahresrate); Core = ohne Nahrung/Energie.
+    "Core CPI m/m": {"sid": "CPILFESL", "units": "pch", "unit": "%", "dec": 1, "cal": "CPI"},
+    "CPI m/m":      {"sid": "CPIAUCSL", "units": "pch", "unit": "%", "dec": 1, "cal": "CPI"},
+    "CPI y/y":      {"sid": "CPIAUCSL", "units": "pc1", "unit": "%", "dec": 1, "cal": "CPI"},
+    "Core CPI y/y": {"sid": "CPILFESL", "units": "pc1", "unit": "%", "dec": 1, "cal": "CPI"},
+    "Core PPI m/m": {"sid": "PPIFES",   "units": "pch", "unit": "%", "dec": 1, "cal": "PPI"},
+    "PPI m/m":      {"sid": "PPIFIS",   "units": "pch", "unit": "%", "dec": 1, "cal": "PPI"},
 }
 
 def _report_month(rel):
@@ -670,10 +683,14 @@ def get_release_results():
 
     date_lists = {"CPI": CPI_DATES, "PPI": PPI_DATES}
     for label, cfg in _NUM_RELEASES.items():
-        rel = _recent_past(date_lists[label], week_ago)
+        rel = _recent_past(date_lists[cfg["cal"]], week_ago)
         if rel is None:
             continue
         obs = _fred(cfg["sid"], limit=2, units=cfg["units"])
+        if not obs:
+            # Serie liefert gar nichts (z.B. ID ungültig) → Zeile auslassen
+            print(f"[WARN] Ergebnis {label}: keine FRED-Daten ({cfg['sid']})")
+            continue
         # Nur werten, wenn FRED schon den Berichtsmonat (= Vormonat des
         # Release-Datums) liefert – sonst als AUSSTEHEND markieren.
         if len(obs) < 2 or obs[0][1][:7] != _report_month(rel):
