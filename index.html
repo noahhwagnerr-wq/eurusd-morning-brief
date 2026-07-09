@@ -212,12 +212,24 @@ const EVENT_CFG = {
   NFP:  { importance:'medium', unit:'K', label:'NFP Stellen',
           bullDesc:'Schwächer als Vorwert → BULLISCH EUR/USD',
           bearDesc:'Stärker als Vorwert → BÄRISCH EUR/USD', invert:true  },
-  CPI:  { importance:'medium', unit:'%', label:'US CPI',
-          bullDesc:'Prognose fällt → BULLISCH EUR/USD',
-          bearDesc:'Prognose steigt → BÄRISCH EUR/USD',   invert:true  },
-  PPI:  { importance:'low',    unit:'%', label:'US PPI',
-          bullDesc:'Prognose fällt → BULLISCH EUR/USD',
-          bearDesc:'Prognose steigt → BÄRISCH EUR/USD',   invert:true  },
+  'CPI m/m':      { importance:'high',   unit:'%', label:'US CPI Monatsrate (Headline)',
+          bullDesc:'Niedriger als erwartet → BULLISCH EUR/USD',
+          bearDesc:'Höher als erwartet → BÄRISCH EUR/USD', invert:true },
+  'Core CPI m/m': { importance:'high',   unit:'%', label:'US Kern-CPI Monatsrate (ohne Nahrung/Energie)',
+          bullDesc:'Niedriger als erwartet → BULLISCH EUR/USD',
+          bearDesc:'Höher als erwartet → BÄRISCH EUR/USD', invert:true },
+  'CPI y/y':      { importance:'medium', unit:'%', label:'US CPI Jahresrate (Headline)',
+          bullDesc:'Niedriger als erwartet → BULLISCH EUR/USD',
+          bearDesc:'Höher als erwartet → BÄRISCH EUR/USD', invert:true },
+  'Core CPI y/y': { importance:'low',    unit:'%', label:'US Kern-CPI Jahresrate (ohne Nahrung/Energie)',
+          bullDesc:'Niedriger als erwartet → BULLISCH EUR/USD',
+          bearDesc:'Höher als erwartet → BÄRISCH EUR/USD', invert:true },
+  'PPI m/m':      { importance:'low',    unit:'%', label:'US PPI Monatsrate (Final Demand)',
+          bullDesc:'Niedriger als erwartet → BULLISCH EUR/USD',
+          bearDesc:'Höher als erwartet → BÄRISCH EUR/USD', invert:true },
+  'Core PPI m/m': { importance:'medium', unit:'%', label:'US Kern-PPI Monatsrate (ohne Nahrung/Energie)',
+          bullDesc:'Niedriger als erwartet → BULLISCH EUR/USD',
+          bearDesc:'Höher als erwartet → BÄRISCH EUR/USD', invert:true },
 };
 
 function calcBias(label, forecast, previous) {
@@ -558,7 +570,8 @@ function renderMainGrid(d){
   const biasDesc=segs.length?segs.join('. ')+'.':'Keine Signaldaten verfügbar.';
   const act=d.actuals||{};
   const monthDE=s=>(s||'').replace(/^(\d{4})-(\d{2})$/,(_,y,m)=>['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][parseInt(m)-1]+' '+y.slice(2));
-  const actParts=['NFP','CPI','PPI'].filter(k=>act[k]&&act[k].value!=null).map(k=>`${k} ${monthDE(act[k].date)}: <b style="color:var(--text)">${k==='NFP'&&act[k].value>0?'+':''}${act[k].value}${act[k].unit}</b>`);
+  const actLabel={NFP:'NFP',CPI:'CPI y/y',PPI:'PPI y/y'};
+  const actParts=['NFP','CPI','PPI'].filter(k=>act[k]&&act[k].value!=null).map(k=>`${actLabel[k]} ${monthDE(act[k].date)}: <b style="color:var(--text)">${k==='NFP'&&act[k].value>0?'+':''}${act[k].value}${act[k].unit}</b>`);
   const actHtml=actParts.length?`<div style="padding:var(--space-2) var(--space-4);border-top:1px solid var(--divider);font-family:var(--font-mono);font-size:0.65rem;color:var(--muted)">Letzte Ist-Werte: ${actParts.join(' · ')}</div>`:'';
   const relResults=d.release_results||[];
   const resHtml=relResults.length?`<div style="padding:var(--space-3) var(--space-4);border-top:1px solid var(--divider)">
