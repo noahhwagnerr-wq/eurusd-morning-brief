@@ -715,13 +715,29 @@ def get_release_results():
                         "signal": signal})
         print(f"[OK] Ergebnis {label}: {market} Δ {delta:+.2f}pp → {signal}")
 
+    def _release_day_delta(pairs_asc, rel):
+        """
+        Δ der Rendite AM Veröffentlichungstag, fixiert auf das Release-Datum:
+        erster Schlusskurs am/nach dem Release minus letzter Schlusskurs davor.
+        Driftet nicht, wenn spätere Handelstage dazukommen. None = noch keine
+        Beobachtung am/nach dem Release (→ AUSSTEHEND).
+        pairs_asc: [(datum, wert)] aufsteigend.
+        """
+        iso = rel.isoformat()
+        after  = [v for d, v in pairs_asc if d >= iso]
+        before = [v for d, v in pairs_asc if d < iso]
+        if not after or not before:
+            return None
+        return after[0] - before[-1]
+
     # FOMC-Protokoll: Reaktion der US-2Y-Rendite (hawkish Fed = BÄRISCH EUR/USD)
     rel = _recent_past(FOMC_MIN_DATES, week_ago)
     if rel is not None:
-        obs = _fred("DGS2", limit=2)
-        if len(obs) >= 2 and obs[0][1] >= rel.isoformat():
-            _reaction("FOMC-Prot.", rel, float(obs[0][0]) - float(obs[1][0]),
-                      "BÄRISCH", "BULLISCH", "US-2Y")
+        obs = _fred("DGS2", limit=10)
+        pairs = [(d, float(v)) for v, d in reversed(obs)]
+        delta = _release_day_delta(pairs, rel)
+        if delta is not None:
+            _reaction("FOMC-Prot.", rel, delta, "BÄRISCH", "BULLISCH", "US-2Y")
         else:
             print("[WARN] Ergebnis FOMC-Prot.: Marktreaktion noch nicht verfügbar")
             results.append({"label": "FOMC-Prot.", "date": rel.strftime("%d.%m."),
@@ -731,10 +747,10 @@ def get_release_results():
     # EZB-Protokoll: Reaktion der Euro-2Y-Kurve (hawkish EZB = BULLISCH EUR/USD)
     rel = _recent_past(ECB_PROT_DATES, week_ago)
     if rel is not None:
-        series = _ecb_series("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y", n=8)
-        if len(series) >= 2 and series[-1][0] >= rel.isoformat():
-            _reaction("EZB-Prot.", rel, series[-1][1] - series[-2][1],
-                      "BULLISCH", "BÄRISCH", "EUR-2Y")
+        series = _ecb_series("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y", n=10)
+        delta = _release_day_delta(series, rel)
+        if delta is not None:
+            _reaction("EZB-Prot.", rel, delta, "BULLISCH", "BÄRISCH", "EUR-2Y")
         else:
             print("[WARN] Ergebnis EZB-Prot.: Marktreaktion noch nicht verfügbar")
             results.append({"label": "EZB-Prot.", "date": rel.strftime("%d.%m."),
