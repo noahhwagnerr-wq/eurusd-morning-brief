@@ -1,6 +1,6 @@
 {
-  "generated_at": "10.07.2026 13:41 UTC",
-  "generated_ts": "2026-07-10T13:41:18.424978Z",
+  "generated_at": "10.07.2026 20:04 UTC",
+  "generated_ts": "2026-07-10T20:04:14.409382Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -30,26 +30,22 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.1435,
-    "date": "2026-07-09",
-    "prev": 1.1404,
-    "chg_pct": 0.27
+    "rate": 1.143,
+    "date": "2026-07-10",
+    "prev": 1.1435,
+    "chg_pct": -0.04
   },
   "cot": {
-    "date": "2026-06-30",
-    "net": -32644,
-    "delta_net": -17234,
-    "long_pct": 12.9,
-    "short_pct": 17.1,
-    "net_pct": -4.1,
-    "oi": 790076,
+    "date": "2026-07-07",
+    "net": -45461,
+    "delta_net": -12817,
+    "long_pct": 11.0,
+    "short_pct": 16.7,
+    "net_pct": -5.7,
+    "oi": 794833,
     "bias": "NET-SHORT",
     "source": "Disaggregated/Leveraged Money",
     "history": [
-      {
-        "date": "24.03",
-        "net": -13538
-      },
       {
         "date": "31.03",
         "net": 3947
@@ -105,6 +101,10 @@
       {
         "date": "30.06",
         "net": -32644
+      },
+      {
+        "date": "07.07",
+        "net": -45461
       }
     ]
   },
