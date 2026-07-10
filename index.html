@@ -74,8 +74,13 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
 .refresh-btn svg{transition:transform 0.6s linear;}
 .refresh-btn.spinning svg{animation:spin 1s linear infinite;}
 @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
-.loading-overlay{display:none;position:fixed;inset:0;background:rgba(13,15,17,0.7);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:var(--space-3);}
-.loading-overlay.visible{display:flex;}
+.update-pill{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);z-index:100;display:none;align-items:center;gap:8px;padding:6px 14px;background:color-mix(in oklch,var(--surface) 94%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(201,164,55,0.55);border-radius:999px;font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text);box-shadow:0 4px 18px rgba(0,0,0,0.35);white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;}
+.update-pill.visible{display:flex;}
+.update-pill .pill-dot{width:7px;height:7px;border-radius:50%;background:#c9a437;flex:none;animation:pillPulse 1.2s ease-in-out infinite;}
+@keyframes pillPulse{0%,100%{opacity:.35;transform:scale(.8);}50%{opacity:1;transform:scale(1);}}
+[data-fresh]{transition:box-shadow 1.6s ease;}
+.fresh{box-shadow:0 0 0 1px #c9a437,0 0 12px rgba(201,164,55,0.22)!important;}
+td.fresh,.event-item.fresh,[data-fresh^="res-"].fresh{border-radius:10px;}
 .spinner{width:40px;height:40px;border:3px solid var(--surface-3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
 .loading-text{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--muted);text-align:center;max-width:80vw;word-break:break-word;padding:0 var(--space-4);}
 .kpi-row{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--space-2);}
@@ -157,9 +162,8 @@ button{cursor:pointer;border:none;background:none;color:inherit;font:inherit;}
 </style>
 </head>
 <body>
-<div class="loading-overlay" id="loadingOverlay">
-  <div class="spinner"></div>
-  <div class="loading-text" id="loadingText">Daten werden abgerufen…</div>
+<div class="update-pill" id="updatePill" role="status" aria-live="polite">
+  <span class="pill-dot"></span><span id="updatePillText">Update läuft…</span>
 </div>
 <div class="app" id="app">
   <header class="header">
@@ -296,12 +300,13 @@ async function fetchFreshData(){
 
 async function refreshData(){
   const btn=document.getElementById('refreshBtn');
-  const loadingText=document.getElementById('loadingText');
-  const overlay=document.getElementById('loadingOverlay');
+  const loadingText=document.getElementById('updatePillText');
+  const pill=document.getElementById('updatePill');
   const beforeStamp=_data?.generated_at||null;
+  const prevData=_data?JSON.parse(JSON.stringify(_data)):null;
   btn.disabled=true; btn.classList.add('spinning');
   loadingText.textContent='Update wird gestartet…';
-  overlay.classList.add('visible');
+  pill.classList.add('visible');
 
   // Dispatch workflow — bei 422 (z.B. PAT fehlt) trotzdem weiter pollen,
   // da der Cron-Job vielleicht schon läuft oder gerade gestartet wurde.
@@ -342,9 +347,10 @@ async function refreshData(){
       if(latest?.generated_at && latest.generated_at!==beforeStamp){
         _data=latest;
         renderAll(_data);
-        loadingText.textContent='✅ Update erfolgreich';
-        await wait(900);
-        overlay.classList.remove('visible');
+        const n=applyFresh(prevData,_data);
+        loadingText.textContent=n>0?`✅ Aktualisiert – ${n} Änderung${n===1?'':'en'}`:'✅ Aktualisiert – keine neuen Werte';
+        await wait(2200);
+        pill.classList.remove('visible');
         btn.disabled=false; btn.classList.remove('spinning');
         return;
       }
@@ -355,11 +361,47 @@ async function refreshData(){
   if(latest){
     _data=latest;
     renderAll(_data);
+    applyFresh(prevData,_data);
   }
   loadingText.textContent='⚠ Kein neues Update in 3 min erkannt';
   await wait(2000);
-  overlay.classList.remove('visible');
+  pill.classList.remove('visible');
   btn.disabled=false; btn.classList.remove('spinning');
+}
+
+// ── Fresh-Ringe: geänderte Werte nach einem Update golden markieren ──
+const _FRESH_WATCH={
+  'kpi-fx':   d=>[d.fx?.rate,d.fx?.date],
+  'kpi-dfr':  d=>[d.ecb?.dfr,d.ecb?.dfr_date],
+  'kpi-hicp': d=>[d.ecb?.hicp,d.ecb?.hicp_date],
+  'kpi-effr': d=>[d.fed?.effr,d.fed?.effr_date],
+  'kpi-cpi':  d=>[d.fed?.cpi,d.fed?.cpi_date],
+  'td-us2y':  d=>[d.yields?.us2y,d.yields?.us2y_date],
+  'td-de2y':  d=>[d.yields?.de2y,d.yields?.de2y_date],
+  'td-ratediff': d=>d.signals?.rate_diff,
+  'td-spread2y': d=>d.signals?.yield_spread,
+  'cot':      d=>d.cot?.date,
+  'gesamt':   d=>d.signals?.overall_bias,
+};
+function applyFresh(oldD,newD){
+  if(!oldD||!newD)return 0;
+  let n=0;
+  const mark=key=>{
+    const el=document.querySelector('[data-fresh="'+CSS.escape(key)+'"]');
+    if(!el)return;
+    el.classList.add('fresh'); n++;
+    setTimeout(()=>el.classList.remove('fresh'),12000);
+  };
+  for(const [key,get] of Object.entries(_FRESH_WATCH)){
+    if(JSON.stringify(get(oldD)??null)!==JSON.stringify(get(newD)??null)) mark(key);
+  }
+  const resMap=o=>Object.fromEntries((o.release_results||[]).map(r=>[r.label,[r.date,r.signal,r.detail]]));
+  const ro=resMap(oldD),rn=resMap(newD);
+  for(const k of Object.keys(rn)) if(JSON.stringify(ro[k])!==JSON.stringify(rn[k])) mark('res-'+k);
+  const evMap=o=>Object.fromEntries((o.events||[]).map(e=>[e.label,e.date]));
+  const eo=evMap(oldD),en=evMap(newD);
+  for(const k of Object.keys(en)) if(eo[k]!==en[k]) mark('ev-'+k);
+  return n;
 }
 
 function renderAll(d){renderHeader(d);renderKPI(d);renderMainGrid(d);renderFooter(d);}
@@ -383,7 +425,7 @@ function renderKPI(d){
     const ageH=(Date.now()-new Date(d.generated_ts).getTime())/36e5;
     if(ageH>36) staleHtml=`<div style="grid-column:1/-1;padding:var(--space-2) var(--space-3);background:color-mix(in oklch,var(--yellow) 10%,transparent);border:1px solid color-mix(in oklch,var(--yellow) 30%,transparent);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:var(--text-xs);color:var(--yellow)">⚠ Daten evtl. veraltet – Stand ${d.generated_at||'?'} (${Math.round(ageH)}h alt). „Aktualisieren" tippen.</div>`;
   }
-  const fxHtml=(fx&&fx.rate!=null)?`<div class="kpi" style="grid-column:1/-1"><div class="kpi-label">💱 EUR/USD</div><div class="kpi-value">${parseFloat(fx.rate).toFixed(4)}</div><div class="kpi-sub">EZB-Referenzkurs ${fx.date||'–'}</div><span class="kpi-delta ${fx.chg_pct>0?'up':fx.chg_pct<0?'down':'flat'}">${fx.chg_pct!=null?(fx.chg_pct>0?'▲ +':fx.chg_pct<0?'▼ ':'— ')+parseFloat(fx.chg_pct).toFixed(2)+'%':'—'}</span></div>`:'';
+  const fxHtml=(fx&&fx.rate!=null)?`<div class="kpi" style="grid-column:1/-1" data-fresh="kpi-fx"><div class="kpi-label">💱 EUR/USD</div><div class="kpi-value">${parseFloat(fx.rate).toFixed(4)}</div><div class="kpi-sub">EZB-Referenzkurs ${fx.date||'–'}</div><span class="kpi-delta ${fx.chg_pct>0?'up':fx.chg_pct<0?'down':'flat'}">${fx.chg_pct!=null?(fx.chg_pct>0?'▲ +':fx.chg_pct<0?'▼ ':'— ')+parseFloat(fx.chg_pct).toFixed(2)+'%':'—'}</span></div>`:'';
   const dfrPrev=typeof ecb.dfr_prev==='number'?ecb.dfr_prev:null, dfrCur=ecb.dfr??null;
   const dfrNote=`Stand ${ecb.dfr_date||'–'}`;
   const dfrDelta=(dfrCur!==null&&dfrPrev!==null)?(dfrCur>dfrPrev?`▲ von ${dfrPrev.toFixed(2)}%`:dfrCur<dfrPrev?`▼ von ${dfrPrev.toFixed(2)}%`:'— unverändert'):'—';
@@ -394,10 +436,10 @@ function renderKPI(d){
   const cpiDate=(fed.cpi_date||'').replace(/^(\d{4})-(\d{2})$/,(_,y,m)=>{const ms=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];return'BLS '+ms[parseInt(m)-1]+' '+y;})||'–';
   document.getElementById('kpiRow').innerHTML=`
     ${staleHtml}${fxHtml}
-    <div class="kpi"><div class="kpi-label">🇪🇺 EZB Leitzins</div><div class="kpi-value">${dfrCur!==null?parseFloat(dfrCur).toFixed(2)+'%':'N/A'}</div><div class="kpi-sub">${dfrNote}</div><span class="kpi-delta ${dfrCur!==null&&dfrPrev!==null&&dfrCur>dfrPrev?'up':dfrCur!==null&&dfrPrev!==null&&dfrCur<dfrPrev?'down':'flat'}">${dfrDelta}</span></div>
-    <div class="kpi"><div class="kpi-label">🇪🇺 HVPI</div><div class="kpi-value" style="color:var(--yellow)">${hicpVal}</div><div class="kpi-sub">${hicpDate}</div><span class="kpi-delta flat">Eurostat</span></div>
-    <div class="kpi"><div class="kpi-label">🇺🇸 Fed EFFR</div><div class="kpi-value">${effrCur!==null?parseFloat(effrCur).toFixed(2)+'%':'N/A'}</div><div class="kpi-sub">Stand ${fed.effr_date||'–'}</div><span class="kpi-delta flat">— unverändert</span></div>
-    <div class="kpi"><div class="kpi-label">🇺🇸 CPI USA</div><div class="kpi-value" style="color:var(--yellow)">${cpiVal}</div><div class="kpi-sub">${cpiDate}</div><span class="kpi-delta flat">FRED pc1</span></div>`;
+    <div class="kpi" data-fresh="kpi-dfr"><div class="kpi-label">🇪🇺 EZB Leitzins</div><div class="kpi-value">${dfrCur!==null?parseFloat(dfrCur).toFixed(2)+'%':'N/A'}</div><div class="kpi-sub">${dfrNote}</div><span class="kpi-delta ${dfrCur!==null&&dfrPrev!==null&&dfrCur>dfrPrev?'up':dfrCur!==null&&dfrPrev!==null&&dfrCur<dfrPrev?'down':'flat'}">${dfrDelta}</span></div>
+    <div class="kpi" data-fresh="kpi-hicp"><div class="kpi-label">🇪🇺 HVPI</div><div class="kpi-value" style="color:var(--yellow)">${hicpVal}</div><div class="kpi-sub">${hicpDate}</div><span class="kpi-delta flat">Eurostat</span></div>
+    <div class="kpi" data-fresh="kpi-effr"><div class="kpi-label">🇺🇸 Fed EFFR</div><div class="kpi-value">${effrCur!==null?parseFloat(effrCur).toFixed(2)+'%':'N/A'}</div><div class="kpi-sub">Stand ${fed.effr_date||'–'}</div><span class="kpi-delta flat">— unverändert</span></div>
+    <div class="kpi" data-fresh="kpi-cpi"><div class="kpi-label">🇺🇸 CPI USA</div><div class="kpi-value" style="color:var(--yellow)">${cpiVal}</div><div class="kpi-sub">${cpiDate}</div><span class="kpi-delta flat">FRED pc1</span></div>`;
 }
 
 function renderMainGrid(d){
@@ -412,8 +454,8 @@ function renderMainGrid(d){
     <table class="rate-table">
       <thead><tr><th>Instrument</th><th>USD</th><th>EUR</th><th>Spread</th></tr></thead>
       <tbody>
-        <tr><td class="label-cell">Leitzins</td><td class="val-cell">${pct(fed.effr)}${ds(fed.effr_date)}</td><td class="val-cell">${pct(ecb.dfr)}${ds(ecb.dfr_date)}</td><td class="val-cell" style="color:var(--red)">${pp(rateDiff)}</td></tr>
-        <tr><td class="label-cell">2Y Rendite</td><td class="val-cell">${pct(yields.us2y)}${ds(yields.us2y_date)}</td><td class="val-cell">${pct(yields.de2y)}${ds(yields.de2y_date)}</td><td class="val-cell" style="color:var(--red)">${pp(yieldSpread)}</td></tr>
+        <tr><td class="label-cell">Leitzins</td><td class="val-cell">${pct(fed.effr)}${ds(fed.effr_date)}</td><td class="val-cell">${pct(ecb.dfr)}${ds(ecb.dfr_date)}</td><td class="val-cell" style="color:var(--red)" data-fresh="td-ratediff">${pp(rateDiff)}</td></tr>
+        <tr><td class="label-cell">2Y Rendite</td><td class="val-cell" data-fresh="td-us2y">${pct(yields.us2y)}${ds(yields.us2y_date)}</td><td class="val-cell" data-fresh="td-de2y">${pct(yields.de2y)}${ds(yields.de2y_date)}</td><td class="val-cell" style="color:var(--red)" data-fresh="td-spread2y">${pp(yieldSpread)}</td></tr>
         <tr><td class="label-cell">CPI</td><td class="val-cell">${pct(fed.cpi,1)}${ds(fed.cpi_date)}</td><td class="val-cell">~${pct(ecb.hicp)}${ds(ecb.hicp_date)}</td><td class="val-cell">${pp(inflGap)}</td></tr>
       </tbody>
     </table>
@@ -426,7 +468,7 @@ function renderMainGrid(d){
   const cotIcon=!cot?'⚪':cot.bias==='NET-LONG'?'🟢':cot.bias==='NET-SHORT'?'🔴':'⚪';
   const longW=cot?Math.round(cot.long_pct/(cot.long_pct+cot.short_pct)*100):50;
   const cotPanel=cot?`
-    <div class="cot-grid">
+    <div class="cot-grid" data-fresh="cot">
       <div class="cot-item"><div class="cot-item-label">Net-Position</div><div class="cot-item-value negative">${cot.net>=0?'+':''}${num(cot.net)}</div></div>
       <div class="cot-item"><div class="cot-item-label">Δ Vorwoche</div><div class="cot-item-value negative">${cot.delta_net>=0?'▲':'▼'} ${num(Math.abs(cot.delta_net))}</div></div>
       <div class="cot-item"><div class="cot-item-label">Open Interest</div><div class="cot-item-value">${num(cot.oi)}</div></div>
@@ -489,7 +531,7 @@ function renderMainGrid(d){
     }
 
     const isOpen = _openEditLabel === ev.label;
-    return `<div class="event-item" id="evitem-${ev.label}">
+    return `<div class="event-item" id="evitem-${ev.label}" data-fresh="ev-${ev.label}">
       <div class="event-row">
         <div class="event-dot ${ev.importance}"></div>
         <div>
@@ -567,7 +609,7 @@ function renderMainGrid(d){
     ${relResults.map(r=>{
       const col=r.signal==='BULLISCH'?'var(--green)':r.signal==='BÄRISCH'?'var(--red)':r.signal==='AUSSTEHEND'?'var(--faint)':'var(--muted)';
       const ico=r.signal==='BULLISCH'?'🟢':r.signal==='BÄRISCH'?'🔴':r.signal==='AUSSTEHEND'?'⏳':'⚪';
-      return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-2);font-family:var(--font-mono);font-size:0.68rem;padding:3px 0;flex-wrap:wrap">
+      return `<div data-fresh="res-${r.label}" style="display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-2);font-family:var(--font-mono);font-size:0.68rem;padding:3px 0 3px 4px;flex-wrap:wrap">
         <span style="color:var(--text);font-weight:700">${r.label} <span style="color:var(--faint);font-weight:400">${r.date}</span></span>
         <span style="color:var(--muted)">${r.detail}</span>
         <span style="font-weight:700;color:${col}">${ico} ${r.signal}</span>
@@ -603,7 +645,7 @@ function renderMainGrid(d){
           <div class="bias-card"><div class="bias-card-label">COT</div><div class="bias-card-val ${cotBiasClass}">${sig.cot_bias==='NET-SHORT'?'🔴':sig.cot_bias==='NET-LONG'?'🟢':'⚪'} ${dir(sig.cot_bias)}</div></div>
           ${d.retail?`<div class="bias-card" style="grid-column:1/-1"><div class="bias-card-label">Retail (Contrarian · ${d.retail.source||'–'})</div><div class="bias-card-val ${d.retail.bias.includes('BULLISCH')?'bc-bull':d.retail.bias.includes('BÄRISCH')?'bc-bear':'bc-neutral'}">${d.retail.bias.includes('BULLISCH')?'🟢':d.retail.bias.includes('BÄRISCH')?'🔴':'⚪'} ${d.retail.bias} <span style="font-weight:400;color:var(--muted)">(Long ${d.retail.long_pct}% / Short ${d.retail.short_pct}%)</span></div></div>`:''}
         </div>
-        <div style="margin-top:var(--space-4);padding:var(--space-3);background:color-mix(in oklch,${overallColor} 8%,transparent);border:1px solid color-mix(in oklch,${overallColor} 20%,transparent);border-radius:var(--radius-md)">
+        <div data-fresh="gesamt" style="margin-top:var(--space-4);padding:var(--space-3);background:color-mix(in oklch,${overallColor} 8%,transparent);border:1px solid color-mix(in oklch,${overallColor} 20%,transparent);border-radius:var(--radius-md)">
           <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:${overallColor};font-weight:700;margin-bottom:4px">GESAMT: ${overall==='BÄRISCH'?'🔴':overall==='BULLISCH'?'🟢':'⚪'} ${overall} EUR/USD</div>
           <div style="font-size:var(--text-xs);color:var(--muted);line-height:1.6">${biasDesc}</div>
         </div>
