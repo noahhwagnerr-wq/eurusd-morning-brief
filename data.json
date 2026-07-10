@@ -1,6 +1,6 @@
 {
-  "generated_at": "10.07.2026 20:04 UTC",
-  "generated_ts": "2026-07-10T20:04:14.409382Z",
+  "generated_at": "10.07.2026 20:17 UTC",
+  "generated_ts": "2026-07-10T20:17:30.091003Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.62,
-    "effr_date": "2026-07-08",
+    "effr_date": "2026-07-09",
     "cpi": 4.2,
     "cpi_date": "2026-05"
   },
   "yields": {
-    "us2y": 4.21,
-    "us2y_date": "2026-07-08",
+    "us2y": 4.16,
+    "us2y_date": "2026-07-09",
     "de2y": 2.6146246593,
     "de2y_date": "2026-07-09"
   },
   "signals": {
     "rate_diff": 1.37,
-    "yield_spread": 1.6,
+    "yield_spread": 1.55,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -174,8 +174,8 @@
     {
       "label": "FOMC-Prot.",
       "date": "08.07.",
-      "detail": "US-2Y +0.02pp",
-      "signal": "NEUTRAL"
+      "detail": "US-2Y -0.05pp",
+      "signal": "BULLISCH"
     },
     {
       "label": "EZB-Prot.",
