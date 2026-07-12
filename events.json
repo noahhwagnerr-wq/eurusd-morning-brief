@@ -238,7 +238,16 @@
       "unit": "",
       "note": "Fed Chairman Warsh Testifies",
       "custom": true
+    },
+    {
+      "label": "Core CPI m/m",
+      "date": "14.07.2026",
+      "previous": "0.2%",
+      "forecast": "0.2%",
+      "note": "",
+      "bias": "NEUTRAL",
+      "actual": false
     }
   ],
-  "last_updated": "2026-06-26T14:37:43.404Z"
+  "last_updated": "2026-07-12T14:37:43.303Z"
 }
