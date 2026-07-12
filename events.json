@@ -247,7 +247,16 @@
       "note": "",
       "bias": "NEUTRAL",
       "actual": false
+    },
+    {
+      "label": "PPI m/m",
+      "date": "15.07.2026",
+      "previous": "1.1%",
+      "forecast": "0.0%",
+      "note": "",
+      "bias": "BULLISCH",
+      "actual": false
     }
   ],
-  "last_updated": "2026-07-12T14:37:43.303Z"
+  "last_updated": "2026-07-12T14:38:36.433Z"
 }
