@@ -383,7 +383,10 @@ const _FRESH_WATCH={
   'cot':      d=>d.cot?.date,
   'gesamt':   d=>d.signals?.overall_bias,
 };
-const _freshKeys=new Set(); // Ringe bleiben bis zum Ende der App-Sitzung
+// Ringe zeigen die Änderungen des letzten Updates und bleiben sichtbar,
+// solange die App läuft; beim nächsten Update werden sie ersetzt,
+// beim Schließen/Neuladen der App verschwinden sie (reiner Sitzungsspeicher).
+const _freshKeys=new Set();
 function reapplyFresh(){
   for(const key of _freshKeys){
     const el=document.querySelector('[data-fresh="'+CSS.escape(key)+'"]');
@@ -392,6 +395,8 @@ function reapplyFresh(){
 }
 function applyFresh(oldD,newD){
   if(!oldD||!newD)return 0;
+  _freshKeys.clear();
+  document.querySelectorAll('.fresh').forEach(el=>el.classList.remove('fresh'));
   let n=0;
   const mark=key=>{
     _freshKeys.add(key);
