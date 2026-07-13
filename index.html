@@ -383,14 +383,21 @@ const _FRESH_WATCH={
   'cot':      d=>d.cot?.date,
   'gesamt':   d=>d.signals?.overall_bias,
 };
+const _freshKeys=new Set(); // Ringe bleiben bis zum Ende der App-Sitzung
+function reapplyFresh(){
+  for(const key of _freshKeys){
+    const el=document.querySelector('[data-fresh="'+CSS.escape(key)+'"]');
+    if(el)el.classList.add('fresh');
+  }
+}
 function applyFresh(oldD,newD){
   if(!oldD||!newD)return 0;
   let n=0;
   const mark=key=>{
+    _freshKeys.add(key);
     const el=document.querySelector('[data-fresh="'+CSS.escape(key)+'"]');
     if(!el)return;
     el.classList.add('fresh'); n++;
-    setTimeout(()=>el.classList.remove('fresh'),12000);
   };
   for(const [key,get] of Object.entries(_FRESH_WATCH)){
     if(JSON.stringify(get(oldD)??null)!==JSON.stringify(get(newD)??null)) mark(key);
@@ -404,7 +411,7 @@ function applyFresh(oldD,newD){
   return n;
 }
 
-function renderAll(d){renderHeader(d);renderKPI(d);renderMainGrid(d);renderFooter(d);}
+function renderAll(d){renderHeader(d);renderKPI(d);renderMainGrid(d);renderFooter(d);reapplyFresh();}
 
 function renderHeader(d){
   const now=new Date();
@@ -681,6 +688,7 @@ function renderCotChart(hist){
 function toggleEventEdit(label){
   _openEditLabel = (_openEditLabel===label) ? null : label;
   renderMainGrid(_data);
+  reapplyFresh();
 }
 
 function updateInlineBias(label){
@@ -722,7 +730,7 @@ async function saveInlineEntry(label, evDate){
     if(j.ok){
       _eventsSha = j.sha;
       document.getElementById('evstatus-'+label).textContent='✅ Gespeichert';
-      setTimeout(()=>{ _openEditLabel=null; renderMainGrid(_data); },800);
+      setTimeout(()=>{ _openEditLabel=null; renderMainGrid(_data); reapplyFresh(); },800);
     } else throw new Error(j.error||'Fehler');
   }catch(e){
     document.getElementById('evstatus-'+label).textContent='⚠️ '+e.message;
