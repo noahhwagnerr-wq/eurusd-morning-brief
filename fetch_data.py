@@ -4,7 +4,7 @@ fetch_data.py – Holt alle Live-Daten und schreibt data.json auf gh-pages.
 Wird von GitHub Actions (update-data.yml) ausgeführt.
 """
 
-import os, json, sys
+import os, json, re, sys
 from datetime import datetime, date, timedelta
 
 try:
@@ -570,6 +570,10 @@ def _report_month(rel):
     """Berichtsmonat eines Releases = Vormonat des Veröffentlichungsdatums."""
     return (rel.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
 
+def _nz(v, dec):
+    """Auf Anzeigegenauigkeit runden und negatives Null-Artefakt (-0.0) entfernen."""
+    return round(v, dec) + 0.0
+
 def _nfp_result(rel, fore):
     """
     NFP-Interpretation über vier Komponenten statt nur der Headline
@@ -605,13 +609,13 @@ def _nfp_result(rel, fore):
     if len(unrate) >= 2 and unrate[0][1][:7] == month:
         u_now, u_prev = float(unrate[0][0]), float(unrate[1][0])
         score += 1 if u_now < u_prev else -1 if u_now > u_prev else 0
-        parts.append(f"ALQ {u_now:.1f}%{'▼' if u_now < u_prev else '▲' if u_now > u_prev else '='}")
+        parts.append(f"ALQ {_nz(u_now, 1):.1f}%{'▼' if u_now < u_prev else '▲' if u_now > u_prev else '='}")
 
     ahe = _fred("CES0500000003", limit=2, units="pch")
     if len(ahe) >= 2 and ahe[0][1][:7] == month:
         w_now, w_prev = float(ahe[0][0]), float(ahe[1][0])
         score += 1 if w_now > w_prev else -1 if w_now < w_prev else 0
-        parts.append(f"Löhne {w_now:+.1f}%{'▲' if w_now > w_prev else '▼' if w_now < w_prev else '='}")
+        parts.append(f"Löhne {_nz(w_now, 1):+.1f}%{'▲' if w_now > w_prev else '▼' if w_now < w_prev else '='}")
 
     priv = _fred("USPRIV", limit=1, units="chg")
     gov  = _fred("USGOVT", limit=1, units="chg")
@@ -650,16 +654,18 @@ def get_release_results():
     user_events = _load_user_events()
     results = []
 
+    def _parse_num(s):
+        """Erste Zahl aus Nutzereingaben wie '0.2%', '0,3 %', '145K' ziehen."""
+        m = re.search(r"-?\d+(?:[.,]\d+)?", str(s or ""))
+        return float(m.group().replace(",", ".")) if m else None
+
     def _user_forecast(label, d):
         for e in user_events:
             if e.get("label") != label:
                 continue
             ed = str(e.get("date", ""))
             if ed in (d.strftime("%d.%m.%Y"), d.isoformat()):
-                try:
-                    return float(str(e.get("forecast", "")).replace(",", "."))
-                except (ValueError, TypeError):
-                    return None
+                return _parse_num(e.get("forecast"))
         return None
 
     # NFP: 4-Komponenten-Interpretation (Headline, ALQ, Löhne, Privatsektor)
@@ -691,10 +697,10 @@ def get_release_results():
             results.append({"label": label, "date": rel.strftime("%d.%m."),
                             "detail": "Ist-Wert ausstehend", "signal": "AUSSTEHEND"})
             continue
-        actual = round(float(obs[0][0]), cfg["dec"])
-        prev   = round(float(obs[1][0]), cfg["dec"])
+        actual = _nz(float(obs[0][0]), cfg["dec"])
+        prev   = _nz(float(obs[1][0]), cfg["dec"])
         fore   = _user_forecast(label, rel)
-        ref, ref_label = (fore, "Prog") if fore is not None else (prev, "Vormonat")
+        ref, ref_label = (_nz(fore, cfg["dec"]), "Prog") if fore is not None else (prev, "Vormonat")
         signal = ("NEUTRAL" if actual == ref else
                   "BULLISCH" if actual < ref else "BÄRISCH")
         fmt = (lambda v: f"{v:+.0f}") if cfg["unit"] == "K" else (lambda v: f"{v:.1f}")
@@ -711,9 +717,9 @@ def get_release_results():
         else:
             signal = dovish_signal
         results.append({"label": label, "date": rel.strftime("%d.%m."),
-                        "detail": f"{market} {delta:+.2f}pp",
+                        "detail": f"{market} {_nz(delta, 2):+.2f}pp",
                         "signal": signal})
-        print(f"[OK] Ergebnis {label}: {market} Δ {delta:+.2f}pp → {signal}")
+        print(f"[OK] Ergebnis {label}: {market} Δ {_nz(delta, 2):+.2f}pp → {signal}")
 
     def _release_day_delta(pairs_asc, rel):
         """
