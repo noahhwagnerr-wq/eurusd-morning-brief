@@ -437,6 +437,7 @@ function renderKPI(d){
     const ageH=(Date.now()-new Date(d.generated_ts).getTime())/36e5;
     if(ageH>36) staleHtml=`<div style="grid-column:1/-1;padding:var(--space-2) var(--space-3);background:color-mix(in oklch,var(--yellow) 10%,transparent);border:1px solid color-mix(in oklch,var(--yellow) 30%,transparent);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:var(--text-xs);color:var(--yellow)">⚠ Daten evtl. veraltet – Stand ${d.generated_at||'?'} (${Math.round(ageH)}h alt). „Aktualisieren" tippen.</div>`;
   }
+  if(d.calendar_warning) staleHtml+=`<div style="grid-column:1/-1;padding:var(--space-2) var(--space-3);background:color-mix(in oklch,var(--yellow) 10%,transparent);border:1px solid color-mix(in oklch,var(--yellow) 30%,transparent);border-radius:var(--radius-md);font-family:var(--font-mono);font-size:var(--text-xs);color:var(--yellow)">🗓 ${d.calendar_warning}</div>`;
   const fxHtml=(fx&&fx.rate!=null)?`<div class="kpi" style="grid-column:1/-1" data-fresh="kpi-fx"><div class="kpi-label">💱 EUR/USD</div><div class="kpi-value">${parseFloat(fx.rate).toFixed(4)}</div><div class="kpi-sub">EZB-Referenzkurs ${fx.date||'–'}</div><span class="kpi-delta ${fx.chg_pct>0?'up':fx.chg_pct<0?'down':'flat'}">${fx.chg_pct!=null?(fx.chg_pct>0?'▲ +':fx.chg_pct<0?'▼ ':'— ')+parseFloat(fx.chg_pct).toFixed(2)+'%':'—'}</span></div>`:'';
   const dfrPrev=typeof ecb.dfr_prev==='number'?ecb.dfr_prev:null, dfrCur=ecb.dfr??null;
   const dfrNote=`Stand ${ecb.dfr_date||'–'}`;
