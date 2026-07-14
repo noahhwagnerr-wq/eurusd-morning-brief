@@ -1,6 +1,6 @@
 {
-  "generated_at": "14.07.2026 20:26 UTC",
-  "generated_ts": "2026-07-14T20:26:58.457919Z",
+  "generated_at": "14.07.2026 20:29 UTC",
+  "generated_ts": "2026-07-14T20:29:38.062878Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -247,5 +247,6 @@
       "date": "13.07",
       "spread": 1.62
     }
-  ]
+  ],
+  "calendar_warning": null
 }
