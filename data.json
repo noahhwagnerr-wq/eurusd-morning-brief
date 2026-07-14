@@ -1,6 +1,6 @@
 {
-  "generated_at": "14.07.2026 10:04 UTC",
-  "generated_ts": "2026-07-14T10:04:42.101991Z",
+  "generated_at": "14.07.2026 14:12 UTC",
+  "generated_ts": "2026-07-14T14:12:23.370498Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -11,8 +11,8 @@
   "fed": {
     "effr": 3.62,
     "effr_date": "2026-07-10",
-    "cpi": 4.2,
-    "cpi_date": "2026-05"
+    "cpi": 3.5,
+    "cpi_date": "2026-06"
   },
   "yields": {
     "us2y": 4.21,
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.1424,
-    "date": "2026-07-13",
-    "prev": 1.143,
-    "chg_pct": -0.05
+    "rate": 1.1405,
+    "date": "2026-07-14",
+    "prev": 1.1424,
+    "chg_pct": -0.17
   },
   "cot": {
     "date": "2026-07-07",
@@ -160,9 +160,9 @@
       "date": "2026-06"
     },
     "CPI": {
-      "value": 4.2,
+      "value": 3.5,
       "unit": "%",
-      "date": "2026-05"
+      "date": "2026-06"
     },
     "PPI": {
       "value": 6.4,
@@ -174,8 +174,8 @@
     {
       "label": "Core CPI m/m",
       "date": "14.07.",
-      "detail": "Ist-Wert ausstehend",
-      "signal": "AUSSTEHEND"
+      "detail": "Ist -0.0% vs Vormonat 0.2%",
+      "signal": "BULLISCH"
     },
     {
       "label": "FOMC-Prot.",
