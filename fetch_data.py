@@ -495,6 +495,102 @@ NFP_DATES = [date(2026,7,2),  date(2026,8,7),  date(2026,9,4),  date(2026,10,2)]
 CPI_DATES = [date(2026,7,14), date(2026,8,12), date(2026,9,11), date(2026,10,14)]
 PPI_DATES = [date(2026,7,15), date(2026,8,13), date(2026,9,12), date(2026,10,15)]
 
+def safe_get_text(url, timeout=20):
+    try:
+        r = requests.get(url, timeout=timeout, headers={"User-Agent": "EURUSDBot/5.0"})
+        r.raise_for_status()
+        return r.text
+    except Exception as e:
+        print(f"[WARN] {url.split('/')[-1][:40]}: {e}")
+        return None
+
+_MONTHS_EN = {m: i for i, m in enumerate(
+    ["January", "February", "March", "April", "May", "June", "July",
+     "August", "September", "October", "November", "December"], 1)}
+
+def _scrape_fomc_meetings():
+    """
+    FOMC-Termine von der offiziellen Fed-Seite (HTML, keine Daten-API).
+    Entscheidungstag = letzter Sitzungstag. Liefert [] bei Fehlern.
+    """
+    html = safe_get_text("https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm")
+    if not html:
+        return []
+    out = []
+    try:
+        parts = re.split(r"(\d{4})\s+FOMC\s+Meetings", html)
+        for i in range(1, len(parts) - 1, 2):
+            year, content = int(parts[i]), parts[i + 1]
+            for month_txt, day_txt in re.findall(
+                    r"fomc-meeting__month[^>]*>\s*(?:<strong>\s*)?([A-Za-z]+(?:/[A-Za-z]+)?)"
+                    r".*?fomc-meeting__date[^>]*>\s*([0-9][^<]*)", content, re.S):
+                month = _MONTHS_EN.get(month_txt.split("/")[-1].strip())
+                days = re.findall(r"\d+", day_txt)
+                if month and days:
+                    try:
+                        out.append(date(year, month, int(days[-1])))
+                    except ValueError:
+                        pass
+    except Exception as e:
+        print(f"[WARN] FOMC-Kalender-Scrape: {e}")
+    return out
+
+def _scrape_ecb_meetings():
+    """
+    Geldpolitische EZB-Ratssitzungen von der offiziellen EZB-Kalenderseite.
+    Entscheidungstag = "(Day 2)"-Eintrag. Liefert [] bei Fehlern.
+    """
+    html = safe_get_text("https://www.ecb.europa.eu/press/calendars/mgcgc/html/index.en.html")
+    if not html:
+        return []
+    out = []
+    try:
+        for m in re.finditer(r"(\d{2})/(\d{2})/(\d{4})\s*</dt>\s*<dd[^>]*>\s*([^<]*)", html):
+            dd, mm, yy, desc = int(m.group(1)), int(m.group(2)), int(m.group(3)), m.group(4)
+            if ("monetary policy meeting" in desc and "non-monetary" not in desc
+                    and "(Day 2)" in desc):
+                try:
+                    out.append(date(yy, mm, dd))
+                except ValueError:
+                    pass
+    except Exception as e:
+        print(f"[WARN] EZB-Kalender-Scrape: {e}")
+    return sorted(set(out))
+
+def _merge_calendar(static_dates, scraped, label, min_hits=3):
+    """
+    Verifizierte Übernahme des gescrapten Kalenders: Der Scrape muss die
+    bekannten künftigen Termine des statischen Kalenders reproduzieren
+    (Beweis, dass die Seite korrekt gelesen wird) und mindestens ebenso
+    vollständig sein. Dann gilt: Vergangenheit aus dem statischen Kalender
+    (für Protokoll-Ableitung), Zukunft von der offiziellen Seite – inkl.
+    Korrektur verschobener Termine. Sonst bleibt der statische Kalender.
+    """
+    static_past   = [d for d in static_dates if d <= TODAY]
+    static_future = [d for d in static_dates if d > TODAY]
+    scraped_future = sorted({d for d in scraped if d > TODAY})
+    hits = len(set(static_future) & set(scraped_future))
+    need = min(min_hits, len(static_future))
+    if len(scraped_future) < max(len(static_future), 4) or hits < need:
+        print(f"[WARN] {label}-Kalender-Scrape nicht übernommen "
+              f"(Treffer {hits}/{need}, {len(scraped_future)} künftige Termine)")
+        return static_dates
+    corrected = sorted(set(static_future) - set(scraped_future))
+    if corrected:
+        print(f"[OK] {label}-Kalender: offizielle Seite ersetzt "
+              f"{', '.join(d.isoformat() for d in corrected)}")
+    print(f"[OK] {label}-Kalender live: {len(scraped_future)} künftige Termine "
+          f"bis {scraped_future[-1]}")
+    return sorted(set(static_past) | set(scraped_future))
+
+def refresh_meeting_calendars():
+    """Sitzungskalender bei jedem Lauf live von Fed/EZB erweitern."""
+    global FOMC_MEETINGS, ECB_MEETINGS, FOMC_MIN_DATES, ECB_PROT_DATES
+    FOMC_MEETINGS = _merge_calendar(FOMC_MEETINGS, _scrape_fomc_meetings(), "FOMC")
+    ECB_MEETINGS  = _merge_calendar(ECB_MEETINGS, _scrape_ecb_meetings(), "EZB")
+    FOMC_MIN_DATES = [d + timedelta(days=21) for d in FOMC_MEETINGS]
+    ECB_PROT_DATES = [d + timedelta(days=28) for d in ECB_MEETINGS]
+
 def get_calendar_warning():
     """
     Selbstüberwachung: Die FOMC-/EZB-Sitzungskalender sind die einzigen
@@ -851,6 +947,8 @@ def notify_bias_change(old, new):
 def run():
     now = datetime.utcnow()
     print(f"[{now.isoformat()}Z] fetch_data.py startet...")
+
+    refresh_meeting_calendars()
 
     dfr,  dfr_date,  dfr_prev  = get_dfr()
     hicp, hicp_date             = get_hicp()
