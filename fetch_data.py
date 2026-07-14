@@ -495,6 +495,22 @@ NFP_DATES = [date(2026,7,2),  date(2026,8,7),  date(2026,9,4),  date(2026,10,2)]
 CPI_DATES = [date(2026,7,14), date(2026,8,12), date(2026,9,11), date(2026,10,14)]
 PPI_DATES = [date(2026,7,15), date(2026,8,13), date(2026,9,12), date(2026,10,15)]
 
+def get_calendar_warning():
+    """
+    Selbstüberwachung: Die FOMC-/EZB-Sitzungskalender sind die einzigen
+    jährlich zu pflegenden Daten (Fed/EZB bieten keine Daten-API). Läuft
+    die Abdeckung aus (< 45 Tage), erscheint eine Warnung in der App,
+    statt dass Termine still auf N/A fallen.
+    """
+    coverage_end = max(FOMC_MEETINGS + ECB_MEETINGS)
+    days_left = (coverage_end - TODAY).days
+    if days_left < 45:
+        msg = (f"Sitzungskalender endet am {coverage_end.strftime('%d.%m.%Y')} "
+               f"({max(days_left, 0)} Tage) – FOMC-/EZB-Termine für das Folgejahr nachtragen")
+        print(f"[WARN] {msg}")
+        return msg
+    return None
+
 def get_events():
     FOMC, ECB = FOMC_MEETINGS, ECB_MEETINGS
     FOMC_MIN, ECB_PROT = FOMC_MIN_DATES, ECB_PROT_DATES
@@ -894,6 +910,7 @@ def run():
         "fx": fx, "cot": cot, "retail": retail, "events": events,
         "actuals": actuals, "release_results": release_results,
         "spread_history": spread_history,
+        "calendar_warning": get_calendar_warning(),
     }
 
     notify_bias_change(prev_signals, out["signals"])
