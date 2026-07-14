@@ -1,6 +1,6 @@
 {
-  "generated_at": "14.07.2026 20:10 UTC",
-  "generated_ts": "2026-07-14T20:10:34.704596Z",
+  "generated_at": "14.07.2026 20:18 UTC",
+  "generated_ts": "2026-07-14T20:18:49.547704Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.62,
-    "effr_date": "2026-07-10",
+    "effr_date": "2026-07-13",
     "cpi": 3.5,
     "cpi_date": "2026-06"
   },
   "yields": {
-    "us2y": 4.21,
-    "us2y_date": "2026-07-10",
+    "us2y": 4.26,
+    "us2y_date": "2026-07-13",
     "de2y": 2.6446073262,
     "de2y_date": "2026-07-13"
   },
   "signals": {
     "rate_diff": 1.37,
-    "yield_spread": 1.57,
+    "yield_spread": 1.62,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -174,7 +174,7 @@
     {
       "label": "Core CPI m/m",
       "date": "14.07.",
-      "detail": "Ist -0.0% vs Vormonat 0.2%",
+      "detail": "Ist 0.0% vs Prog 0.2%",
       "signal": "BULLISCH"
     },
     {
@@ -186,15 +186,11 @@
     {
       "label": "EZB-Prot.",
       "date": "09.07.",
-      "detail": "EUR-2Y -0.00pp",
+      "detail": "EUR-2Y +0.00pp",
       "signal": "NEUTRAL"
     }
   ],
   "spread_history": [
-    {
-      "date": "06.04",
-      "spread": 1.18
-    },
     {
       "date": "13.04",
       "spread": 1.19
@@ -246,6 +242,10 @@
     {
       "date": "06.07",
       "spread": 1.65
+    },
+    {
+      "date": "13.07",
+      "spread": 1.62
     }
   ]
 }
