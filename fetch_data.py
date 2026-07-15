@@ -671,12 +671,47 @@ def _recent_past(dates, week_ago):
     return past[-1] if past else None
 
 _NUM_RELEASES = {
-    # Je Release nur die marktbewegendste Kennzahl (BLS via FRED).
+    # Je Release nur die marktbewegendste Kennzahl.
     # Richtung invertiert: niedriger als Referenz = USD-negativ = BULLISCH EUR/USD.
     # m/m = pch (Monatsrate); Core = ohne Nahrung/Energie.
-    "Core CPI m/m": {"sid": "CPILFESL", "units": "pch", "unit": "%", "dec": 1, "cal": "CPI"},
-    "PPI m/m":      {"sid": "PPIFIS",   "units": "pch", "unit": "%", "dec": 1, "cal": "PPI"},
+    # bls: Serien-ID der BLS-API (Primärquelle, Werte ab Veröffentlichung
+    # 14:30 MESZ verfügbar); sid: FRED-Spiegel als Fallback (folgt Stunden später).
+    "Core CPI m/m": {"sid": "CPILFESL", "bls": "CUSR0000SA0L1E", "units": "pch", "unit": "%", "dec": 1, "cal": "CPI"},
+    "PPI m/m":      {"sid": "PPIFIS",   "bls": "WPSFD4",         "units": "pch", "unit": "%", "dec": 1, "cal": "PPI"},
 }
+
+def _bls_mom(bls_id):
+    """
+    m/m-Prozentänderungen direkt von der offiziellen BLS-API (v1, ohne Key).
+    BLS ist die Quelle der CPI/PPI-Daten und liefert sie sofort ab
+    Veröffentlichung – FRED spiegelt erst Stunden später.
+    Rückgabeformat wie _fred(units="pch"): [(wert, "YYYY-MM-01")] absteigend.
+    """
+    if not bls_id:
+        return []
+    data = safe_get(f"https://api.bls.gov/publicAPI/v1/timeseries/data/{bls_id}")
+    try:
+        if not data or data.get("status") != "REQUEST_SUCCEEDED":
+            raise ValueError(f"Status {data.get('status') if data else 'keine Antwort'}")
+        rows = data["Results"]["series"][0]["data"]
+        idx = []
+        for r in rows:
+            if not r["period"].startswith("M") or r["period"] == "M13":
+                continue
+            try:
+                idx.append((f"{r['year']}-{r['period'][1:]}-01", float(r["value"])))
+            except (ValueError, TypeError):
+                continue  # einzelne "-"-Einträge (fehlende Werte) überspringen
+        out = []
+        for i in range(len(idx) - 1):
+            (d_new, v_new), (_, v_old) = idx[i], idx[i + 1]
+            out.append((str(round((v_new / v_old - 1) * 100, 4)), d_new))
+        if out:
+            print(f"[OK] BLS {bls_id}: aktuellster Monat {out[0][1][:7]}")
+        return out
+    except Exception as e:
+        print(f"[WARN] BLS {bls_id}: {e}")
+        return []
 
 def _report_month(rel):
     """Berichtsmonat eines Releases = Vormonat des Veröffentlichungsdatums."""
@@ -797,10 +832,10 @@ def get_release_results():
         rel = _recent_past(date_lists[cfg["cal"]], week_ago)
         if rel is None:
             continue
-        obs = _fred(cfg["sid"], limit=2, units=cfg["units"])
+        # BLS-API primär (sofort ab Veröffentlichung), FRED-Spiegel als Fallback
+        obs = _bls_mom(cfg.get("bls")) or _fred(cfg["sid"], limit=2, units=cfg["units"])
         if not obs:
-            # Serie liefert gar nichts (z.B. ID ungültig) → Zeile auslassen
-            print(f"[WARN] Ergebnis {label}: keine FRED-Daten ({cfg['sid']})")
+            print(f"[WARN] Ergebnis {label}: keine Daten (BLS {cfg.get('bls')}, FRED {cfg['sid']})")
             continue
         # Nur werten, wenn FRED schon den Berichtsmonat (= Vormonat des
         # Release-Datums) liefert – sonst als AUSSTEHEND markieren.
