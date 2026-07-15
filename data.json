@@ -1,6 +1,6 @@
 {
-  "generated_at": "15.07.2026 14:06 UTC",
-  "generated_ts": "2026-07-15T14:06:55.216068Z",
+  "generated_at": "15.07.2026 14:09 UTC",
+  "generated_ts": "2026-07-15T14:09:58.027313Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -180,8 +180,8 @@
     {
       "label": "PPI m/m",
       "date": "15.07.",
-      "detail": "Ist-Wert ausstehend",
-      "signal": "AUSSTEHEND"
+      "detail": "Ist -0.3% vs Prog 0.0%",
+      "signal": "BULLISCH"
     },
     {
       "label": "FOMC-Prot.",
