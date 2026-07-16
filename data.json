@@ -1,6 +1,6 @@
 {
-  "generated_at": "15.07.2026 19:51 UTC",
-  "generated_ts": "2026-07-15T19:51:06.048659Z",
+  "generated_at": "16.07.2026 07:00 UTC",
+  "generated_ts": "2026-07-16T07:00:26.902613Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -9,20 +9,20 @@
     "hicp_date": "2026-06"
   },
   "fed": {
-    "effr": 3.62,
-    "effr_date": "2026-07-13",
+    "effr": 3.63,
+    "effr_date": "2026-07-14",
     "cpi": 3.5,
     "cpi_date": "2026-06"
   },
   "yields": {
-    "us2y": 4.26,
-    "us2y_date": "2026-07-13",
+    "us2y": 4.18,
+    "us2y_date": "2026-07-14",
     "de2y": 2.6874859602,
     "de2y_date": "2026-07-14"
   },
   "signals": {
-    "rate_diff": 1.37,
-    "yield_spread": 1.57,
+    "rate_diff": 1.38,
+    "yield_spread": 1.49,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "29.07.2026",
-      "days": 14
+      "days": 13
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "19.08.2026",
-      "days": 35
+      "days": 34
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "07.08.2026",
-      "days": 23
+      "days": 22
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "12.08.2026",
-      "days": 28
+      "days": 27
     },
     {
       "label": "PPI m/m",
       "importance": "low",
-      "date": "15.07.2026",
-      "days": 0
+      "date": "13.08.2026",
+      "days": 28
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "23.07.2026",
-      "days": 8
+      "days": 7
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "20.08.2026",
-      "days": 36
+      "days": 35
     }
   ],
   "actuals": {
@@ -182,12 +182,6 @@
       "date": "15.07.",
       "detail": "Ist -0.3% vs Prog 0.0%",
       "signal": "BULLISCH"
-    },
-    {
-      "label": "FOMC-Prot.",
-      "date": "08.07.",
-      "detail": "US-2Y +0.02pp",
-      "signal": "NEUTRAL"
     },
     {
       "label": "EZB-Prot.",
