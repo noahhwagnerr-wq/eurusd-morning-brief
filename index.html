@@ -519,7 +519,8 @@ function renderMainGrid(d){
     .filter(e=>e.custom===true)
     .map(e=>({label:e.label,importance:e.importance||'medium',date:/^\d{4}-\d{2}-\d{2}$/.test(e.date||'')?e.date.split('-').reverse().join('.'):e.date}))
     .filter(e=>calcDaysFromNow(e.date)!==null);
-  const sortedEvents = [...events,...customEvents].sort((a,b)=>parseDateVal(a.date)<parseDateVal(b.date)?-1:parseDateVal(a.date)>parseDateVal(b.date)?1:0);
+  // Nur die vier nächsten Termine anzeigen (weniger Rauschen)
+  const sortedEvents = [...events,...customEvents].sort((a,b)=>parseDateVal(a.date)<parseDateVal(b.date)?-1:parseDateVal(a.date)>parseDateVal(b.date)?1:0).slice(0,4);
 
   const evItems = sortedEvents.map(ev=>{
     const days = calcDaysFromNow(ev.date);
