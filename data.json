@@ -1,6 +1,6 @@
 {
-  "generated_at": "16.07.2026 16:29 UTC",
-  "generated_ts": "2026-07-16T16:29:36.523464Z",
+  "generated_at": "17.07.2026 06:44 UTC",
+  "generated_ts": "2026-07-17T06:44:58.701003Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-07-14",
+    "effr_date": "2026-07-15",
     "cpi": 3.5,
     "cpi_date": "2026-06"
   },
   "yields": {
-    "us2y": 4.18,
-    "us2y_date": "2026-07-14",
+    "us2y": 4.13,
+    "us2y_date": "2026-07-15",
     "de2y": 2.6761872416,
     "de2y_date": "2026-07-15"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.5,
+    "yield_spread": 1.45,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "29.07.2026",
-      "days": 13
+      "days": 12
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "19.08.2026",
-      "days": 34
+      "days": 33
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "07.08.2026",
-      "days": 22
+      "days": 21
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "12.08.2026",
-      "days": 27
+      "days": 26
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "13.08.2026",
-      "days": 28
+      "days": 27
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "23.07.2026",
-      "days": 7
+      "days": 6
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "20.08.2026",
-      "days": 35
+      "days": 34
     }
   ],
   "actuals": {
@@ -182,12 +182,6 @@
       "date": "15.07.",
       "detail": "Ist -0.3% vs Prog 0.0%",
       "signal": "BULLISCH"
-    },
-    {
-      "label": "EZB-Prot.",
-      "date": "09.07.",
-      "detail": "EUR-2Y +0.00pp",
-      "signal": "NEUTRAL"
     }
   ],
   "spread_history": [
