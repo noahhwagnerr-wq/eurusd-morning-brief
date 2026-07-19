@@ -100,6 +100,15 @@
       "note": ""
     },
     {
+      "label": "EZB",
+      "date": "23.07.2026",
+      "previous": "2.40",
+      "forecast": "2.40",
+      "note": "",
+      "bias": "NEUTRAL",
+      "actual": false
+    },
+    {
       "id": "nfp-2026-07-02",
       "label": "NFP",
       "importance": "medium",
@@ -258,5 +267,5 @@
       "actual": false
     }
   ],
-  "last_updated": "2026-07-12T14:38:36.433Z"
+  "last_updated": "2026-07-19T07:52:10.224Z"
 }
