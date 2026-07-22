@@ -1,6 +1,6 @@
 {
-  "generated_at": "22.07.2026 08:00 UTC",
-  "generated_ts": "2026-07-22T08:00:21.723574Z",
+  "generated_at": "22.07.2026 15:23 UTC",
+  "generated_ts": "2026-07-22T15:23:17.703954Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -17,12 +17,12 @@
   "yields": {
     "us2y": 4.21,
     "us2y_date": "2026-07-20",
-    "de2y": 2.7099382231,
-    "de2y_date": "2026-07-20"
+    "de2y": 2.7373771255,
+    "de2y_date": "2026-07-21"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.5,
+    "yield_spread": 1.47,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.1418,
-    "date": "2026-07-21",
-    "prev": 1.1426,
-    "chg_pct": -0.07
+    "rate": 1.1408,
+    "date": "2026-07-22",
+    "prev": 1.1418,
+    "chg_pct": -0.09
   },
   "cot": {
     "date": "2026-07-14",
