@@ -1,6 +1,6 @@
 {
-  "generated_at": "21.07.2026 20:47 UTC",
-  "generated_ts": "2026-07-21T20:47:39.748944Z",
+  "generated_at": "22.07.2026 07:58 UTC",
+  "generated_ts": "2026-07-22T07:58:00.624745Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "29.07.2026",
-      "days": 8
+      "days": 7
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "19.08.2026",
-      "days": 29
+      "days": 28
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "07.08.2026",
-      "days": 17
+      "days": 16
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "12.08.2026",
-      "days": 22
+      "days": 21
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "13.08.2026",
-      "days": 23
+      "days": 22
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "23.07.2026",
-      "days": 2
+      "days": 1
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "20.08.2026",
-      "days": 30
+      "days": 29
     }
   ],
   "actuals": {
@@ -171,12 +171,6 @@
     }
   },
   "release_results": [
-    {
-      "label": "Core CPI m/m",
-      "date": "14.07.",
-      "detail": "Ist 0.0% vs Prog 0.2%",
-      "signal": "BULLISCH"
-    },
     {
       "label": "PPI m/m",
       "date": "15.07.",
