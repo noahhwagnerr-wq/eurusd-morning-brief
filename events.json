@@ -60,6 +60,15 @@
       "actual": false
     },
     {
+      "label": "FOMC",
+      "date": "29.07.2026",
+      "previous": "3.75",
+      "forecast": "3.75",
+      "note": "",
+      "bias": "NEUTRAL",
+      "actual": false
+    },
+    {
       "id": "ezb-2026-07-23",
       "label": "EZB",
       "importance": "high",
@@ -267,5 +276,5 @@
       "actual": false
     }
   ],
-  "last_updated": "2026-07-19T07:52:10.224Z"
+  "last_updated": "2026-07-22T20:03:02.336Z"
 }
