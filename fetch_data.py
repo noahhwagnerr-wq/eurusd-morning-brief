@@ -918,7 +918,17 @@ def get_release_results():
                 return seq[i][0], seq[i][1], seq[i-1][1]
         return None
 
-    def _rate_decision(label, rel, seq, hike_signal, cut_signal, rate_name):
+    def _rate_decision(label, rel, seq, hike_signal, cut_signal, rate_name,
+                       confirm_days, pending_hint):
+        """
+        Zinsentscheid nur zeigen, wenn er belegbar ist:
+        - Änderung mit Datum >= Sitzung in der Serie → Erhöhung/Senkung.
+        - Keine Änderung: "unverändert" erst ab rel + confirm_days, denn
+          Änderungen erscheinen in den Serien verzögert (Fed: Zielband gilt
+          ab Folgetag; EZB: DFR-Serie erst zur Wirksamkeit ~6 Tage später).
+          Vorher wäre "unverändert" am Sitzungstag eine verfrühte Behauptung.
+        - Dazwischen: AUSSTEHEND mit Hinweis.
+        """
         if not seq:
             return
         chg = _last_change_asc(seq)
@@ -926,9 +936,14 @@ def get_release_results():
             _, cur, prev = chg
             signal = hike_signal if cur > prev else cut_signal
             detail = f"{rate_name} {cur:.2f}% (zuvor {prev:.2f}%)"
-        else:
+        elif (TODAY - rel).days >= confirm_days:
             signal = "NEUTRAL"
             detail = f"{rate_name} {seq[-1][1]:.2f}% (unverändert)"
+        else:
+            print(f"[WARN] Ergebnis {label}: Entscheidung noch nicht in der Datenserie")
+            results.append({"label": label, "date": rel.strftime("%d.%m."),
+                            "detail": pending_hint, "signal": "AUSSTEHEND"})
+            return
         results.append({"label": label, "date": rel.strftime("%d.%m."),
                         "detail": detail, "signal": signal})
         print(f"[OK] Ergebnis {label}: {detail} → {signal}")
@@ -938,14 +953,16 @@ def get_release_results():
     if rel is not None:
         obs = _fred("DFEDTARU", limit=15)
         seq = [(dt, float(v)) for v, dt in reversed(obs)]
-        _rate_decision("FOMC", rel, seq, "BÄRISCH", "BULLISCH", "Zielband")
+        _rate_decision("FOMC", rel, seq, "BÄRISCH", "BULLISCH", "Zielband",
+                       confirm_days=2, pending_hint="Entscheidung 20:00 MESZ – Bestätigung folgt")
 
     # EZB-Erhöhung = EUR-positiv = BULLISCH EUR/USD
     rel = _recent_past(ECB_MEETINGS, week_ago)
     if rel is not None:
         seq = (_ecb_series("FM/B.U2.EUR.4F.KR.DFR.LEV", n=200)
                or _ecb_series("FM/D.U2.EUR.4F.KR.DFR.LEV", n=200))
-        _rate_decision("EZB", rel, seq, "BULLISCH", "BÄRISCH", "DFR")
+        _rate_decision("EZB", rel, seq, "BULLISCH", "BÄRISCH", "DFR",
+                       confirm_days=7, pending_hint="Entscheidung 14:15 MESZ – DFR-Serie folgt zur Wirksamkeit")
 
     return results
 
