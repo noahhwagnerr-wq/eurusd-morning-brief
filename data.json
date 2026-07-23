@@ -1,6 +1,6 @@
 {
-  "generated_at": "22.07.2026 20:04 UTC",
-  "generated_ts": "2026-07-22T20:04:13.509574Z",
+  "generated_at": "23.07.2026 06:53 UTC",
+  "generated_ts": "2026-07-23T06:53:25.932209Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-07-20",
+    "effr_date": "2026-07-21",
     "cpi": 3.5,
     "cpi_date": "2026-06"
   },
   "yields": {
-    "us2y": 4.21,
-    "us2y_date": "2026-07-20",
+    "us2y": 4.26,
+    "us2y_date": "2026-07-21",
     "de2y": 2.7373771255,
     "de2y_date": "2026-07-21"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.47,
+    "yield_spread": 1.52,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "29.07.2026",
-      "days": 7
+      "days": 6
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "19.08.2026",
-      "days": 28
+      "days": 27
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "07.08.2026",
-      "days": 16
+      "days": 15
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "12.08.2026",
-      "days": 21
+      "days": 20
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "13.08.2026",
-      "days": 22
+      "days": 21
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "23.07.2026",
-      "days": 1
+      "days": 0
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "20.08.2026",
-      "days": 29
+      "days": 28
     }
   ],
   "actuals": {
@@ -172,10 +172,10 @@
   },
   "release_results": [
     {
-      "label": "PPI m/m",
-      "date": "15.07.",
-      "detail": "Ist -0.3% vs Prog 0.0%",
-      "signal": "BULLISCH"
+      "label": "EZB",
+      "date": "23.07.",
+      "detail": "DFR 2.25% (unverändert)",
+      "signal": "NEUTRAL"
     }
   ],
   "spread_history": [
