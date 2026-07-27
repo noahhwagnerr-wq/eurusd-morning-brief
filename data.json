@@ -1,6 +1,6 @@
 {
-  "generated_at": "26.07.2026 10:46 UTC",
-  "generated_ts": "2026-07-26T10:46:27.090686Z",
+  "generated_at": "27.07.2026 07:47 UTC",
+  "generated_ts": "2026-07-27T07:47:08.675129Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "29.07.2026",
-      "days": 3
+      "days": 2
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "19.08.2026",
-      "days": 24
+      "days": 23
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "07.08.2026",
-      "days": 12
+      "days": 11
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "12.08.2026",
-      "days": 17
+      "days": 16
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "13.08.2026",
-      "days": 18
+      "days": 17
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "10.09.2026",
-      "days": 46
+      "days": 45
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "20.08.2026",
-      "days": 25
+      "days": 24
     }
   ],
   "actuals": {
