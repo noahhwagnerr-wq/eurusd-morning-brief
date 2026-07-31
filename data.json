@@ -1,6 +1,6 @@
 {
-  "generated_at": "30.07.2026 11:54 UTC",
-  "generated_ts": "2026-07-30T11:54:59.272646Z",
+  "generated_at": "31.07.2026 06:12 UTC",
+  "generated_ts": "2026-07-31T06:12:58.342575Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-07-28",
+    "effr_date": "2026-07-29",
     "cpi": 3.5,
     "cpi_date": "2026-06"
   },
   "yields": {
-    "us2y": 4.26,
-    "us2y_date": "2026-07-28",
+    "us2y": 4.22,
+    "us2y_date": "2026-07-29",
     "de2y": 2.7319809842,
     "de2y_date": "2026-07-29"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.53,
+    "yield_spread": 1.49,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.138,
-    "date": "2026-07-29",
-    "prev": 1.1367,
-    "chg_pct": 0.11
+    "rate": 1.1476,
+    "date": "2026-07-30",
+    "prev": 1.138,
+    "chg_pct": 0.84
   },
   "cot": {
     "date": "2026-07-21",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "16.09.2026",
-      "days": 48
+      "days": 47
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "19.08.2026",
-      "days": 20
+      "days": 19
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "07.08.2026",
-      "days": 8
+      "days": 7
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "12.08.2026",
-      "days": 13
+      "days": 12
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "13.08.2026",
-      "days": 14
+      "days": 13
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "10.09.2026",
-      "days": 42
+      "days": 41
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "20.08.2026",
-      "days": 21
+      "days": 20
     }
   ],
   "actuals": {
@@ -174,13 +174,7 @@
     {
       "label": "FOMC",
       "date": "29.07.",
-      "detail": "Entscheidung 20:00 MESZ – Bestätigung folgt",
-      "signal": "AUSSTEHEND"
-    },
-    {
-      "label": "EZB",
-      "date": "23.07.",
-      "detail": "DFR 2.25% (unverändert)",
+      "detail": "Zielband 3.75% (unverändert)",
       "signal": "NEUTRAL"
     }
   ],
