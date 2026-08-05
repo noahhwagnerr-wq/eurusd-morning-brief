@@ -1,6 +1,6 @@
 {
-  "generated_at": "05.08.2026 06:00 UTC",
-  "generated_ts": "2026-08-05T06:00:13.124843Z",
+  "generated_at": "05.08.2026 06:02 UTC",
+  "generated_ts": "2026-08-05T06:02:05.212375Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -154,6 +154,11 @@
     }
   ],
   "actuals": {
+    "NFP": {
+      "value": 57,
+      "unit": "K",
+      "date": "2026-06"
+    },
     "CPI": {
       "value": 3.5,
       "unit": "%",
