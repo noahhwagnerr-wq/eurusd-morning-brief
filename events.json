@@ -170,7 +170,7 @@
       "label": "NFP",
       "date": "07.08.2026",
       "previous": "57",
-      "forecast": "91",
+      "forecast": "85",
       "note": "",
       "bias": "BÄRISCH",
       "actual": false
@@ -285,5 +285,5 @@
       "actual": false
     }
   ],
-  "last_updated": "2026-08-02T13:48:49.534Z"
+  "last_updated": "2026-08-05T11:11:16.179Z"
 }
