@@ -1,6 +1,6 @@
 {
-  "generated_at": "05.08.2026 11:09 UTC",
-  "generated_ts": "2026-08-05T11:09:18.087948Z",
+  "generated_at": "06.08.2026 08:06 UTC",
+  "generated_ts": "2026-08-06T08:06:04.845074Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-08-03",
+    "effr_date": "2026-08-04",
     "cpi": 3.5,
     "cpi_date": "2026-06"
   },
   "yields": {
-    "us2y": 4.25,
-    "us2y_date": "2026-08-03",
+    "us2y": 4.2,
+    "us2y_date": "2026-08-04",
     "de2y": 2.662325091,
     "de2y_date": "2026-08-04"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.59,
+    "yield_spread": 1.54,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.1515,
-    "date": "2026-08-04",
-    "prev": 1.1535,
-    "chg_pct": -0.17
+    "rate": 1.1554,
+    "date": "2026-08-05",
+    "prev": 1.1515,
+    "chg_pct": 0.34
   },
   "cot": {
     "date": "2026-07-28",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "16.09.2026",
-      "days": 42
+      "days": 41
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "19.08.2026",
-      "days": 14
+      "days": 13
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "07.08.2026",
-      "days": 2
+      "days": 1
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "12.08.2026",
-      "days": 7
+      "days": 6
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "13.08.2026",
-      "days": 8
+      "days": 7
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "10.09.2026",
-      "days": 36
+      "days": 35
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "20.08.2026",
-      "days": 15
+      "days": 14
     }
   ],
   "actuals": {
@@ -170,14 +170,7 @@
       "date": "2026-06"
     }
   },
-  "release_results": [
-    {
-      "label": "FOMC",
-      "date": "29.07.",
-      "detail": "Zielband 3.75% (unverändert)",
-      "signal": "NEUTRAL"
-    }
-  ],
+  "release_results": [],
   "spread_history": [
     {
       "date": "04.05",
