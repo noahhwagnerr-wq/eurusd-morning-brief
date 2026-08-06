@@ -276,6 +276,15 @@
       "actual": false
     },
     {
+      "label": "Core CPI m/m",
+      "date": "12.08.2026",
+      "previous": "0",
+      "forecast": "0.2",
+      "note": "",
+      "bias": "BÄRISCH",
+      "actual": false
+    },
+    {
       "label": "PPI m/m",
       "date": "15.07.2026",
       "previous": "1.1%",
@@ -285,5 +294,5 @@
       "actual": false
     }
   ],
-  "last_updated": "2026-08-05T11:11:16.179Z"
+  "last_updated": "2026-08-06T11:17:23.426Z"
 }
