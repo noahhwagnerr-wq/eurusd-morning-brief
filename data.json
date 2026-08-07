@@ -1,6 +1,6 @@
 {
-  "generated_at": "06.08.2026 11:19 UTC",
-  "generated_ts": "2026-08-06T11:19:32.312188Z",
+  "generated_at": "07.08.2026 05:24 UTC",
+  "generated_ts": "2026-08-07T05:24:18.820267Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-08-04",
+    "effr_date": "2026-08-05",
     "cpi": 3.5,
     "cpi_date": "2026-06"
   },
   "yields": {
-    "us2y": 4.2,
-    "us2y_date": "2026-08-04",
+    "us2y": 4.18,
+    "us2y_date": "2026-08-05",
     "de2y": 2.6703142615,
     "de2y_date": "2026-08-05"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.53,
+    "yield_spread": 1.51,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.1554,
-    "date": "2026-08-05",
-    "prev": 1.1515,
-    "chg_pct": 0.34
+    "rate": 1.1542,
+    "date": "2026-08-06",
+    "prev": 1.1554,
+    "chg_pct": -0.1
   },
   "cot": {
     "date": "2026-07-28",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "16.09.2026",
-      "days": 41
+      "days": 40
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "19.08.2026",
-      "days": 13
+      "days": 12
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "07.08.2026",
-      "days": 1
+      "days": 0
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "12.08.2026",
-      "days": 6
+      "days": 5
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "13.08.2026",
-      "days": 7
+      "days": 6
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "10.09.2026",
-      "days": 35
+      "days": 34
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "20.08.2026",
-      "days": 14
+      "days": 13
     }
   ],
   "actuals": {
@@ -170,7 +170,14 @@
       "date": "2026-06"
     }
   },
-  "release_results": [],
+  "release_results": [
+    {
+      "label": "NFP",
+      "date": "07.08.",
+      "detail": "Ist-Wert ausstehend",
+      "signal": "AUSSTEHEND"
+    }
+  ],
   "spread_history": [
     {
       "date": "04.05",
