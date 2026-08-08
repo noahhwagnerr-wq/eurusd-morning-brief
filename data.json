@@ -1,6 +1,6 @@
 {
-  "generated_at": "07.08.2026 14:47 UTC",
-  "generated_ts": "2026-08-07T14:47:48.802729Z",
+  "generated_at": "08.08.2026 08:40 UTC",
+  "generated_ts": "2026-08-08T08:40:38.814480Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-08-05",
+    "effr_date": "2026-08-06",
     "cpi": 3.5,
     "cpi_date": "2026-06"
   },
   "yields": {
-    "us2y": 4.18,
-    "us2y_date": "2026-08-05",
+    "us2y": 4.25,
+    "us2y_date": "2026-08-06",
     "de2y": 2.6725142222,
     "de2y_date": "2026-08-06"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.51,
+    "yield_spread": 1.58,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -36,20 +36,16 @@
     "chg_pct": -0.06
   },
   "cot": {
-    "date": "2026-07-28",
-    "net": -65198,
-    "delta_net": -8527,
-    "long_pct": 11.3,
-    "short_pct": 19.3,
-    "net_pct": -8.0,
-    "oi": 819806,
+    "date": "2026-08-04",
+    "net": -52205,
+    "delta_net": 12993,
+    "long_pct": 11.9,
+    "short_pct": 18.5,
+    "net_pct": -6.5,
+    "oi": 799909,
     "bias": "NET-SHORT",
     "source": "Disaggregated/Leveraged Money",
     "history": [
-      {
-        "date": "21.04",
-        "net": 20317
-      },
       {
         "date": "28.04",
         "net": 11594
@@ -105,6 +101,10 @@
       {
         "date": "28.07",
         "net": -65198
+      },
+      {
+        "date": "04.08",
+        "net": -52205
       }
     ]
   },
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "16.09.2026",
-      "days": 40
+      "days": 39
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "19.08.2026",
-      "days": 12
+      "days": 11
     },
     {
       "label": "NFP",
       "importance": "medium",
-      "date": "07.08.2026",
-      "days": 0
+      "date": "04.09.2026",
+      "days": 27
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "12.08.2026",
-      "days": 5
+      "days": 4
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "13.08.2026",
-      "days": 6
+      "days": 5
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "10.09.2026",
-      "days": 34
+      "days": 33
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "20.08.2026",
-      "days": 13
+      "days": 12
     }
   ],
   "actuals": {
