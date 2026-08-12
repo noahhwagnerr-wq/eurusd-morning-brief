@@ -1,6 +1,6 @@
 {
-  "generated_at": "11.08.2026 16:50 UTC",
-  "generated_ts": "2026-08-11T16:50:20.474320Z",
+  "generated_at": "12.08.2026 06:26 UTC",
+  "generated_ts": "2026-08-12T06:26:51.722683Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-08-07",
+    "effr_date": "2026-08-10",
     "cpi": 3.5,
     "cpi_date": "2026-06"
   },
   "yields": {
-    "us2y": 4.19,
-    "us2y_date": "2026-08-07",
+    "us2y": 4.25,
+    "us2y_date": "2026-08-10",
     "de2y": 2.7207716313,
     "de2y_date": "2026-08-10"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.47,
+    "yield_spread": 1.53,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "16.09.2026",
-      "days": 36
+      "days": 35
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "19.08.2026",
-      "days": 8
+      "days": 7
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "04.09.2026",
-      "days": 24
+      "days": 23
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "12.08.2026",
-      "days": 1
+      "days": 0
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "13.08.2026",
-      "days": 2
+      "days": 1
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "10.09.2026",
-      "days": 30
+      "days": 29
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "20.08.2026",
-      "days": 9
+      "days": 8
     }
   ],
   "actuals": {
@@ -176,13 +176,15 @@
       "date": "07.08.",
       "detail": "NFP -23K vs Vormonat +20K · ALQ 4.1%▼ · Löhne +0.1%▼ · Privat +30K/Staat -53K",
       "signal": "NEUTRAL"
+    },
+    {
+      "label": "Core CPI m/m",
+      "date": "12.08.",
+      "detail": "Ist-Wert ausstehend",
+      "signal": "AUSSTEHEND"
     }
   ],
   "spread_history": [
-    {
-      "date": "04.05",
-      "spread": 1.31
-    },
     {
       "date": "11.05",
       "spread": 1.36
@@ -234,6 +236,10 @@
     {
       "date": "03.08",
       "spread": 1.55
+    },
+    {
+      "date": "10.08",
+      "spread": 1.53
     }
   ],
   "calendar_warning": null
