@@ -1,6 +1,6 @@
 {
-  "generated_at": "12.08.2026 12:31 UTC",
-  "generated_ts": "2026-08-12T12:31:11.282453Z",
+  "generated_at": "13.08.2026 05:53 UTC",
+  "generated_ts": "2026-08-13T05:53:58.918539Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-08-10",
-    "cpi": 3.5,
-    "cpi_date": "2026-06"
+    "effr_date": "2026-08-11",
+    "cpi": 3.3,
+    "cpi_date": "2026-07"
   },
   "yields": {
-    "us2y": 4.25,
-    "us2y_date": "2026-08-10",
+    "us2y": 4.22,
+    "us2y_date": "2026-08-11",
     "de2y": 2.7087020959,
     "de2y_date": "2026-08-11"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.54,
+    "yield_spread": 1.51,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.154,
-    "date": "2026-08-11",
-    "prev": 1.1555,
-    "chg_pct": -0.13
+    "rate": 1.1545,
+    "date": "2026-08-12",
+    "prev": 1.154,
+    "chg_pct": 0.04
   },
   "cot": {
     "date": "2026-08-04",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "16.09.2026",
-      "days": 35
+      "days": 34
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "19.08.2026",
-      "days": 7
+      "days": 6
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "04.09.2026",
-      "days": 23
+      "days": 22
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
-      "date": "12.08.2026",
-      "days": 0
+      "date": "11.09.2026",
+      "days": 29
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "13.08.2026",
-      "days": 1
+      "days": 0
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "10.09.2026",
-      "days": 29
+      "days": 28
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "20.08.2026",
-      "days": 8
+      "days": 7
     }
   ],
   "actuals": {
@@ -160,9 +160,9 @@
       "date": "2026-07"
     },
     "CPI": {
-      "value": 3.5,
+      "value": 3.3,
       "unit": "%",
-      "date": "2026-06"
+      "date": "2026-07"
     },
     "PPI": {
       "value": 5.5,
@@ -182,6 +182,12 @@
       "date": "12.08.",
       "detail": "Ist 0.2% vs Prog 0.2%",
       "signal": "NEUTRAL"
+    },
+    {
+      "label": "PPI m/m",
+      "date": "13.08.",
+      "detail": "Ist-Wert ausstehend",
+      "signal": "AUSSTEHEND"
     }
   ],
   "spread_history": [
