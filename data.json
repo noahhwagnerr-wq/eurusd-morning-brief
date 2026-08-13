@@ -1,6 +1,6 @@
 {
-  "generated_at": "13.08.2026 07:02 UTC",
-  "generated_ts": "2026-08-13T07:02:44.764275Z",
+  "generated_at": "13.08.2026 14:10 UTC",
+  "generated_ts": "2026-08-13T14:10:22.981367Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -17,12 +17,12 @@
   "yields": {
     "us2y": 4.22,
     "us2y_date": "2026-08-11",
-    "de2y": 2.7087020959,
-    "de2y_date": "2026-08-11"
+    "de2y": 2.700507465,
+    "de2y_date": "2026-08-12"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.51,
+    "yield_spread": 1.52,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.1545,
-    "date": "2026-08-12",
-    "prev": 1.154,
-    "chg_pct": 0.04
+    "rate": 1.1534,
+    "date": "2026-08-13",
+    "prev": 1.1545,
+    "chg_pct": -0.1
   },
   "cot": {
     "date": "2026-08-04",
@@ -186,8 +186,8 @@
     {
       "label": "PPI m/m",
       "date": "13.08.",
-      "detail": "Ist-Wert ausstehend",
-      "signal": "AUSSTEHEND"
+      "detail": "Ist 0.0% vs Prog 0.1%",
+      "signal": "BULLISCH"
     }
   ],
   "spread_history": [
