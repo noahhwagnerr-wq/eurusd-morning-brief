@@ -1,6 +1,6 @@
 {
-  "generated_at": "21.08.2026 07:15 UTC",
-  "generated_ts": "2026-08-21T07:15:25.733025Z",
+  "generated_at": "21.08.2026 13:54 UTC",
+  "generated_ts": "2026-08-21T13:54:58.513163Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -17,12 +17,12 @@
   "yields": {
     "us2y": 4.19,
     "us2y_date": "2026-08-19",
-    "de2y": 2.7807523845,
-    "de2y_date": "2026-08-19"
+    "de2y": 2.7913954426,
+    "de2y_date": "2026-08-20"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.41,
+    "yield_spread": 1.4,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -180,8 +180,8 @@
     {
       "label": "EZB-Prot.",
       "date": "20.08.",
-      "detail": "EUR-2Y-Schluss ausstehend",
-      "signal": "AUSSTEHEND"
+      "detail": "EUR-2Y +0.01pp",
+      "signal": "NEUTRAL"
     }
   ],
   "spread_history": [
