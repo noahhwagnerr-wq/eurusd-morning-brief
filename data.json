@@ -1,6 +1,6 @@
 {
-  "generated_at": "20.08.2026 19:37 UTC",
-  "generated_ts": "2026-08-20T19:37:35.176017Z",
+  "generated_at": "21.08.2026 06:04 UTC",
+  "generated_ts": "2026-08-21T06:04:13.580034Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,13 +10,13 @@
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-08-18",
+    "effr_date": "2026-08-19",
     "cpi": 3.3,
     "cpi_date": "2026-07"
   },
   "yields": {
     "us2y": 4.19,
-    "us2y_date": "2026-08-18",
+    "us2y_date": "2026-08-19",
     "de2y": 2.7807523845,
     "de2y_date": "2026-08-19"
   },
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "16.09.2026",
-      "days": 27
+      "days": 26
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "07.10.2026",
-      "days": 48
+      "days": 47
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "04.09.2026",
-      "days": 15
+      "days": 14
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "11.09.2026",
-      "days": 22
+      "days": 21
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "10.09.2026",
-      "days": 21
+      "days": 20
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "10.09.2026",
-      "days": 21
+      "days": 20
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
-      "date": "20.08.2026",
-      "days": 0
+      "date": "08.10.2026",
+      "days": 48
     }
   ],
   "actuals": {
@@ -172,16 +172,10 @@
   },
   "release_results": [
     {
-      "label": "PPI m/m",
-      "date": "13.08.",
-      "detail": "Ist 0.0% vs Prog 0.1%",
-      "signal": "BULLISCH"
-    },
-    {
       "label": "FOMC-Prot.",
       "date": "19.08.",
-      "detail": "US-2Y-Schluss ausstehend (~22:15 MESZ)",
-      "signal": "AUSSTEHEND"
+      "detail": "US-2Y +0.00pp",
+      "signal": "NEUTRAL"
     },
     {
       "label": "EZB-Prot.",
