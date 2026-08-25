@@ -1,6 +1,6 @@
 {
-  "generated_at": "24.08.2026 19:09 UTC",
-  "generated_ts": "2026-08-24T19:09:34.056509Z",
+  "generated_at": "25.08.2026 06:03 UTC",
+  "generated_ts": "2026-08-25T06:03:45.542055Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-08-20",
+    "effr_date": "2026-08-21",
     "cpi": 3.3,
     "cpi_date": "2026-07"
   },
   "yields": {
-    "us2y": 4.19,
-    "us2y_date": "2026-08-20",
+    "us2y": 4.24,
+    "us2y_date": "2026-08-21",
     "de2y": 2.7610795861,
     "de2y_date": "2026-08-21"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.43,
+    "yield_spread": 1.48,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "16.09.2026",
-      "days": 23
+      "days": 22
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "07.10.2026",
-      "days": 44
+      "days": 43
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "04.09.2026",
-      "days": 11
+      "days": 10
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "11.09.2026",
-      "days": 18
+      "days": 17
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "10.09.2026",
-      "days": 17
+      "days": 16
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "10.09.2026",
-      "days": 17
+      "days": 16
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "08.10.2026",
-      "days": 45
+      "days": 44
     }
   ],
   "actuals": {
