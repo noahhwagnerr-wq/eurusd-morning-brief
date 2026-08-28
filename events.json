@@ -176,6 +176,15 @@
       "actual": false
     },
     {
+      "label": "NFP",
+      "date": "04.09.2026",
+      "previous": "-23",
+      "forecast": "56",
+      "note": "",
+      "bias": "BÄRISCH",
+      "actual": false
+    },
+    {
       "id": "cpi-2026-07-14",
       "label": "CPI",
       "importance": "medium",
@@ -303,5 +312,5 @@
       "actual": false
     }
   ],
-  "last_updated": "2026-08-06T11:18:30.163Z"
+  "last_updated": "2026-08-28T15:25:13.412Z"
 }
