@@ -1,6 +1,6 @@
 {
-  "generated_at": "04.09.2026 13:09 UTC",
-  "generated_ts": "2026-09-04T13:09:27.664008Z",
+  "generated_at": "04.09.2026 15:04 UTC",
+  "generated_ts": "2026-09-04T15:04:26.213102Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.1615,
-    "date": "2026-09-03",
-    "prev": 1.1578,
-    "chg_pct": 0.32
+    "rate": 1.1622,
+    "date": "2026-09-04",
+    "prev": 1.1615,
+    "chg_pct": 0.06
   },
   "cot": {
     "date": "2026-08-25",
@@ -155,9 +155,9 @@
   ],
   "actuals": {
     "NFP": {
-      "value": -23,
+      "value": 162,
       "unit": "K",
-      "date": "2026-07"
+      "date": "2026-08"
     },
     "CPI": {
       "value": 3.3,
@@ -174,8 +174,8 @@
     {
       "label": "NFP",
       "date": "04.09.",
-      "detail": "Ist-Wert ausstehend",
-      "signal": "AUSSTEHEND"
+      "detail": "NFP +162K vs Vormonat +21K · ALQ 4.1%= · Löhne +0.3%▲ · Privat +127K/Staat +35K · Headline dominiert",
+      "signal": "BÄRISCH"
     }
   ],
   "spread_history": [
