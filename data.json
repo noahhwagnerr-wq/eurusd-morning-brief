@@ -1,6 +1,6 @@
 {
-  "generated_at": "03.09.2026 14:17 UTC",
-  "generated_ts": "2026-09-03T14:17:50.751031Z",
+  "generated_at": "04.09.2026 09:56 UTC",
+  "generated_ts": "2026-09-04T09:56:32.347213Z",
   "ecb": {
     "dfr": 2.25,
     "dfr_date": "2026-06-17",
@@ -10,13 +10,13 @@
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-09-01",
+    "effr_date": "2026-09-02",
     "cpi": 3.3,
     "cpi_date": "2026-07"
   },
   "yields": {
     "us2y": 4.39,
-    "us2y_date": "2026-09-01",
+    "us2y_date": "2026-09-02",
     "de2y": 2.9132061618,
     "de2y_date": "2026-09-02"
   },
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "16.09.2026",
-      "days": 13
+      "days": 12
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "07.10.2026",
-      "days": 34
+      "days": 33
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "04.09.2026",
-      "days": 1
+      "days": 0
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "11.09.2026",
-      "days": 8
+      "days": 7
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "10.09.2026",
-      "days": 7
+      "days": 6
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "10.09.2026",
-      "days": 7
+      "days": 6
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "08.10.2026",
-      "days": 35
+      "days": 34
     }
   ],
   "actuals": {
@@ -170,7 +170,14 @@
       "date": "2026-07"
     }
   },
-  "release_results": [],
+  "release_results": [
+    {
+      "label": "NFP",
+      "date": "04.09.",
+      "detail": "Ist-Wert ausstehend",
+      "signal": "AUSSTEHEND"
+    }
+  ],
   "spread_history": [
     {
       "date": "01.06",
