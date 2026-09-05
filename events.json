@@ -118,6 +118,15 @@
       "actual": false
     },
     {
+      "label": "EZB",
+      "date": "10.09.2026",
+      "previous": "2.65",
+      "forecast": "2.40",
+      "note": "",
+      "bias": "BÄRISCH",
+      "actual": false
+    },
+    {
       "id": "nfp-2026-07-02",
       "label": "NFP",
       "importance": "medium",
@@ -312,5 +321,5 @@
       "actual": false
     }
   ],
-  "last_updated": "2026-09-03T05:54:16.538Z"
+  "last_updated": "2026-09-05T14:13:08.322Z"
 }
