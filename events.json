@@ -120,10 +120,10 @@
     {
       "label": "EZB",
       "date": "10.09.2026",
-      "previous": "2.65",
-      "forecast": "2.40",
+      "previous": "2.40",
+      "forecast": "2.65",
       "note": "",
-      "bias": "BÄRISCH",
+      "bias": "BULLISCH",
       "actual": false
     },
     {
@@ -321,5 +321,5 @@
       "actual": false
     }
   ],
-  "last_updated": "2026-09-05T14:13:08.322Z"
+  "last_updated": "2026-09-05T14:13:31.082Z"
 }
