@@ -1,10 +1,10 @@
 {
-  "generated_at": "10.09.2026 10:02 UTC",
-  "generated_ts": "2026-09-10T10:02:56.664275Z",
+  "generated_at": "10.09.2026 16:18 UTC",
+  "generated_ts": "2026-09-10T16:18:30.143562Z",
   "ecb": {
-    "dfr": 2.25,
-    "dfr_date": "2026-06-17",
-    "dfr_prev": 2.0,
+    "dfr": 2.5,
+    "dfr_date": "2026-09-16",
+    "dfr_prev": 2.25,
     "hicp": 3.3,
     "hicp_date": "2026-08"
   },
@@ -21,7 +21,7 @@
     "de2y_date": "2026-09-09"
   },
   "signals": {
-    "rate_diff": 1.38,
+    "rate_diff": 1.13,
     "yield_spread": 1.41,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.1652,
-    "date": "2026-09-09",
-    "prev": 1.1614,
-    "chg_pct": 0.33
+    "rate": 1.1616,
+    "date": "2026-09-10",
+    "prev": 1.1652,
+    "chg_pct": -0.31
   },
   "cot": {
     "date": "2026-09-01",
@@ -180,8 +180,8 @@
     {
       "label": "EZB",
       "date": "10.09.",
-      "detail": "Entscheidung 14:15 MESZ – DFR-Serie folgt zur Wirksamkeit",
-      "signal": "AUSSTEHEND"
+      "detail": "DFR 2.50% (zuvor 2.25%)",
+      "signal": "BULLISCH"
     }
   ],
   "spread_history": [
