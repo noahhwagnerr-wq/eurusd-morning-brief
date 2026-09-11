@@ -1,6 +1,6 @@
 {
-  "generated_at": "11.09.2026 10:00 UTC",
-  "generated_ts": "2026-09-11T10:00:41.254172Z",
+  "generated_at": "11.09.2026 12:37 UTC",
+  "generated_ts": "2026-09-11T12:37:01.082539Z",
   "ecb": {
     "dfr": 2.5,
     "dfr_date": "2026-09-16",
@@ -180,8 +180,8 @@
     {
       "label": "Core CPI m/m",
       "date": "11.09.",
-      "detail": "Ist-Wert ausstehend",
-      "signal": "AUSSTEHEND"
+      "detail": "Ist 0.3% vs Prog 0.2%",
+      "signal": "BÄRISCH"
     },
     {
       "label": "EZB",
