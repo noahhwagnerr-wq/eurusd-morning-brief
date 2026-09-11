@@ -69,6 +69,15 @@
       "actual": false
     },
     {
+      "label": "FOMC",
+      "date": "16.09.2026",
+      "previous": "3.75",
+      "forecast": "4",
+      "note": "",
+      "bias": "BÄRISCH",
+      "actual": false
+    },
+    {
       "id": "ezb-2026-07-23",
       "label": "EZB",
       "importance": "high",
@@ -339,5 +348,5 @@
       "actual": false
     }
   ],
-  "last_updated": "2026-09-05T14:14:29.482Z"
+  "last_updated": "2026-09-11T18:28:17.312Z"
 }
