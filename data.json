@@ -1,6 +1,6 @@
 {
-  "generated_at": "11.09.2026 18:29 UTC",
-  "generated_ts": "2026-09-11T18:29:08.013080Z",
+  "generated_at": "12.09.2026 11:59 UTC",
+  "generated_ts": "2026-09-12T11:59:22.381440Z",
   "ecb": {
     "dfr": 2.5,
     "dfr_date": "2026-09-16",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.63,
-    "effr_date": "2026-09-09",
+    "effr_date": "2026-09-10",
     "cpi": 3.4,
     "cpi_date": "2026-08"
   },
   "yields": {
-    "us2y": 4.43,
-    "us2y_date": "2026-09-09",
+    "us2y": 4.56,
+    "us2y_date": "2026-09-10",
     "de2y": 3.100596328,
     "de2y_date": "2026-09-10"
   },
   "signals": {
     "rate_diff": 1.13,
-    "yield_spread": 1.33,
+    "yield_spread": 1.46,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -36,20 +36,16 @@
     "chg_pct": -0.21
   },
   "cot": {
-    "date": "2026-09-01",
-    "net": -38173,
-    "delta_net": 186,
-    "long_pct": 11.1,
-    "short_pct": 15.5,
-    "net_pct": -4.4,
-    "oi": 865412,
+    "date": "2026-09-08",
+    "net": -33285,
+    "delta_net": 4888,
+    "long_pct": 10.1,
+    "short_pct": 13.6,
+    "net_pct": -3.5,
+    "oi": 942464,
     "bias": "NET-SHORT",
     "source": "Disaggregated/Leveraged Money",
     "history": [
-      {
-        "date": "26.05",
-        "net": 7296
-      },
       {
         "date": "02.06",
         "net": 12027
@@ -105,6 +101,10 @@
       {
         "date": "01.09",
         "net": -38173
+      },
+      {
+        "date": "08.09",
+        "net": -33285
       }
     ]
   },
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "16.09.2026",
-      "days": 5
+      "days": 4
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "07.10.2026",
-      "days": 26
+      "days": 25
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "02.10.2026",
-      "days": 21
+      "days": 20
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
-      "date": "11.09.2026",
-      "days": 0
+      "date": "14.10.2026",
+      "days": 32
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "15.10.2026",
-      "days": 34
+      "days": 33
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "29.10.2026",
-      "days": 48
+      "days": 47
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "08.10.2026",
-      "days": 27
+      "days": 26
     }
   ],
   "actuals": {
@@ -172,15 +172,15 @@
   },
   "release_results": [
     {
-      "label": "NFP",
-      "date": "04.09.",
-      "detail": "NFP +162K vs Vormonat +21K · ALQ 4.1%= · Löhne +0.3%▲ · Privat +127K/Staat +35K · Headline dominiert",
-      "signal": "BÄRISCH"
-    },
-    {
       "label": "Core CPI m/m",
       "date": "11.09.",
       "detail": "Ist 0.3% vs Prog 0.2%",
+      "signal": "BÄRISCH"
+    },
+    {
+      "label": "PPI m/m",
+      "date": "12.09.",
+      "detail": "Ist 0.4% vs Vormonat 0.1%",
       "signal": "BÄRISCH"
     },
     {
