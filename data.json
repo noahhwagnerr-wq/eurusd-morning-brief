@@ -1,6 +1,6 @@
 {
-  "generated_at": "22.09.2026 10:20 UTC",
-  "generated_ts": "2026-09-22T10:20:28.281925Z",
+  "generated_at": "23.09.2026 06:55 UTC",
+  "generated_ts": "2026-09-23T06:55:07.734284Z",
   "ecb": {
     "dfr": 2.5,
     "dfr_date": "2026-09-16",
@@ -10,13 +10,13 @@
   },
   "fed": {
     "effr": 3.88,
-    "effr_date": "2026-09-18",
+    "effr_date": "2026-09-21",
     "cpi": 3.4,
     "cpi_date": "2026-08"
   },
   "yields": {
     "us2y": 4.76,
-    "us2y_date": "2026-09-18",
+    "us2y_date": "2026-09-21",
     "de2y": 3.1476088412,
     "de2y_date": "2026-09-21"
   },
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.149,
-    "date": "2026-09-21",
-    "prev": 1.146,
-    "chg_pct": 0.26
+    "rate": 1.1463,
+    "date": "2026-09-22",
+    "prev": 1.149,
+    "chg_pct": -0.23
   },
   "cot": {
     "date": "2026-09-15",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "28.10.2026",
-      "days": 36
+      "days": 35
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "07.10.2026",
-      "days": 15
+      "days": 14
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "02.10.2026",
-      "days": 10
+      "days": 9
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "14.10.2026",
-      "days": 22
+      "days": 21
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "15.10.2026",
-      "days": 23
+      "days": 22
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "29.10.2026",
-      "days": 37
+      "days": 36
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "08.10.2026",
-      "days": 16
+      "days": 15
     }
   ],
   "actuals": {
@@ -179,10 +179,6 @@
     }
   ],
   "spread_history": [
-    {
-      "date": "15.06",
-      "spread": 1.55
-    },
     {
       "date": "22.06",
       "spread": 1.69
@@ -234,6 +230,10 @@
     {
       "date": "14.09",
       "spread": 1.42
+    },
+    {
+      "date": "21.09",
+      "spread": 1.61
     }
   ],
   "calendar_warning": null
