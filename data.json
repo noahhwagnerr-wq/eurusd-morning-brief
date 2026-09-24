@@ -1,6 +1,6 @@
 {
-  "generated_at": "23.09.2026 10:17 UTC",
-  "generated_ts": "2026-09-23T10:17:16.748304Z",
+  "generated_at": "24.09.2026 10:30 UTC",
+  "generated_ts": "2026-09-24T10:30:54.749665Z",
   "ecb": {
     "dfr": 2.5,
     "dfr_date": "2026-09-16",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.88,
-    "effr_date": "2026-09-21",
+    "effr_date": "2026-09-22",
     "cpi": 3.4,
     "cpi_date": "2026-08"
   },
   "yields": {
-    "us2y": 4.76,
-    "us2y_date": "2026-09-21",
-    "de2y": 3.135563132,
-    "de2y_date": "2026-09-22"
+    "us2y": 4.71,
+    "us2y_date": "2026-09-22",
+    "de2y": 3.2183173377,
+    "de2y_date": "2026-09-23"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.62,
+    "yield_spread": 1.49,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.1463,
-    "date": "2026-09-22",
-    "prev": 1.149,
-    "chg_pct": -0.23
+    "rate": 1.1411,
+    "date": "2026-09-23",
+    "prev": 1.1463,
+    "chg_pct": -0.45
   },
   "cot": {
     "date": "2026-09-15",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "28.10.2026",
-      "days": 35
+      "days": 34
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "07.10.2026",
-      "days": 14
+      "days": 13
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "02.10.2026",
-      "days": 9
+      "days": 8
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "14.10.2026",
-      "days": 21
+      "days": 20
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "15.10.2026",
-      "days": 22
+      "days": 21
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "29.10.2026",
-      "days": 36
+      "days": 35
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "08.10.2026",
-      "days": 15
+      "days": 14
     }
   ],
   "actuals": {
@@ -170,14 +170,7 @@
       "date": "2026-08"
     }
   },
-  "release_results": [
-    {
-      "label": "FOMC",
-      "date": "16.09.",
-      "detail": "Zielband 4.00% (zuvor 3.75%)",
-      "signal": "BÄRISCH"
-    }
-  ],
+  "release_results": [],
   "spread_history": [
     {
       "date": "22.06",
