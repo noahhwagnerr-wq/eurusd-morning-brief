@@ -1,6 +1,6 @@
 {
-  "generated_at": "26.09.2026 12:41 UTC",
-  "generated_ts": "2026-09-26T12:41:47.212138Z",
+  "generated_at": "28.09.2026 12:00 UTC",
+  "generated_ts": "2026-09-28T12:00:05.962391Z",
   "ecb": {
     "dfr": 2.5,
     "dfr_date": "2026-09-16",
@@ -9,21 +9,21 @@
     "hicp_date": "2026-08"
   },
   "fed": {
-    "effr": 3.88,
-    "effr_date": "2026-09-24",
+    "effr": null,
+    "effr_date": "N/A",
     "cpi": 3.4,
     "cpi_date": "2026-08"
   },
   "yields": {
     "us2y": 4.87,
     "us2y_date": "2026-09-24",
-    "de2y": 3.2294000719,
-    "de2y_date": "2026-09-24"
+    "de2y": 3.251066966,
+    "de2y_date": "2026-09-25"
   },
   "signals": {
-    "rate_diff": 1.38,
-    "yield_spread": 1.64,
-    "rate_bias": "BÄRISCH",
+    "rate_diff": null,
+    "yield_spread": 1.62,
+    "rate_bias": "N/A",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
     "retail_bias": "N/A",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "28.10.2026",
-      "days": 32
+      "days": 30
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "07.10.2026",
-      "days": 11
+      "days": 9
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "02.10.2026",
-      "days": 6
+      "days": 4
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "14.10.2026",
-      "days": 18
+      "days": 16
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "15.10.2026",
-      "days": 19
+      "days": 17
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "29.10.2026",
-      "days": 33
+      "days": 31
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "08.10.2026",
-      "days": 12
+      "days": 10
     }
   ],
   "actuals": {
@@ -161,11 +161,6 @@
     },
     "CPI": {
       "value": 3.4,
-      "unit": "%",
-      "date": "2026-08"
-    },
-    "PPI": {
-      "value": 5.4,
       "unit": "%",
       "date": "2026-08"
     }
