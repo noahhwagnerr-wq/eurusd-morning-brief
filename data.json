@@ -1,6 +1,6 @@
 {
-  "generated_at": "28.09.2026 12:00 UTC",
-  "generated_ts": "2026-09-28T12:00:05.962391Z",
+  "generated_at": "29.09.2026 11:34 UTC",
+  "generated_ts": "2026-09-29T11:34:50.157319Z",
   "ecb": {
     "dfr": 2.5,
     "dfr_date": "2026-09-16",
@@ -9,31 +9,31 @@
     "hicp_date": "2026-08"
   },
   "fed": {
-    "effr": null,
-    "effr_date": "N/A",
+    "effr": 3.88,
+    "effr_date": "2026-09-25",
     "cpi": 3.4,
     "cpi_date": "2026-08"
   },
   "yields": {
-    "us2y": 4.87,
-    "us2y_date": "2026-09-24",
-    "de2y": 3.251066966,
-    "de2y_date": "2026-09-25"
+    "us2y": 4.81,
+    "us2y_date": "2026-09-25",
+    "de2y": 3.2330297411,
+    "de2y_date": "2026-09-28"
   },
   "signals": {
-    "rate_diff": null,
-    "yield_spread": 1.62,
-    "rate_bias": "N/A",
+    "rate_diff": 1.38,
+    "yield_spread": 1.58,
+    "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
     "retail_bias": "N/A",
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.1403,
-    "date": "2026-09-25",
-    "prev": 1.1367,
-    "chg_pct": 0.32
+    "rate": 1.1378,
+    "date": "2026-09-28",
+    "prev": 1.1403,
+    "chg_pct": -0.22
   },
   "cot": {
     "date": "2026-09-22",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "28.10.2026",
-      "days": 30
+      "days": 29
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "07.10.2026",
-      "days": 9
+      "days": 8
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "02.10.2026",
-      "days": 4
+      "days": 3
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "14.10.2026",
-      "days": 16
+      "days": 15
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "15.10.2026",
-      "days": 17
+      "days": 16
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "29.10.2026",
-      "days": 31
+      "days": 30
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "08.10.2026",
-      "days": 10
+      "days": 9
     }
   ],
   "actuals": {
@@ -161,6 +161,11 @@
     },
     "CPI": {
       "value": 3.4,
+      "unit": "%",
+      "date": "2026-08"
+    },
+    "PPI": {
+      "value": 5.4,
       "unit": "%",
       "date": "2026-08"
     }
