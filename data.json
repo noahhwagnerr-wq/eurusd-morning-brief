@@ -1,6 +1,6 @@
 {
-  "generated_at": "29.09.2026 11:34 UTC",
-  "generated_ts": "2026-09-29T11:34:50.157319Z",
+  "generated_at": "30.09.2026 07:27 UTC",
+  "generated_ts": "2026-09-30T07:27:41.809161Z",
   "ecb": {
     "dfr": 2.5,
     "dfr_date": "2026-09-16",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.88,
-    "effr_date": "2026-09-25",
+    "effr_date": "2026-09-28",
     "cpi": 3.4,
     "cpi_date": "2026-08"
   },
   "yields": {
-    "us2y": 4.81,
-    "us2y_date": "2026-09-25",
+    "us2y": 4.92,
+    "us2y_date": "2026-09-28",
     "de2y": 3.2330297411,
     "de2y_date": "2026-09-28"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.58,
+    "yield_spread": 1.69,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.1378,
-    "date": "2026-09-28",
-    "prev": 1.1403,
-    "chg_pct": -0.22
+    "rate": 1.1355,
+    "date": "2026-09-29",
+    "prev": 1.1378,
+    "chg_pct": -0.2
   },
   "cot": {
     "date": "2026-09-22",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "28.10.2026",
-      "days": 29
+      "days": 28
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "07.10.2026",
-      "days": 8
+      "days": 7
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "02.10.2026",
-      "days": 3
+      "days": 2
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "14.10.2026",
-      "days": 15
+      "days": 14
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "15.10.2026",
-      "days": 16
+      "days": 15
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "29.10.2026",
-      "days": 30
+      "days": 29
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "08.10.2026",
-      "days": 9
+      "days": 8
     }
   ],
   "actuals": {
@@ -172,10 +172,6 @@
   },
   "release_results": [],
   "spread_history": [
-    {
-      "date": "22.06",
-      "spread": 1.69
-    },
     {
       "date": "29.06",
       "spread": 1.62
@@ -227,6 +223,10 @@
     {
       "date": "21.09",
       "spread": 1.61
+    },
+    {
+      "date": "28.09",
+      "spread": 1.69
     }
   ],
   "calendar_warning": null
