@@ -1,6 +1,6 @@
 {
-  "generated_at": "08.10.2026 12:14 UTC",
-  "generated_ts": "2026-10-08T12:14:34.709635Z",
+  "generated_at": "09.10.2026 12:05 UTC",
+  "generated_ts": "2026-10-09T12:05:57.109089Z",
   "ecb": {
     "dfr": 2.5,
     "dfr_date": "2026-09-16",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.88,
-    "effr_date": "2026-10-06",
+    "effr_date": "2026-10-07",
     "cpi": 3.4,
     "cpi_date": "2026-08"
   },
   "yields": {
-    "us2y": 4.79,
-    "us2y_date": "2026-10-06",
-    "de2y": 2.9964565821,
-    "de2y_date": "2026-10-07"
+    "us2y": 4.77,
+    "us2y_date": "2026-10-07",
+    "de2y": 3.0331429854,
+    "de2y_date": "2026-10-08"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.79,
+    "yield_spread": 1.74,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.1177,
-    "date": "2026-10-07",
-    "prev": 1.1269,
-    "chg_pct": -0.82
+    "rate": 1.1186,
+    "date": "2026-10-08",
+    "prev": 1.1177,
+    "chg_pct": 0.08
   },
   "cot": {
     "date": "2026-09-29",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "28.10.2026",
-      "days": 20
+      "days": 19
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "18.11.2026",
-      "days": 41
+      "days": 40
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "06.11.2026",
-      "days": 29
+      "days": 28
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "14.10.2026",
-      "days": 6
+      "days": 5
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "15.10.2026",
-      "days": 7
+      "days": 6
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "29.10.2026",
-      "days": 21
+      "days": 20
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
-      "date": "08.10.2026",
-      "days": 0
+      "date": "26.11.2026",
+      "days": 48
     }
   ],
   "actuals": {
@@ -180,14 +180,14 @@
     {
       "label": "FOMC-Prot.",
       "date": "07.10.",
-      "detail": "US-2Y-Schluss ausstehend (~22:15 MESZ)",
-      "signal": "AUSSTEHEND"
+      "detail": "US-2Y -0.02pp",
+      "signal": "NEUTRAL"
     },
     {
       "label": "EZB-Prot.",
       "date": "08.10.",
-      "detail": "EUR-2Y-Schluss ausstehend",
-      "signal": "AUSSTEHEND"
+      "detail": "EUR-2Y +0.04pp",
+      "signal": "BULLISCH"
     }
   ],
   "spread_history": [
