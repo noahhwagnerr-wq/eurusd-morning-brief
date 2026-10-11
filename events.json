@@ -364,7 +364,16 @@
       "note": "",
       "bias": "BÄRISCH",
       "actual": false
+    },
+    {
+      "label": "PPI m/m",
+      "date": "15.10.2026",
+      "previous": "0.4",
+      "forecast": "0.5",
+      "note": "",
+      "bias": "BÄRISCH",
+      "actual": false
     }
   ],
-  "last_updated": "2026-10-11T08:27:31.411Z"
+  "last_updated": "2026-10-11T08:28:00.615Z"
 }
