@@ -1,6 +1,6 @@
 {
-  "generated_at": "20.10.2026 10:25 UTC",
-  "generated_ts": "2026-10-20T10:25:35.351526Z",
+  "generated_at": "21.10.2026 10:35 UTC",
+  "generated_ts": "2026-10-21T10:35:49.485610Z",
   "ecb": {
     "dfr": 2.5,
     "dfr_date": "2026-09-16",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.88,
-    "effr_date": "2026-10-16",
+    "effr_date": "2026-10-19",
     "cpi": 3.7,
     "cpi_date": "2026-09"
   },
   "yields": {
-    "us2y": 4.74,
-    "us2y_date": "2026-10-16",
-    "de2y": 3.0533254392,
-    "de2y_date": "2026-10-19"
+    "us2y": 4.77,
+    "us2y_date": "2026-10-19",
+    "de2y": 3.0280750033,
+    "de2y_date": "2026-10-20"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.69,
+    "yield_spread": 1.74,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.1225,
-    "date": "2026-10-19",
-    "prev": 1.1253,
-    "chg_pct": -0.25
+    "rate": 1.1215,
+    "date": "2026-10-20",
+    "prev": 1.1225,
+    "chg_pct": -0.09
   },
   "cot": {
     "date": "2026-10-13",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "28.10.2026",
-      "days": 8
+      "days": 7
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "18.11.2026",
-      "days": 29
+      "days": 28
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "06.11.2026",
-      "days": 17
+      "days": 16
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "10.11.2026",
-      "days": 21
+      "days": 20
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "13.11.2026",
-      "days": 24
+      "days": 23
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "29.10.2026",
-      "days": 9
+      "days": 8
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "26.11.2026",
-      "days": 37
+      "days": 36
     }
   ],
   "actuals": {
@@ -185,10 +185,6 @@
     }
   ],
   "spread_history": [
-    {
-      "date": "13.07",
-      "spread": 1.62
-    },
     {
       "date": "20.07",
       "spread": 1.5
@@ -240,6 +236,10 @@
     {
       "date": "13.10",
       "spread": 1.71
+    },
+    {
+      "date": "19.10",
+      "spread": 1.72
     }
   ],
   "calendar_warning": null
