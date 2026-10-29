@@ -1,6 +1,6 @@
 {
-  "generated_at": "28.10.2026 21:18 UTC",
-  "generated_ts": "2026-10-28T21:18:35.958698Z",
+  "generated_at": "29.10.2026 11:46 UTC",
+  "generated_ts": "2026-10-29T11:46:31.407406Z",
   "ecb": {
     "dfr": 2.5,
     "dfr_date": "2026-09-16",
@@ -17,12 +17,12 @@
   "yields": {
     "us2y": 4.7,
     "us2y_date": "2026-10-27",
-    "de2y": 3.015032229,
-    "de2y_date": "2026-10-27"
+    "de2y": 3.0598017227,
+    "de2y_date": "2026-10-28"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.68,
+    "yield_spread": 1.64,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -113,44 +113,44 @@
     {
       "label": "FOMC",
       "importance": "high",
-      "date": "28.10.2026",
-      "days": 0
+      "date": "09.12.2026",
+      "days": 41
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "18.11.2026",
-      "days": 21
+      "days": 20
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "06.11.2026",
-      "days": 9
+      "days": 8
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "10.11.2026",
-      "days": 13
+      "days": 12
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "13.11.2026",
-      "days": 16
+      "days": 15
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "29.10.2026",
-      "days": 1
+      "days": 0
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "26.11.2026",
-      "days": 29
+      "days": 28
     }
   ],
   "actuals": {
@@ -175,6 +175,12 @@
       "label": "FOMC",
       "date": "28.10.",
       "detail": "Entscheidung 20:00 MESZ – Bestätigung folgt",
+      "signal": "AUSSTEHEND"
+    },
+    {
+      "label": "EZB",
+      "date": "29.10.",
+      "detail": "Entscheidung 14:15 MESZ – DFR-Serie folgt zur Wirksamkeit",
       "signal": "AUSSTEHEND"
     }
   ],
