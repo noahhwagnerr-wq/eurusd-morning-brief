@@ -1,6 +1,6 @@
 {
-  "generated_at": "02.11.2026 13:50 UTC",
-  "generated_ts": "2026-11-02T13:50:51.036186Z",
+  "generated_at": "02.11.2026 20:31 UTC",
+  "generated_ts": "2026-11-02T20:31:50.194683Z",
   "ecb": {
     "dfr": 2.5,
     "dfr_date": "2026-09-16",
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.1172,
-    "date": "2026-10-30",
-    "prev": 1.113,
-    "chg_pct": 0.38
+    "rate": 1.1216,
+    "date": "2026-11-02",
+    "prev": 1.1172,
+    "chg_pct": 0.39
   },
   "cot": {
     "date": "2026-10-27",
