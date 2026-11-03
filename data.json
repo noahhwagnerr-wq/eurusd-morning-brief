@@ -1,9 +1,9 @@
 {
-  "generated_at": "03.11.2026 13:00 UTC",
-  "generated_ts": "2026-11-03T13:00:08.684096Z",
+  "generated_at": "03.11.2026 20:40 UTC",
+  "generated_ts": "2026-11-03T20:40:06.127279Z",
   "ecb": {
     "dfr": 2.5,
-    "dfr_date": "2026-11-03",
+    "dfr_date": "2026-09-16",
     "dfr_prev": 2.25,
     "hicp": 3.8,
     "hicp_date": "2026-09"
@@ -17,19 +17,24 @@
   "yields": {
     "us2y": 4.56,
     "us2y_date": "2026-10-30",
-    "de2y": 3.0051075689,
-    "de2y_date": "2026-10-30"
+    "de2y": 2.9935059176,
+    "de2y_date": "2026-11-02"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.55,
+    "yield_spread": 1.57,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
     "retail_bias": "N/A",
     "overall_bias": "BÄRISCH"
   },
-  "fx": null,
+  "fx": {
+    "rate": 1.1179,
+    "date": "2026-11-03",
+    "prev": 1.1216,
+    "chg_pct": -0.33
+  },
   "cot": {
     "date": "2026-10-27",
     "net": -71574,
@@ -179,6 +184,63 @@
       "signal": "AUSSTEHEND"
     }
   ],
-  "spread_history": [],
+  "spread_history": [
+    {
+      "date": "27.07",
+      "spread": 1.58
+    },
+    {
+      "date": "03.08",
+      "spread": 1.55
+    },
+    {
+      "date": "10.08",
+      "spread": 1.53
+    },
+    {
+      "date": "17.08",
+      "spread": 1.45
+    },
+    {
+      "date": "24.08",
+      "spread": 1.44
+    },
+    {
+      "date": "31.08",
+      "spread": 1.48
+    },
+    {
+      "date": "08.09",
+      "spread": 1.47
+    },
+    {
+      "date": "14.09",
+      "spread": 1.42
+    },
+    {
+      "date": "21.09",
+      "spread": 1.61
+    },
+    {
+      "date": "28.09",
+      "spread": 1.69
+    },
+    {
+      "date": "05.10",
+      "spread": 1.84
+    },
+    {
+      "date": "13.10",
+      "spread": 1.71
+    },
+    {
+      "date": "19.10",
+      "spread": 1.72
+    },
+    {
+      "date": "26.10",
+      "spread": 1.65
+    }
+  ],
   "calendar_warning": null
 }
