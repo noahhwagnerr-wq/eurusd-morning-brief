@@ -1,6 +1,6 @@
 {
-  "generated_at": "04.11.2026 13:16 UTC",
-  "generated_ts": "2026-11-04T13:16:47.885730Z",
+  "generated_at": "05.11.2026 13:29 UTC",
+  "generated_ts": "2026-11-05T13:29:31.264885Z",
   "ecb": {
     "dfr": 2.5,
     "dfr_date": "2026-09-16",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.88,
-    "effr_date": "2026-11-02",
+    "effr_date": "2026-11-03",
     "cpi": 3.7,
     "cpi_date": "2026-09"
   },
   "yields": {
-    "us2y": 4.59,
-    "us2y_date": "2026-11-02",
-    "de2y": 2.9868124907,
-    "de2y_date": "2026-11-03"
+    "us2y": 4.61,
+    "us2y_date": "2026-11-03",
+    "de2y": 2.9982582172,
+    "de2y_date": "2026-11-04"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.6,
+    "yield_spread": 1.61,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.1179,
-    "date": "2026-11-03",
-    "prev": 1.1216,
-    "chg_pct": -0.33
+    "rate": 1.1267,
+    "date": "2026-11-04",
+    "prev": 1.1179,
+    "chg_pct": 0.79
   },
   "cot": {
     "date": "2026-10-27",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "09.12.2026",
-      "days": 35
+      "days": 34
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "18.11.2026",
-      "days": 14
+      "days": 13
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "06.11.2026",
-      "days": 2
+      "days": 1
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "10.11.2026",
-      "days": 6
+      "days": 5
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "13.11.2026",
-      "days": 9
+      "days": 8
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "03.12.2026",
-      "days": 29
+      "days": 28
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "26.11.2026",
-      "days": 22
+      "days": 21
     }
   ],
   "actuals": {
@@ -172,16 +172,10 @@
   },
   "release_results": [
     {
-      "label": "FOMC",
-      "date": "28.10.",
-      "detail": "Zielband 4.00% (unverändert)",
-      "signal": "NEUTRAL"
-    },
-    {
       "label": "EZB",
       "date": "29.10.",
-      "detail": "Entscheidung 14:15 MESZ – DFR-Serie folgt zur Wirksamkeit",
-      "signal": "AUSSTEHEND"
+      "detail": "DFR 2.50% (unverändert)",
+      "signal": "NEUTRAL"
     }
   ],
   "spread_history": [
