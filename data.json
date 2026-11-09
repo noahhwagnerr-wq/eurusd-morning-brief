@@ -1,12 +1,12 @@
 {
-  "generated_at": "09.11.2026 14:10 UTC",
-  "generated_ts": "2026-11-09T14:10:31.497425Z",
+  "generated_at": "09.11.2026 14:22 UTC",
+  "generated_ts": "2026-11-09T14:22:05.319507Z",
   "ecb": {
     "dfr": 2.5,
     "dfr_date": "2026-09-16",
     "dfr_prev": 2.25,
-    "hicp": 4.0,
-    "hicp_date": "2026-10"
+    "hicp": null,
+    "hicp_date": "N/A"
   },
   "fed": {
     "effr": 3.88,
@@ -17,12 +17,12 @@
   "yields": {
     "us2y": 4.46,
     "us2y_date": "2026-11-05",
-    "de2y": 2.9584015012,
-    "de2y_date": "2026-11-05"
+    "de2y": 2.930495511,
+    "de2y_date": "2026-11-06"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.5,
+    "yield_spread": 1.53,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
