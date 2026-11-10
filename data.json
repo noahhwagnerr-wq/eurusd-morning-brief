@@ -1,28 +1,28 @@
 {
-  "generated_at": "09.11.2026 14:22 UTC",
-  "generated_ts": "2026-11-09T14:22:05.319507Z",
+  "generated_at": "10.11.2026 13:46 UTC",
+  "generated_ts": "2026-11-10T13:46:19.186968Z",
   "ecb": {
     "dfr": 2.5,
     "dfr_date": "2026-09-16",
     "dfr_prev": 2.25,
-    "hicp": null,
-    "hicp_date": "N/A"
+    "hicp": 4.0,
+    "hicp_date": "2026-10"
   },
   "fed": {
     "effr": 3.88,
-    "effr_date": "2026-11-05",
+    "effr_date": "2026-11-06",
     "cpi": 3.7,
     "cpi_date": "2026-09"
   },
   "yields": {
-    "us2y": 4.46,
-    "us2y_date": "2026-11-05",
-    "de2y": 2.930495511,
-    "de2y_date": "2026-11-06"
+    "us2y": 4.51,
+    "us2y_date": "2026-11-06",
+    "de2y": 2.9391258274,
+    "de2y_date": "2026-11-09"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.53,
+    "yield_spread": 1.57,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.1165,
-    "date": "2026-11-06",
-    "prev": 1.1224,
-    "chg_pct": -0.53
+    "rate": 1.1193,
+    "date": "2026-11-09",
+    "prev": 1.1165,
+    "chg_pct": 0.25
   },
   "cot": {
     "date": "2026-11-03",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "09.12.2026",
-      "days": 30
+      "days": 29
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "18.11.2026",
-      "days": 9
+      "days": 8
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "04.12.2026",
-      "days": 25
+      "days": 24
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "10.11.2026",
-      "days": 1
+      "days": 0
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "13.11.2026",
-      "days": 4
+      "days": 3
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "03.12.2026",
-      "days": 24
+      "days": 23
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "26.11.2026",
-      "days": 17
+      "days": 16
     }
   ],
   "actuals": {
