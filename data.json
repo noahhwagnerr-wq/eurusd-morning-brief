@@ -1,6 +1,6 @@
 {
-  "generated_at": "12.11.2026 13:59 UTC",
-  "generated_ts": "2026-11-12T13:59:12.533587Z",
+  "generated_at": "13.11.2026 13:26 UTC",
+  "generated_ts": "2026-11-13T13:26:17.907406Z",
   "ecb": {
     "dfr": 2.5,
     "dfr_date": "2026-09-16",
@@ -10,19 +10,19 @@
   },
   "fed": {
     "effr": 3.88,
-    "effr_date": "2026-11-09",
+    "effr_date": "2026-11-11",
     "cpi": 4.1,
     "cpi_date": "2026-10"
   },
   "yields": {
-    "us2y": 4.56,
-    "us2y_date": "2026-11-09",
-    "de2y": 3.0452493418,
-    "de2y_date": "2026-11-11"
+    "us2y": 4.73,
+    "us2y_date": "2026-11-10",
+    "de2y": 3.0751415729,
+    "de2y_date": "2026-11-12"
   },
   "signals": {
     "rate_diff": 1.38,
-    "yield_spread": 1.51,
+    "yield_spread": 1.65,
     "rate_bias": "BÄRISCH",
     "yield_bias": "USD-Vorteil",
     "cot_bias": "NET-SHORT",
@@ -30,10 +30,10 @@
     "overall_bias": "BÄRISCH"
   },
   "fx": {
-    "rate": 1.1127,
-    "date": "2026-11-11",
-    "prev": 1.1214,
-    "chg_pct": -0.78
+    "rate": 1.1081,
+    "date": "2026-11-12",
+    "prev": 1.1127,
+    "chg_pct": -0.41
   },
   "cot": {
     "date": "2026-11-03",
@@ -114,43 +114,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "09.12.2026",
-      "days": 27
+      "days": 26
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "18.11.2026",
-      "days": 6
+      "days": 5
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "04.12.2026",
-      "days": 22
+      "days": 21
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "10.12.2026",
-      "days": 28
+      "days": 27
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "13.11.2026",
-      "days": 1
+      "days": 0
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "03.12.2026",
-      "days": 21
+      "days": 20
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "26.11.2026",
-      "days": 14
+      "days": 13
     }
   ],
   "actuals": {
