@@ -1,6 +1,6 @@
 {
-  "generated_at": "21.11.2026 15:55 UTC",
-  "generated_ts": "2026-11-21T15:55:24.387353Z",
+  "generated_at": "23.11.2026 16:29 UTC",
+  "generated_ts": "2026-11-23T16:29:43.553235Z",
   "ecb": {
     "dfr": 2.5,
     "dfr_date": "2026-09-16",
@@ -29,12 +29,7 @@
     "retail_bias": "N/A",
     "overall_bias": "BÄRISCH"
   },
-  "fx": {
-    "rate": 1.099,
-    "date": "2026-11-20",
-    "prev": 1.0992,
-    "chg_pct": -0.02
-  },
+  "fx": null,
   "cot": {
     "date": "2026-11-17",
     "net": -76587,
@@ -114,43 +109,43 @@
       "label": "FOMC",
       "importance": "high",
       "date": "09.12.2026",
-      "days": 18
+      "days": 16
     },
     {
       "label": "FOMC-Prot.",
       "importance": "medium",
       "date": "30.12.2026",
-      "days": 39
+      "days": 37
     },
     {
       "label": "NFP",
       "importance": "medium",
       "date": "04.12.2026",
-      "days": 13
+      "days": 11
     },
     {
       "label": "Core CPI m/m",
       "importance": "high",
       "date": "10.12.2026",
-      "days": 19
+      "days": 17
     },
     {
       "label": "PPI m/m",
       "importance": "low",
       "date": "15.12.2026",
-      "days": 24
+      "days": 22
     },
     {
       "label": "EZB",
       "importance": "low",
       "date": "03.12.2026",
-      "days": 12
+      "days": 10
     },
     {
       "label": "EZB-Prot.",
       "importance": "low",
       "date": "26.11.2026",
-      "days": 5
+      "days": 3
     }
   ],
   "actuals": {
@@ -173,63 +168,6 @@
       "signal": "NEUTRAL"
     }
   ],
-  "spread_history": [
-    {
-      "date": "17.08",
-      "spread": 1.45
-    },
-    {
-      "date": "24.08",
-      "spread": 1.44
-    },
-    {
-      "date": "31.08",
-      "spread": 1.48
-    },
-    {
-      "date": "08.09",
-      "spread": 1.47
-    },
-    {
-      "date": "14.09",
-      "spread": 1.42
-    },
-    {
-      "date": "21.09",
-      "spread": 1.61
-    },
-    {
-      "date": "28.09",
-      "spread": 1.69
-    },
-    {
-      "date": "05.10",
-      "spread": 1.84
-    },
-    {
-      "date": "13.10",
-      "spread": 1.71
-    },
-    {
-      "date": "19.10",
-      "spread": 1.72
-    },
-    {
-      "date": "26.10",
-      "spread": 1.65
-    },
-    {
-      "date": "02.11",
-      "spread": 1.6
-    },
-    {
-      "date": "09.11",
-      "spread": 1.62
-    },
-    {
-      "date": "16.11",
-      "spread": 1.72
-    }
-  ],
+  "spread_history": [],
   "calendar_warning": null
 }
